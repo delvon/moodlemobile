@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +14,9 @@
 
 import { Injectable } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
-import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreFileProvider } from '@providers/file';
-import { CoreFileUploaderProvider } from '@core/fileuploader/providers/fileuploader';
-import { SQLiteDB } from '@classes/sqlitedb';
-import { AddonModDataSubfieldData } from './data';
-
-/**
- * Entry action stored offline.
- */
-export interface AddonModDataOfflineAction {
-    dataid: number;
-    courseid: number;
-    groupid: number;
-    action: string;
-    entryid: number; // Negative for offline entries.
-    fields: AddonModDataSubfieldData[];
-    timemodified: number;
-}
 
 /**
  * Service to handle Offline data.
@@ -44,77 +27,57 @@ export class AddonModDataOfflineProvider {
     protected logger;
 
     // Variables for database.
-    static DATA_ENTRY_TABLE = 'addon_mod_data_entry_1';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModDataOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModDataOfflineProvider.DATA_ENTRY_TABLE,
-                columns: [
-                    {
-                        name: 'dataid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'groupid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'action',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'entryid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'fields',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    }
-                ],
-                primaryKeys: ['dataid', 'entryid', 'action']
-            }
-        ],
-        migrate(db: SQLiteDB, oldVersion: number, siteId: string): Promise<any> | void {
-            if (oldVersion == 0) {
-                // Move the records from the old table.
-                const newTable = AddonModDataOfflineProvider.DATA_ENTRY_TABLE;
-                const oldTable = 'addon_mod_data_entry';
-
-                return db.tableExists(oldTable).then(() => {
-                    return db.insertRecordsFrom(newTable, oldTable).then(() => {
-                        return db.dropTable(oldTable);
-                    });
-                }).catch(() => {
-                    // Old table does not exist, ignore.
-                });
-            }
+    static DATA_ENTRY_TABLE = 'addon_mod_data_entry';
+    protected tablesSchema = [
+        {
+            name: AddonModDataOfflineProvider.DATA_ENTRY_TABLE,
+            columns: [
+                {
+                    name: 'dataid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'groupid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'action',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'entryid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'fields',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                }
+            ],
+            primaryKeys: ['dataid', 'entryid']
         }
-    };
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private textUtils: CoreTextUtilsProvider,
-            private fileProvider: CoreFileProvider, private fileUploaderProvider: CoreFileUploaderProvider,
-            private utils: CoreUtilsProvider) {
+            private fileProvider: CoreFileProvider) {
         this.logger = logger.getInstance('AddonModDataOfflineProvider');
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Delete all the actions of an entry.
      *
-     * @param dataId Database ID.
-     * @param entryId Database entry ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
+     * @param  {number} dataId   Database ID.
+     * @param  {number} entryId  Database entry ID.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved if deleted, rejected if failure.
      */
     deleteAllEntryActions(dataId: number, entryId: number, siteId?: string): Promise<any> {
         return this.getEntryActions(dataId, entryId, siteId).then((actions) => {
@@ -131,70 +94,26 @@ export class AddonModDataOfflineProvider {
     /**
      * Delete an stored entry.
      *
-     * @param dataId Database ID.
-     * @param entryId Database entry Id.
-     * @param action Action to be done
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
+     * @param  {number} dataId       Database ID.
+     * @param  {number} entryId      Database entry Id.
+     * @param  {string} action       Action to be done
+     * @param  {string} [siteId]     Site ID. If not defined, current site.
+     * @return {Promise<any>}             Promise resolved if deleted, rejected if failure.
      */
     deleteEntry(dataId: number, entryId: number, action: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
-            return this.deleteEntryFiles(dataId, entryId, action, site.id).then(() => {
-                return site.getDb().deleteRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId, entryid: entryId,
+            return site.getDb().deleteRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId, entryid: entryId,
                     action: action});
-            });
-        });
-    }
-
-    /**
-     * Delete entry offline files.
-     *
-     * @param dataId Database ID.
-     * @param entryId Database entry ID.
-     * @param action Action to be done.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
-     */
-    protected deleteEntryFiles(dataId: number, entryId: number, action: string, siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            return this.getEntry(dataId, entryId, action, site.id).then((entry) => {
-                if (!entry.fields) {
-                    return;
-                }
-
-                const promises = [];
-
-                entry.fields.forEach((field) => {
-                    const value = this.textUtils.parseJSON(field.value);
-                    if (!value.offline) {
-                        return;
-                    }
-
-                    const promise = this.getEntryFieldFolder(dataId, entryId, field.fieldid, site.id).then((folderPath) => {
-                        return this.fileUploaderProvider.getStoredFiles(folderPath);
-                    }).then((files) => {
-                        return this.fileUploaderProvider.clearTmpFiles(files);
-                    }).catch(() => {
-                        // Files not found, ignore.
-                    });
-
-                    promises.push(promise);
-                });
-
-                return Promise.all(promises);
-            }).catch(() => {
-                // Entry not found, ignore.
-            });
         });
     }
 
     /**
      * Get all the stored entry data from all the databases.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with entries.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved with entries.
      */
-    getAllEntries(siteId?: string): Promise<AddonModDataOfflineAction[]> {
+    getAllEntries(siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             return site.getDb().getAllRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE);
         }).then((entries) => {
@@ -203,15 +122,15 @@ export class AddonModDataOfflineProvider {
     }
 
     /**
-     * Get all the stored entry actions from a certain database, sorted by modification time.
+     * Get all the stored entry data from a certain database.
      *
-     * @param dataId Database ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with entries.
+     * @param  {number} dataId     Database ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}           Promise resolved with entries.
      */
-    getDatabaseEntries(dataId: number, siteId?: string): Promise<AddonModDataOfflineAction[]> {
+    getDatabaseEntries(dataId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
-            return site.getDb().getRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId}, 'timemodified');
+            return site.getDb().getRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId});
         }).then((entries) => {
             return entries.map(this.parseRecord.bind(this));
         });
@@ -220,13 +139,13 @@ export class AddonModDataOfflineProvider {
     /**
      * Get an stored entry data.
      *
-     * @param dataId Database ID.
-     * @param entryId Database entry Id.
-     * @param action Action to be done
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with entry.
+     * @param  {number} dataId      Database ID.
+     * @param  {number} entryId     Database entry Id.
+     * @param  {string} action      Action to be done
+     * @param  {string} [siteId]    Site ID. If not defined, current site.
+     * @return {Promise<any>}       Promise resolved with entry.
      */
-    getEntry(dataId: number, entryId: number, action: string, siteId?: string): Promise<AddonModDataOfflineAction> {
+    getEntry(dataId: number, entryId: number, action: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             return site.getDb().getRecord(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId, entryid: entryId,
                     action: action});
@@ -238,12 +157,12 @@ export class AddonModDataOfflineProvider {
     /**
      * Get an all stored entry actions data.
      *
-     * @param dataId Database ID.
-     * @param entryId Database entry Id.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with entry actions.
+     * @param  {number} dataId      Database ID.
+     * @param  {number} entryId     Database entry Id.
+     * @param  {string} [siteId]    Site ID. If not defined, current site.
+     * @return {Promise<any>}            Promise resolved with entry actions.
      */
-    getEntryActions(dataId: number, entryId: number, siteId?: string): Promise<AddonModDataOfflineAction[]> {
+    getEntryActions(dataId: number, entryId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             return site.getDb().getRecords(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId, entryid: entryId});
         }).then((entries) => {
@@ -254,24 +173,25 @@ export class AddonModDataOfflineProvider {
     /**
      * Check if there are offline entries to send.
      *
-     * @param dataId Database ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean: true if has offline answers, false otherwise.
+     * @param  {number} dataId    Database ID.
+     * @param  {string} [siteId]  Site ID. If not defined, current site.
+     * @return {Promise<any>}          Promise resolved with boolean: true if has offline answers, false otherwise.
      */
     hasOfflineData(dataId: number, siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            return this.utils.promiseWorks(
-                site.getDb().recordExists(AddonModDataOfflineProvider.DATA_ENTRY_TABLE, {dataid: dataId})
-            );
+        return this.getDatabaseEntries(dataId, siteId).then((entries) => {
+            return !!entries.length;
+        }).catch(() => {
+            // No offline data found, return false.
+            return false;
         });
     }
 
     /**
      * Get the path to the folder where to store files for offline files in a database.
      *
-     * @param dataId Database ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the path.
+     * @param  {number} dataId      Database ID.
+     * @param  {string} [siteId]    Site ID. If not defined, current site.
+     * @return {Promise<string>}    Promise resolved with the path.
      */
     protected getDatabaseFolder(dataId: number, siteId?: string): Promise<string> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -286,11 +206,11 @@ export class AddonModDataOfflineProvider {
     /**
      * Get the path to the folder where to store files for a new offline entry.
      *
-     * @param dataId Database ID.
-     * @param entryId The ID of the entry.
-     * @param fieldId Field ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the path.
+     * @param  {number} dataId      Database ID.
+     * @param  {number} entryId     The ID of the entry.
+     * @param  {number} fieldId     Field ID.
+     * @param  {string} [siteId]    Site ID. If not defined, current site.
+     * @return {Promise<string>}    Promise resolved with the path.
      */
     getEntryFieldFolder(dataId: number, entryId: number, fieldId: number, siteId?: string): Promise<string> {
         return this.getDatabaseFolder(dataId, siteId).then((folderPath) => {
@@ -301,10 +221,10 @@ export class AddonModDataOfflineProvider {
     /**
      * Parse "fields" of an offline record.
      *
-     * @param record Record object
-     * @return Record object with columns parsed.
+     * @param  {any} record Record object
+     * @return {any}        Record object with columns parsed.
      */
-    protected parseRecord(record: any): AddonModDataOfflineAction {
+    protected parseRecord(record: any): any {
         record.fields = this.textUtils.parseJSON(record.fields);
 
         return record;
@@ -313,18 +233,18 @@ export class AddonModDataOfflineProvider {
     /**
      * Save an entry data to be sent later.
      *
-     * @param dataId Database ID.
-     * @param entryId Database entry Id. If action is add entryId should be 0 and -timemodified will be used.
-     * @param action Action to be done to the entry: [add, edit, delete, approve, disapprove]
-     * @param courseId Course ID of the database.
-     * @param groupId Group ID. Only provided when adding.
-     * @param fields Array of field data of the entry if needed.
-     * @param timemodified The time the entry was modified. If not defined, current time.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if stored, rejected if failure.
+     * @param  {number} dataId          Database ID.
+     * @param  {number} entryId         Database entry Id. If action is add entryId should be 0 and -timemodified will be used.
+     * @param  {string} action          Action to be done to the entry: [add, edit, delete, approve, disapprove]
+     * @param  {number} courseId        Course ID of the database.
+     * @param  {number} [groupId]       Group ID. Only provided when adding.
+     * @param  {any[]}  [fields]        Array of field data of the entry if needed.
+     * @param  {number} [timemodified]  The time the entry was modified. If not defined, current time.
+     * @param  {string} [siteId]        Site ID. If not defined, current site.
+     * @return {Promise<any>}           Promise resolved if stored, rejected if failure.
      */
-    saveEntry(dataId: number, entryId: number, action: string, courseId: number, groupId?: number,
-            fields?: AddonModDataSubfieldData[], timemodified?: number, siteId?: string): Promise<any> {
+    saveEntry(dataId: number, entryId: number, action: string, courseId: number, groupId?: number, fields?: any[],
+            timemodified?: number, siteId?: string): Promise<any> {
 
         return this.sitesProvider.getSite(siteId).then((site) => {
             timemodified = timemodified || new Date().getTime();

@@ -17,7 +17,6 @@ ion-app.app-root core-send-message-form {
     @include appearance(none);
     display: block;
     width: 100%;
-    min-height: 28px;
     border: 0;
     font-family: inherit;
     align-self: self-start;
@@ -33,10 +32,5 @@ ion-app.app-root core-send-message-form {
     display: none;
     min-height: 0;
     align-self: self-end;
-  }
-  @include darkmode() {
-    ion-icon.icon {
-      color: $gray-darker;
-    }
   }
 }

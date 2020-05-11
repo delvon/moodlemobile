@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ import { NavController } from 'ionic-angular';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreLoggerProvider } from '@providers/logger';
 import { CoreSitesProvider } from '@providers/sites';
+import { CoreCourseProvider } from './course';
 import { CoreCourseFormatDefaultHandler } from './default-format';
 import { CoreDelegate, CoreDelegateHandler } from '@classes/delegate';
 
@@ -26,6 +27,7 @@ import { CoreDelegate, CoreDelegateHandler } from '@classes/delegate';
 export interface CoreCourseFormatHandler extends CoreDelegateHandler {
     /**
      * Name of the format the handler supports. E.g. 'singleactivity'.
+     * @type {string}
      */
     format: string;
 
@@ -33,33 +35,33 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Get the title to use in course page. If not defined, course fullname.
      * This function will be called without sections first, and then call it again when the sections are retrieved.
      *
-     * @param course The course.
-     * @param sections List of sections.
-     * @return Title.
+     * @param {any} course The course.
+     * @param {any[]} [sections] List of sections.
+     * @return {string} Title.
      */
     getCourseTitle?(course: any, sections?: any[]): string;
 
     /**
      * Whether it allows seeing all sections at the same time. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether it can view all sections.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether it can view all sections.
      */
     canViewAllSections?(course: any): boolean;
 
     /**
      * Whether the option to enable section/module download should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the option to enable section/module download should be displayed.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether the option to enable section/module download should be displayed.
      */
     displayEnableDownload?(course: any): boolean;
 
     /**
      * Whether the default section selector should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the default section selector should be displayed.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether the default section selector should be displayed.
      */
     displaySectionSelector?(course: any): boolean;
 
@@ -67,19 +69,19 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Whether the course refresher should be displayed. If it returns false, a refresher must be included in the course format,
      * and the doRefresh method of CoreCourseSectionPage must be called on refresh. Defaults to true.
      *
-     * @param course The course to check.
-     * @param sections List of course sections.
-     * @return Whether the refresher should be displayed.
+     * @param {any} course The course to check.
+     * @param {any[]} sections List of course sections.
+     * @type {boolean} Whether the refresher should be displayed.
      */
     displayRefresher?(course: any, sections: any[]): boolean;
 
     /**
      * Given a list of sections, get the "current" section that should be displayed first. Defaults to first section.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Current section (or promise resolved with current section). If a promise is returned, it should
-     *         never fail.
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {any|Promise<any>} Current section (or promise resolved with current section). If a promise is returned, it should
+     *                            never fail.
      */
     getCurrentSection?(course: any, sections: any[]): any | Promise<any>;
 
@@ -89,12 +91,11 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * getCourseFormatComponent because it will display the course handlers at the top.
      * Your page should include the course handlers using CoreCoursesDelegate.
      *
-     * @param navCtrl The NavController instance to use.
-     * @param course The course to open. It should contain a "format" attribute.
-     * @param params Params to pass to the course page.
-     * @return Promise resolved when done.
+     * @param {NavController} navCtrl The NavController instance to use.
+     * @param {any} course The course to open. It should contain a "format" attribute.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    openCourse?(navCtrl: NavController, course: any, params?: any): Promise<any>;
+    openCourse?(navCtrl: NavController, course: any): Promise<any>;
 
     /**
      * Return the Component to use to display the course format instead of using the default one.
@@ -102,9 +103,9 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * If you want to customize the default format there are several methods to customize parts of it.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getCourseFormatComponent?(injector: Injector, course: any): any | Promise<any>;
 
@@ -112,9 +113,9 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Return the Component to use to display the course summary inside the default course format.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getCourseSummaryComponent?(injector: Injector, course: any): any | Promise<any>;
 
@@ -122,9 +123,9 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Return the Component to use to display the section selector inside the default course format.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getSectionSelectorComponent?(injector: Injector, course: any): any | Promise<any>;
 
@@ -133,9 +134,9 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * single section. If all the sections are displayed at once then it won't be used.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getSingleSectionComponent?(injector: Injector, course: any): any | Promise<any>;
 
@@ -143,18 +144,18 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Return the Component to use to display all sections in a course.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getAllSectionsComponent?(injector: Injector, course: any): any | Promise<any>;
 
     /**
      * Invalidate the data required to load the course format.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Promise resolved when the data is invalidated.
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateData?(course: any, sections: any[]): Promise<any>;
 
@@ -162,8 +163,8 @@ export interface CoreCourseFormatHandler extends CoreDelegateHandler {
      * Whether the view should be refreshed when completion changes. If your course format doesn't display
      * activity completion then you should return false.
      *
-     * @param course The course.
-     * @return Whether course view should be refreshed when an activity completion changes.
+     * @param {any} course The course.
+     * @return {boolean|Promise<boolean>} Whether course view should be refreshed when an activity completion changes.
      */
     shouldRefreshWhenCompletionChanges?(course: any): boolean | Promise<boolean>;
 }
@@ -184,8 +185,8 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Whether it allows seeing all sections at the same time. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether it allows seeing all sections at the same time.
+     * @param {any} course The course to check.
+     * @return {boolean} Whether it allows seeing all sections at the same time.
      */
     canViewAllSections(course: any): boolean {
         return this.executeFunctionOnEnabled(course.format, 'canViewAllSections', [course]);
@@ -194,8 +195,8 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Whether the option to enable section/module download should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the option to enable section/module download should be displayed
+     * @param {any} course The course to check.
+     * @return {boolean} Whether the option to enable section/module download should be displayed
      */
     displayEnableDownload(course: any): boolean {
         return this.executeFunctionOnEnabled(course.format, 'displayEnableDownload', [course]);
@@ -205,9 +206,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
      * Whether the course refresher should be displayed. If it returns false, a refresher must be included in the course format,
      * and the doRefresh method of CoreCourseSectionPage must be called on refresh. Defaults to true.
      *
-     * @param course The course to check.
-     * @param sections List of course sections.
-     * @return Whether the refresher should be displayed.
+     * @param {any} course The course to check.
+     * @param {any[]} sections List of course sections.
+     * @return {boolean} Whether the refresher should be displayed.
      */
     displayRefresher(course: any, sections: any[]): boolean {
         return this.executeFunctionOnEnabled(course.format, 'displayRefresher', [course, sections]);
@@ -216,8 +217,8 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Whether the default section selector should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the section selector should be displayed.
+     * @param {any} course The course to check.
+     * @return {boolean} Whether the section selector should be displayed.
      */
     displaySectionSelector(course: any): boolean {
         return this.executeFunctionOnEnabled(course.format, 'displaySectionSelector', [course]);
@@ -226,9 +227,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Get the component to use to display all sections in a course.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return Promise resolved with component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {Promise<any>} Promise resolved with component to use, undefined if not found.
      */
     getAllSectionsComponent(injector: Injector, course: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getAllSectionsComponent', [injector, course]))
@@ -240,9 +241,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Get the component to use to display a course format.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return Promise resolved with component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {Promise<any>} Promise resolved with component to use, undefined if not found.
      */
     getCourseFormatComponent(injector: Injector, course: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getCourseFormatComponent', [injector, course]))
@@ -254,9 +255,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Get the component to use to display the course summary in the default course format.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return Promise resolved with component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {Promise<any>} Promise resolved with component to use, undefined if not found.
      */
     getCourseSummaryComponent(injector: Injector, course: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getCourseSummaryComponent', [injector, course]))
@@ -268,9 +269,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Given a course, return the title to use in the course page.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Course title.
+     * @param {any} course The course to get the title.
+     * @param {any[]} [sections] List of sections.
+     * @return {string} Course title.
      */
     getCourseTitle(course: any, sections?: any[]): string {
         return this.executeFunctionOnEnabled(course.format, 'getCourseTitle', [course, sections]);
@@ -279,25 +280,28 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Given a course and a list of sections, return the current section that should be displayed first.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Promise resolved with current section.
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {Promise<any>} Promise resolved with current section.
      */
     getCurrentSection(course: any, sections: any[]): Promise<any> {
-
         // Convert the result to a Promise if it isn't.
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getCurrentSection', [course, sections])).catch(() => {
-            // This function should never fail. Just return all the sections.
-            return sections[0];
+            // This function should never fail. Just return the first section.
+            if (sections[0].id != CoreCourseProvider.ALL_SECTIONS_ID) {
+                return sections[0];
+            }
+
+            return sections[1];
         });
     }
 
     /**
      * Get the component to use to display the section selector inside the default course format.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return Promise resolved with component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {Promise<any>} Promise resolved with component to use, undefined if not found.
      */
     getSectionSelectorComponent(injector: Injector, course: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getSectionSelectorComponent', [injector, course]))
@@ -310,9 +314,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
      * Get the component to use to display a single section. This component will only be used if the user is viewing
      * a single section. If all the sections are displayed at once then it won't be used.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return Promise resolved with component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {Promise<any>} Promise resolved with component to use, undefined if not found.
      */
     getSingleSectionComponent(injector: Injector, course: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'getSingleSectionComponent', [injector, course]))
@@ -324,9 +328,9 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Invalidate the data required to load the course format.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Promise resolved when the data is invalidated.
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateData(course: any, sections: any[]): Promise<any> {
         return this.executeFunctionOnEnabled(course.format, 'invalidateData', [course, sections]);
@@ -335,21 +339,20 @@ export class CoreCourseFormatDelegate extends CoreDelegate {
     /**
      * Open a course.
      *
-     * @param navCtrl The NavController instance to use.
-     * @param course The course to open. It should contain a "format" attribute.
-     * @param params Params to pass to the course page.
-     * @return Promise resolved when done.
+     * @param {NavController} navCtrl The NavController instance to use.
+     * @param {any} course The course to open. It should contain a "format" attribute.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    openCourse(navCtrl: NavController, course: any, params?: any): Promise<any> {
-        return this.executeFunctionOnEnabled(course.format, 'openCourse', [navCtrl, course, params]);
+    openCourse(navCtrl: NavController, course: any): Promise<any> {
+        return this.executeFunctionOnEnabled(course.format, 'openCourse', [navCtrl, course]);
     }
 
     /**
      * Whether the view should be refreshed when completion changes. If your course format doesn't display
      * activity completion then you should return false.
      *
-     * @param course The course.
-     * @return Whether course view should be refreshed when an activity completion changes.
+     * @param {any} course The course.
+     * @return {Promise<boolean>} Whether course view should be refreshed when an activity completion changes.
      */
     shouldRefreshWhenCompletionChanges(course: any): Promise<boolean> {
         return Promise.resolve(this.executeFunctionOnEnabled(course.format, 'shouldRefreshWhenCompletionChanges', [course]));

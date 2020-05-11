@@ -1,7 +1,7 @@
 <!-- Render (no edit). -->
 <ion-item *ngIf="!edit && field && field.name">
     <h2>{{ field.name }}</h2>
-    <p><core-format-text [text]="field.value" [contextLevel]="contextLevel" [contextInstanceId]="contextInstanceId" [courseId]="courseId"></core-format-text></p>
+    <p><core-format-text [text]="field.value"></core-format-text></p>
 </ion-item>
 <!-- Edit. -->
 <ion-item *ngIf="edit && field && field.shortname" text-wrap [formGroup]="form">
@@ -9,5 +9,5 @@
         <span [core-mark-required]="field.required">{{ field.name }}</span>
         <core-input-errors [control]="control"></core-input-errors>
     </ion-label>
-    <core-rich-text-editor item-content [control]="control" [placeholder]="field.name" [autoSave]="true" [contextLevel]="contextLevel" [contextInstanceId]="contextInstanceId" [elementId]="'profile_field_' + field.shortname"></core-rich-text-editor>
+    <core-rich-text-editor item-content [control]="control" [placeholder]="field.name"></core-rich-text-editor>
 </ion-item>

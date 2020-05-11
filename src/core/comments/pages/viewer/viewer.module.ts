@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { TranslateModule } from '@ngx-translate/core';
 import { CoreCommentsViewerPage } from './viewer';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
-import { CorePipesModule } from '@pipes/pipes.module';
 import { CoreCommentsComponentsModule } from '../../components/components.module';
 
 @NgModule({
@@ -28,7 +27,6 @@ import { CoreCommentsComponentsModule } from '../../components/components.module
     imports: [
         CoreComponentsModule,
         CoreDirectivesModule,
-        CorePipesModule,
         CoreCommentsComponentsModule,
         IonicPageModule.forChild(CoreCommentsViewerPage),
         TranslateModule.forChild()

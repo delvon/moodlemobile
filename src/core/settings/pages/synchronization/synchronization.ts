@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import { Component, OnDestroy } from '@angular/core';
 import { IonicPage } from 'ionic-angular';
-import { TranslateService } from '@ngx-translate/core';
 import { CoreConstants } from '@core/constants';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider, CoreSiteBasicInfo } from '@providers/sites';
@@ -37,15 +36,11 @@ export class CoreSettingsSynchronizationPage implements OnDestroy {
     sitesObserver: any;
     currentSiteId = '';
     syncOnlyOnWifi = false;
-    protected isDestroyed = false;
+    isDestroyed = false;
 
-    constructor(protected configProvider: CoreConfigProvider,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected domUtils: CoreDomUtilsProvider,
-            protected settingsHelper: CoreSettingsHelper,
-            protected translate: TranslateService,
-    ) {
+    constructor(private configProvider: CoreConfigProvider, private eventsProvider: CoreEventsProvider,
+            private sitesProvider: CoreSitesProvider, private domUtils: CoreDomUtilsProvider,
+            private settingsHelper: CoreSettingsHelper) {
 
         this.currentSiteId = this.sitesProvider.getCurrentSiteId();
 
@@ -55,7 +50,7 @@ export class CoreSettingsSynchronizationPage implements OnDestroy {
                 const siteEntry = this.sites.find((siteEntry) => siteEntry.id == site.id);
                 if (siteEntry) {
                     siteEntry.siteUrl = siteInfo.siteurl;
-                    siteEntry.siteName = site.getSiteName();
+                    siteEntry.siteName = siteInfo.sitename;
                     siteEntry.fullName = siteInfo.fullname;
                 }
             });
@@ -87,11 +82,10 @@ export class CoreSettingsSynchronizationPage implements OnDestroy {
     /**
      * Syncrhonizes a site.
      *
-     * @param siteId Site ID.
+     * @param {string} siteId Site ID.
      */
     synchronize(siteId: string): void {
-        // Using syncOnlyOnWifi false to force manual sync.
-        this.settingsHelper.synchronizeSite(false, siteId).catch((error) => {
+        this.settingsHelper.synchronizeSite(this.syncOnlyOnWifi, siteId).catch((error) => {
             if (this.isDestroyed) {
                 return;
             }
@@ -102,19 +96,11 @@ export class CoreSettingsSynchronizationPage implements OnDestroy {
     /**
      * Returns true if site is beeing synchronized.
      *
-     * @param siteId Site ID.
-     * @return True if site is beeing synchronized, false otherwise.
+     * @param {string} siteId Site ID.
+     * @return {boolean} True if site is beeing synchronized, false otherwise.
      */
     isSynchronizing(siteId: string): boolean {
         return !!this.settingsHelper.getSiteSyncPromise(siteId);
-    }
-
-    /**
-     * Show information about sync actions.
-     */
-    showInfo(): void {
-        this.domUtils.showAlert(this.translate.instant('core.help'),
-            this.translate.instant('core.settings.synchronizenowhelp'));
     }
 
     /**

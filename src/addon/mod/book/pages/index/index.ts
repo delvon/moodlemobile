@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,19 +30,17 @@ export class AddonModBookIndexPage {
     title: string;
     module: any;
     courseId: number;
-    chapterId: number;
 
     constructor(navParams: NavParams) {
         this.module = navParams.get('module') || {};
         this.courseId = navParams.get('courseId');
-        this.chapterId = navParams.get('chapterId');
         this.title = this.module.name;
     }
 
     /**
      * Update some data based on the book instance.
      *
-     * @param book Book instance.
+     * @param {any} book Book instance.
      */
     updateData(book: any): void {
         this.title = book.name || this.title;

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ export interface AddonModDataFieldHandler extends CoreDelegateHandler {
 
     /**
      * Name of the type of data field the handler supports. E.g. 'checkbox'.
+     * @type {string}
      */
     type: string;
 
@@ -34,64 +35,64 @@ export interface AddonModDataFieldHandler extends CoreDelegateHandler {
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent?(injector: Injector, plugin: any): any | Promise<any>;
 
     /**
      * Get field search data in the input data.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the search form.
+     * @return {any}            With name and value of the data to be sent.
      */
     getFieldSearchData?(field: any, inputData: any): any;
 
     /**
      * Get field edit data in the input data.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the edit form.
+     * @return {any}            With name and value of the data to be sent.
      */
     getFieldEditData?(field: any, inputData: any, originalFieldData: any): any;
 
     /**
      * Get field data in changed.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @param originalFieldData Original field entered data.
-     * @return If the field has changes.
+     * @param  {any} field                  Defines the field to be rendered.
+     * @param  {any} inputData              Data entered in the edit form.
+     * @param  {any} originalFieldData      Original field entered data.
+     * @return {Promise<boolean> | boolean} If the field has changes.
      */
     hasFieldDataChanged?(field: any, inputData: any, originalFieldData: any): Promise<boolean> | boolean;
 
     /**
      * Get field edit files in the input data.
      *
-     * @param field Defines the field..
-     * @return With name and value of the data to be sent.
+     * @param  {any} field  Defines the field..
+     * @return {any}        With name and value of the data to be sent.
      */
     getFieldEditFiles?(field: any, inputData: any, originalFieldData: any): any;
 
     /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the edit form.
+     * @return {string | false}                  String with the notification or false.
      */
     getFieldsNotifications?(field: any, inputData: any): string | false;
 
     /**
      * Override field content data with offline submission.
      *
-     * @param originalContent Original data to be overriden.
-     * @param offlineContent Array with all the offline data to override.
-     * @param offlineFiles Array with all the offline files in the field.
-     * @return Data overriden
+     * @param  {any}  originalContent    Original data to be overriden.
+     * @param  {any}  offlineContent     Array with all the offline data to override.
+     * @param  {any}  [offlineFiles]     Array with all the offline files in the field.
+     * @return {any}                     Data overriden
      */
     overrideData?(originalContent: any, offlineContent: any, offlineFiles?: any): any;
 }
@@ -112,9 +113,9 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Get the component to use for a certain field field.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return Promise resolved with the component to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {Promise<any>}     Promise resolved with the component to use, undefined if not found.
      */
     getComponentForField(injector: Injector, field: any): Promise<any> {
         return Promise.resolve(this.executeFunctionOnEnabled(field.type, 'getComponent', [injector, field]));
@@ -123,9 +124,9 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Get database data in the input data to search.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @return Name and data field.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the search form.
+     * @return {any}             Name and data field.
      */
     getFieldSearchData(field: any, inputData: any): any {
         return this.executeFunctionOnEnabled(field.type, 'getFieldSearchData', [field, inputData]);
@@ -134,10 +135,10 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Get database data in the input data to add or update entry.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @param originalFieldData Original field entered data.
-     * @return Name and data field.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the search form.
+     * @param  {any} originalFieldData   Original field entered data.
+     * @return {any}                     Name and data field.
      */
     getFieldEditData(field: any, inputData: any, originalFieldData: any): any {
         return this.executeFunctionOnEnabled(field.type, 'getFieldEditData', [field, inputData, originalFieldData]);
@@ -146,10 +147,10 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Get database data in the input files to add or update entry.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @param originalFieldData Original field entered data.
-     * @return Name and data field.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the search form.
+     * @param  {any} originalFieldData   Original field entered data.
+     * @return {any}                     Name and data field.
      */
     getFieldEditFiles(field: any, inputData: any, originalFieldData: any): any {
         return this.executeFunctionOnEnabled(field.type, 'getFieldEditFiles', [field, inputData, originalFieldData]);
@@ -158,9 +159,9 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the edit form.
+     * @return {string}         String with the notification or false.
      */
     getFieldsNotifications(field: any, inputData: any): string {
         return this.executeFunctionOnEnabled(field.type, 'getFieldsNotifications', [field, inputData]);
@@ -169,8 +170,8 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Check if field type manage files or not.
      *
-     * @param field Defines the field to be checked.
-     * @return If the field type manages files.
+     * @param  {any} field  Defines the field to be checked.
+     * @return {boolean}    If the field type manages files.
      */
     hasFiles(field: any): boolean {
         return this.hasFunction(field.type, 'getFieldEditFiles');
@@ -179,10 +180,10 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Check if the data has changed for a certain field.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @param originalFieldData Original field entered data.
-     * @return Promise rejected if has changed, resolved if no changes.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the search form.
+     * @param  {any} originalFieldData   Original field entered data.
+     * @return {Promise<void>}           Promise rejected if has changed, resolved if no changes.
      */
     hasFieldDataChanged(field: any, inputData: any, originalFieldData: any): Promise<void> {
         return Promise.resolve(this.executeFunctionOnEnabled(field.type, 'hasFieldDataChanged',
@@ -194,8 +195,8 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Check if a field plugin is supported.
      *
-     * @param pluginType Type of the plugin.
-     * @return True if supported, false otherwise.
+     * @param  {string} pluginType Type of the plugin.
+     * @return {boolean}           True if supported, false otherwise.
      */
     isPluginSupported(pluginType: string): boolean {
         return this.hasHandler(pluginType, true);
@@ -204,20 +205,18 @@ export class AddonModDataFieldsDelegate extends CoreDelegate {
     /**
      * Override field content data with offline submission.
      *
-     * @param field Defines the field to be rendered.
-     * @param originalContent Original data to be overriden.
-     * @param offlineContent Array with all the offline data to override.
-     * @param offlineFiles Array with all the offline files in the field.
-     * @return Data overriden
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} originalContent     Original data to be overriden.
+     * @param  {any}  offlineContent     Array with all the offline data to override.
+     * @param  {any}  [offlineFiles]     Array with all the offline files in the field.
+     * @return {any}                     Data overriden
      */
     overrideData(field: any, originalContent: any, offlineContent: any, offlineFiles?: any): any {
-        originalContent = originalContent || {};
-
         if (!offlineContent) {
             return originalContent;
         }
 
-        return this.executeFunctionOnEnabled(field.type, 'overrideData', [originalContent, offlineContent, offlineFiles]);
+        return this.executeFunctionOnEnabled(field.type, 'overrideData', [originalContent || {}, offlineContent, offlineFiles]);
     }
 
 }

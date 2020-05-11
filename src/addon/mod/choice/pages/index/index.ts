@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ export class AddonModChoiceIndexPage {
     /**
      * Update some data based on the choice instance.
      *
-     * @param choice Choice instance.
+     * @param {any} choice Choice instance.
      */
     updateData(choice: any): void {
         this.title = choice.name || this.title;

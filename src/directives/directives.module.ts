@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { NgModule } from '@angular/core';
 import { CoreAutoFocusDirective } from './auto-focus';
 import { CoreDownloadFileDirective } from './download-file';
 import { CoreExternalContentDirective } from './external-content';
-import { CoreFabDirective } from './fab';
 import { CoreFormatTextDirective } from './format-text';
 import { CoreLinkDirective } from './link';
 import { CoreKeepKeyboardDirective } from './keep-keyboard';
@@ -31,7 +30,6 @@ import { CoreSupressEventsDirective } from './supress-events';
         CoreAutoFocusDirective,
         CoreDownloadFileDirective,
         CoreExternalContentDirective,
-        CoreFabDirective,
         CoreFormatTextDirective,
         CoreKeepKeyboardDirective,
         CoreLinkDirective,
@@ -46,7 +44,6 @@ import { CoreSupressEventsDirective } from './supress-events';
         CoreAutoFocusDirective,
         CoreDownloadFileDirective,
         CoreExternalContentDirective,
-        CoreFabDirective,
         CoreFormatTextDirective,
         CoreKeepKeyboardDirective,
         CoreLinkDirective,

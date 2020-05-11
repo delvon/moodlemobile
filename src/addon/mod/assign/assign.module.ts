@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { CoreCronDelegate } from '@providers/cron';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
 import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate';
 import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
 import { AddonModAssignProvider } from './providers/assign';
 import { AddonModAssignOfflineProvider } from './providers/assign-offline';
 import { AddonModAssignSyncProvider } from './providers/assign-sync';
@@ -30,10 +29,9 @@ import { AddonModAssignModuleHandler } from './providers/module-handler';
 import { AddonModAssignPrefetchHandler } from './providers/prefetch-handler';
 import { AddonModAssignSyncCronHandler } from './providers/sync-cron-handler';
 import { AddonModAssignIndexLinkHandler } from './providers/index-link-handler';
-import { AddonModAssignListLinkHandler } from './providers/list-link-handler';
-import { AddonModAssignPushClickHandler } from './providers/push-click-handler';
 import { AddonModAssignSubmissionModule } from './submission/submission.module';
 import { AddonModAssignFeedbackModule } from './feedback/feedback.module';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // List of providers (without handlers).
 export const ADDON_MOD_ASSIGN_PROVIDERS: any[] = [
@@ -64,24 +62,69 @@ export const ADDON_MOD_ASSIGN_PROVIDERS: any[] = [
         AddonModAssignModuleHandler,
         AddonModAssignPrefetchHandler,
         AddonModAssignSyncCronHandler,
-        AddonModAssignIndexLinkHandler,
-        AddonModAssignListLinkHandler,
-        AddonModAssignPushClickHandler
+        AddonModAssignIndexLinkHandler
     ]
 })
 export class AddonModAssignModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModAssignModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModAssignPrefetchHandler,
-            cronDelegate: CoreCronDelegate, syncHandler: AddonModAssignSyncCronHandler,
-            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModAssignIndexLinkHandler,
-            listLinkHandler: AddonModAssignListLinkHandler, pushNotificationsDelegate: CorePushNotificationsDelegate,
-            pushClickHandler: AddonModAssignPushClickHandler) {
-
+            cronDelegate: CoreCronDelegate, syncHandler: AddonModAssignSyncCronHandler, updateManager: CoreUpdateManagerProvider,
+            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModAssignIndexLinkHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         cronDelegate.register(syncHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
-        pushNotificationsDelegate.registerClickHandler(pushClickHandler);
+
+        // Allow migrating the tables from the old app to the new schema.
+        updateManager.registerSiteTablesMigration([
+            {
+                name: 'mma_mod_assign_submissions',
+                newName: AddonModAssignOfflineProvider.SUBMISSIONS_TABLE,
+                fields: [
+                    {
+                        name: 'assignmentid',
+                        newName: 'assignid'
+                    },
+                    {
+                        name: 'submitted',
+                        type: 'boolean'
+                    },
+                    {
+                        name: 'submissionstatement',
+                        type: 'boolean'
+                    },
+                    {
+                        name: 'plugindata',
+                        type: 'object'
+                    }
+                ]
+            },
+            {
+                name: 'mma_mod_assign_submissions_grading',
+                newName: AddonModAssignOfflineProvider.SUBMISSIONS_GRADES_TABLE,
+                fields: [
+                    {
+                        name: 'assignmentid',
+                        newName: 'assignid'
+                    },
+                    {
+                        name: 'addattempt',
+                        type: 'boolean'
+                    },
+                    {
+                        name: 'applytoall',
+                        type: 'boolean'
+                    },
+                    {
+                        name: 'outcomes',
+                        type: 'object'
+                    },
+                    {
+                        name: 'plugindata',
+                        type: 'object'
+                    }
+                ]
+            }
+        ]);
     }
 }

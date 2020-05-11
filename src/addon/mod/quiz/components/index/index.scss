@@ -4,10 +4,6 @@ ion-app.app-root addon-mod-quiz-index {
         .addon-mod_quiz-table-header .item-inner {
             background-image: none;
             font-size: 0.9em;
-
-            .col[text-center] {
-                @include padding-horizontal(0);
-            }
         }
 
         .item-inner ion-label {
@@ -25,9 +21,6 @@ ion-app.app-root addon-mod-quiz-index {
 
         .item:nth-child(even) {
             background-color: $gray-lighter;
-            @include darkmode() {
-                background-color: $core-dark-item-divider-bg-color;
-            }
         }
 
         .addon-mod_quiz-highlighted,
@@ -36,16 +29,6 @@ ion-app.app-root addon-mod-quiz-index {
         .item.addon-mod_quiz-highlighted p {
             background-color: $blue-light;
             color: $blue-dark;
-        }
-
-        @include darkmode() {
-            .addon-mod_quiz-highlighted,
-            .item.addon-mod_quiz-highlighted,
-            .addon-mod_quiz-highlighted p,
-            .item.addon-mod_quiz-highlighted p {
-                background-color: $blue-dark;
-                color: $blue-light;
-            }
         }
     }
 }

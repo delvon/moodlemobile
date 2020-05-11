@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import { AddonModDataApproveLinkHandler } from './providers/approve-link-handler
 import { AddonModDataDeleteLinkHandler } from './providers/delete-link-handler';
 import { AddonModDataShowLinkHandler } from './providers/show-link-handler';
 import { AddonModDataEditLinkHandler } from './providers/edit-link-handler';
-import { AddonModDataListLinkHandler } from './providers/list-link-handler';
 import { AddonModDataHelperProvider } from './providers/helper';
 import { AddonModDataPrefetchHandler } from './providers/prefetch-handler';
 import { AddonModDataSyncProvider } from './providers/sync';
@@ -33,9 +32,8 @@ import { AddonModDataSyncCronHandler } from './providers/sync-cron-handler';
 import { AddonModDataOfflineProvider } from './providers/offline';
 import { AddonModDataFieldsDelegate } from './providers/fields-delegate';
 import { AddonModDataDefaultFieldHandler } from './providers/default-field-handler';
-import { CoreTagAreaDelegate } from '@core/tag/providers/area-delegate';
-import { AddonModDataTagAreaHandler } from './providers/tag-area-handler';
 import { AddonModDataFieldModule } from './fields/field.module';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // List of providers (without handlers).
 export const ADDON_MOD_DATA_PROVIDERS: any[] = [
@@ -66,22 +64,17 @@ export const ADDON_MOD_DATA_PROVIDERS: any[] = [
         AddonModDataDeleteLinkHandler,
         AddonModDataShowLinkHandler,
         AddonModDataEditLinkHandler,
-        AddonModDataListLinkHandler,
         AddonModDataSyncCronHandler,
-        AddonModDataDefaultFieldHandler,
-        AddonModDataTagAreaHandler
+        AddonModDataDefaultFieldHandler
     ]
 })
 export class AddonModDataModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModDataModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModDataPrefetchHandler,
             contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModDataLinkHandler,
-            cronDelegate: CoreCronDelegate, syncHandler: AddonModDataSyncCronHandler,
+            cronDelegate: CoreCronDelegate, syncHandler: AddonModDataSyncCronHandler, updateManager: CoreUpdateManagerProvider,
             approveLinkHandler: AddonModDataApproveLinkHandler, deleteLinkHandler: AddonModDataDeleteLinkHandler,
-            showLinkHandler: AddonModDataShowLinkHandler, editLinkHandler: AddonModDataEditLinkHandler,
-            listLinkHandler: AddonModDataListLinkHandler, tagAreaDelegate: CoreTagAreaDelegate,
-            tagAreaHandler: AddonModDataTagAreaHandler) {
-
+            showLinkHandler: AddonModDataShowLinkHandler, editLinkHandler: AddonModDataEditLinkHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         contentLinksDelegate.registerHandler(linkHandler);
@@ -89,8 +82,22 @@ export class AddonModDataModule {
         contentLinksDelegate.registerHandler(deleteLinkHandler);
         contentLinksDelegate.registerHandler(showLinkHandler);
         contentLinksDelegate.registerHandler(editLinkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
         cronDelegate.register(syncHandler);
-        tagAreaDelegate.registerHandler(tagAreaHandler);
+
+        // Allow migrating the tables from the old app to the new schema.
+        updateManager.registerSiteTableMigration({
+            name: 'mma_mod_data_entry',
+            newName: AddonModDataOfflineProvider.DATA_ENTRY_TABLE,
+            fields: [
+                {
+                    name: 'fields',
+                    type: 'object'
+                },
+                {
+                    name: 'dataAndEntry',
+                    delete: true
+                }
+            ]
+        });
     }
 }

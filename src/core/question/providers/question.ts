@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import { Injectable } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 
@@ -24,26 +24,31 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 export interface CoreQuestionState {
     /**
      * Name of the state.
+     * @type {string}
      */
     name: string;
 
     /**
      * Class of the state.
+     * @type {string}
      */
     class: string;
 
     /**
      * The string key to translate the status.
+     * @type {string}
      */
     status: string;
 
     /**
      * Whether the question with this state is active.
+     * @type {boolean}
      */
     active: boolean;
 
     /**
      * Whether the question with this state is finished.
+     * @type {boolean}
      */
     finished: boolean;
 }
@@ -58,90 +63,86 @@ export class CoreQuestionProvider {
     // Variables for database.
     protected QUESTION_TABLE = 'questions';
     protected QUESTION_ANSWERS_TABLE = 'question_answers';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'CoreQuestionProvider',
-        version: 1,
-        tables: [
-            {
-                name: this.QUESTION_TABLE,
-                columns: [
-                    {
-                        name: 'component',
-                        type: 'TEXT',
-                        notNull: true
-                    },
-                    {
-                        name: 'attemptid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'slot',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'componentid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'number',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'state',
-                        type: 'TEXT'
-                    }
-                ],
-                primaryKeys: ['component', 'attemptid', 'slot']
-            },
-            {
-                name: this.QUESTION_ANSWERS_TABLE,
-                columns: [
-                    {
-                        name: 'component',
-                        type: 'TEXT',
-                        notNull: true
-                    },
-                    {
-                        name: 'attemptid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'name',
-                        type: 'TEXT',
-                        notNull: true
-                    },
-                    {
-                        name: 'componentid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'questionslot',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'value',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    }
-                ],
-                primaryKeys: ['component', 'attemptid', 'name']
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: this.QUESTION_TABLE,
+            columns: [
+                {
+                    name: 'component',
+                    type: 'TEXT',
+                    notNull: true
+                },
+                {
+                    name: 'attemptid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'slot',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'componentid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'number',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'state',
+                    type: 'TEXT'
+                }
+            ],
+            primaryKeys: ['component', 'attemptid', 'slot']
+        },
+        {
+            name: this.QUESTION_ANSWERS_TABLE,
+            columns: [
+                {
+                    name: 'component',
+                    type: 'TEXT',
+                    notNull: true
+                },
+                {
+                    name: 'attemptid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'name',
+                    type: 'TEXT',
+                    notNull: true
+                },
+                {
+                    name: 'componentid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'questionslot',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'value',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                }
+            ],
+            primaryKeys: ['component', 'attemptid', 'name']
+        }
+    ];
 
     protected QUESTION_PREFIX_REGEX = /q\d+:(\d+)_/;
     protected STATES: {[name: string]: CoreQuestionState} = {
@@ -229,10 +230,10 @@ export class CoreQuestionProvider {
             active: false,
             finished: true
         },
-        cannotdeterminestatus: { // Special state for Mobile, sometimes we won't have enough data to detemrine the state.
-            name: 'cannotdeterminestatus',
+        unknown: { // Special state for Mobile, sometimes we won't have enough data to detemrine the state.
+            name: 'unknown',
             class: 'core-question-unknown',
-            status: 'cannotdeterminestatus',
+            status: 'unknown',
             active: true,
             finished: false
         }
@@ -243,15 +244,15 @@ export class CoreQuestionProvider {
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private timeUtils: CoreTimeUtilsProvider,
             private utils: CoreUtilsProvider) {
         this.logger = logger.getInstance('CoreQuestionProvider');
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Compare that all the answers in two objects are equal, except some extra data like sequencecheck or certainty.
      *
-     * @param prevAnswers Object with previous answers.
-     * @param newAnswers Object with new answers.
-     * @return Whether all answers are equal.
+     * @param {any} prevAnswers Object with previous answers.
+     * @param {any} newAnswers Object with new answers.
+     * @return {boolean} Whether all answers are equal.
      */
     compareAllAnswers(prevAnswers: any, newAnswers: any): boolean {
         // Get all the keys.
@@ -275,9 +276,9 @@ export class CoreQuestionProvider {
     /**
      * Convert a list of answers retrieved from local DB to an object with name - value.
      *
-     * @param answers List of answers.
-     * @param removePrefix Whether to remove the prefix in the answer's name.
-     * @return Object with name -> value.
+     * @param {any[]} answers List of answers.
+     * @param {boolean} [removePrefix] Whether to remove the prefix in the answer's name.
+     * @return {any} Object with name -> value.
      */
     convertAnswersArrayToObject(answers: any[], removePrefix?: boolean): any {
         const result = {};
@@ -297,11 +298,11 @@ export class CoreQuestionProvider {
     /**
      * Retrieve an answer from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param name Answer's name.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the answer.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} name Answer's name.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the answer.
      */
     getAnswer(component: string, attemptId: number, name: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -312,10 +313,10 @@ export class CoreQuestionProvider {
     /**
      * Retrieve an attempt answers from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the answers.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the answers.
      */
     getAttemptAnswers(component: string, attemptId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -326,10 +327,10 @@ export class CoreQuestionProvider {
     /**
      * Retrieve an attempt questions from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the questions.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the questions.
      */
     getAttemptQuestions(component: string, attemptId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -340,8 +341,8 @@ export class CoreQuestionProvider {
     /**
      * Get all the answers that aren't "extra" (sequencecheck, certainty, ...).
      *
-     * @param answers Object with all the answers.
-     * @return Object with the basic answers.
+     * @param {any} answers Object with all the answers.
+     * @return {any} Object with the basic answers.
      */
     getBasicAnswers(answers: any): any {
         const result = {};
@@ -358,8 +359,8 @@ export class CoreQuestionProvider {
     /**
      * Get all the answers that aren't "extra" (sequencecheck, certainty, ...).
      *
-     * @param answers List of answers.
-     * @return List with the basic answers.
+     * @param {any[]} answers List of answers.
+     * @return {any[]} List with the basic answers.
      */
     getBasicAnswersFromArray(answers: any[]): any[] {
         const result = [];
@@ -376,11 +377,11 @@ export class CoreQuestionProvider {
     /**
      * Retrieve a question from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param slot Question slot.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the question.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} slot Question slot.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the question.
      */
     getQuestion(component: string, attemptId: number, slot: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -391,12 +392,12 @@ export class CoreQuestionProvider {
     /**
      * Retrieve a question answers from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param slot Question slot.
-     * @param filter Whether it should ignore "extra" answers like sequencecheck or certainty.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the answers.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} slot Question slot.
+     * @param {boolean} [filter] Whether it should ignore "extra" answers like sequencecheck or certainty.
+     * @param {string} [siteId]  Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the answers.
      */
     getQuestionAnswers(component: string, attemptId: number, slot: number, filter?: boolean, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -416,8 +417,8 @@ export class CoreQuestionProvider {
     /**
      * Extract the question slot from a question name.
      *
-     * @param name Question name.
-     * @return Question slot.
+     * @param {string} name Question name.
+     * @return {number} Question slot.
      */
     getQuestionSlotFromName(name: string): number {
         if (name) {
@@ -433,18 +434,18 @@ export class CoreQuestionProvider {
     /**
      * Get question state based on state name.
      *
-     * @param name State name.
-     * @return State.
+     * @param {string} name State name.
+     * @return {CoreQuestionState} State.
      */
     getState(name: string): CoreQuestionState {
-        return this.STATES[name || 'cannotdeterminestatus'];
+        return this.STATES[name || 'unknown'];
     }
 
     /**
      * Check if an answer is extra data like sequencecheck or certainty.
      *
-     * @param name Answer name.
-     * @return Whether it's extra data.
+     * @param {string} name Answer name.
+     * @return {boolean} Whether it's extra data.
      */
     isExtraAnswer(name: string): boolean {
         // Maybe the name still has the prefix.
@@ -456,10 +457,10 @@ export class CoreQuestionProvider {
     /**
      * Remove an attempt answers from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeAttemptAnswers(component: string, attemptId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -470,10 +471,10 @@ export class CoreQuestionProvider {
     /**
      * Remove an attempt questions from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeAttemptQuestions(component: string, attemptId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -484,11 +485,11 @@ export class CoreQuestionProvider {
     /**
      * Remove an answer from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param name Answer's name.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} name Answer's name.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeAnswer(component: string, attemptId: number, name: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -500,11 +501,11 @@ export class CoreQuestionProvider {
     /**
      * Remove a question from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param slot Question slot.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} slot Question slot.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeQuestion(component: string, attemptId: number, slot: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -515,11 +516,11 @@ export class CoreQuestionProvider {
     /**
      * Remove a question answers from site DB.
      *
-     * @param component Component the attempt belongs to.
-     * @param attemptId Attempt ID.
-     * @param slot Question slot.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the attempt belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} slot Question slot.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeQuestionAnswers(component: string, attemptId: number, slot: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -531,8 +532,8 @@ export class CoreQuestionProvider {
     /**
      * Remove the prefix from a question answer name.
      *
-     * @param name Question name.
-     * @return Name without prefix.
+     * @param {string} name Question name.
+     * @return {string} Name without prefix.
      */
     removeQuestionPrefix(name: string): string {
         if (name) {
@@ -545,14 +546,14 @@ export class CoreQuestionProvider {
     /**
      * Save answers in local DB.
      *
-     * @param component Component the answers belong to. E.g. 'mmaModQuiz'.
-     * @param componentId ID of the component the answers belong to.
-     * @param attemptId Attempt ID.
-     * @param userId User ID.
-     * @param answers Object with the answers to save.
-     * @param timemodified Time modified to set in the answers. If not defined, current time.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the answers belong to. E.g. 'mmaModQuiz'.
+     * @param {number} componentId ID of the component the answers belong to.
+     * @param {number} attemptId Attempt ID.
+     * @param {number} userId User ID.
+     * @param {any} answers Object with the answers to save.
+     * @param {number} [timemodified] Time modified to set in the answers. If not defined, current time.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     saveAnswers(component: string, componentId: number, attemptId: number, userId: number, answers: any, timemodified?: number,
             siteId?: string): Promise<any> {
@@ -585,14 +586,14 @@ export class CoreQuestionProvider {
     /**
      * Save a question in local DB.
      *
-     * @param component Component the question belongs to. E.g. 'mmaModQuiz'.
-     * @param componentId ID of the component the question belongs to.
-     * @param attemptId Attempt ID.
-     * @param userId User ID.
-     * @param question The question to save.
-     * @param state Question's state.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {string} component Component the question belongs to. E.g. 'mmaModQuiz'.
+     * @param {number} componentId ID of the component the question belongs to.
+     * @param {number} attemptId Attempt ID.
+     * @param {number} userId User ID.
+     * @param {any} question The question to save.
+     * @param {string} state Question's state.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     saveQuestion(component: string, componentId: number, attemptId: number, userId: number, question: any, state: string,
             siteId?: string): Promise<any> {

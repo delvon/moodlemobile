@@ -21,32 +21,16 @@ ion-app.app-root.md {
     @include margin-horizontal($item-md-padding-start + ($item-md-padding-start / 2) - 1, null);
   }
 
-  .item-md ion-icon[item-start] + .item-inner,
-  .item-md ion-icon[item-start] + .item-input,
-  .item-md img[item-start] + .item-inner,
-  .item-md img[item-start] + .item-input {
-    @include margin-horizontal($item-md-padding-start, null);
-  }
-
-  .item-md ion-avatar[item-start] + .item-inner,
-  .item-md ion-avatar[item-start] + .item-input {
-    @include margin-horizontal(0, null);
-  }
-
   @each $color-name, $color-base, $color-contrast in get-colors($colors-md) {
     .core-#{$color-name}-card {
       @extend .card-md;
       @extend .card-content-md;
 
-      @include darkmode() {
-        background-color: $core-dark-item-bg-color;
-      }
-
       &[icon-start] {
-        @include safe-area-padding(null, null, null, $card-md-padding-left * 2 + 20);
+        @include padding(null, null, null, $card-md-padding-left * 2 + 20);
 
         ion-icon {
-          @include safe-area-position(null, null, null, $card-md-padding-left);
+          @include position(null, null, null, $card-md-padding-left);
         }
       }
     }
@@ -64,31 +48,11 @@ ion-app.app-root.md {
     }
   }
 
-  .action-sheet-md {
-    .action-sheet-title,
-    .action-sheet-container > .action-sheet-group:first-child {
-      box-shadow: 0 3px 5px $gray;
-      @include darkmode() {
-        box-shadow: 0 3px 5px $black;
-      }
-    }
-
-    .action-sheet-title {
-      padding-top: 0;
-      margin-top: $action-sheet-md-title-padding-top;
-    }
-
-    @media (min-height: 500px) {
-      .action-sheet-wrapper {
-        bottom: 0;
-        top: initial;
-        max-height: 50%;
-        height: 100%;
-      }
-    }
+  // Recover borders on items inside cards.
+  .card-md.with-borders .item-md.item-block .item-inner {
+    border-bottom: 1px solid $list-md-border-color;
   }
-}
-
-.platform-android4_4 .bar-buttons-md {
-  display: flex;
+  .card-md.with-borders .item-md:last-child .item-inner {
+    border-bottom: 0;
+  }
 }

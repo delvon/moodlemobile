@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { TranslateModule } from '@ngx-translate/core';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
 import { AddonModWorkshopEditSubmissionPage } from './edit-submission';
-import { CoreEditorComponentsModule } from '@core/editor/components/components.module';
 
 @NgModule({
     declarations: [
@@ -27,7 +26,6 @@ import { CoreEditorComponentsModule } from '@core/editor/components/components.m
     imports: [
         CoreDirectivesModule,
         CoreComponentsModule,
-        CoreEditorComponentsModule,
         IonicPageModule.forChild(AddonModWorkshopEditSubmissionPage),
         TranslateModule.forChild()
     ],

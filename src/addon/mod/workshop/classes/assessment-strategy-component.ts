@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@ export class AddonModWorkshopAssessmentStrategyComponentBase {
     @Input() selectedValues: any[];
     @Input() fieldErrors: any;
     @Input() strategy: string;
-    @Input() moduleId: number;
-    @Input() courseId: number;
 
     constructor() {
         // Nothing to do.

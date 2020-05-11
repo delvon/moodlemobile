@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import { Device } from '@ionic-native/device';
 import { File } from '@ionic-native/file';
 import { FileOpener } from '@ionic-native/file-opener';
 import { FileTransfer } from '@ionic-native/file-transfer';
-import { Geolocation } from '@ionic-native/geolocation';
 import { Globalization } from '@ionic-native/globalization';
 import { InAppBrowser } from '@ionic-native/in-app-browser';
 import { Keyboard } from '@ionic-native/keyboard';
@@ -44,7 +43,6 @@ import { ClipboardMock } from './providers/clipboard';
 import { FileMock } from './providers/file';
 import { FileOpenerMock } from './providers/file-opener';
 import { FileTransferMock } from './providers/file-transfer';
-import { GeolocationMock } from './providers/geolocation';
 import { GlobalizationMock } from './providers/globalization';
 import { InAppBrowserMock } from './providers/inappbrowser';
 import { LocalNotificationsMock } from './providers/local-notifications';
@@ -72,7 +70,6 @@ export const IONIC_NATIVE_PROVIDERS = [
     File,
     FileOpener,
     FileTransfer,
-    Geolocation,
     Globalization,
     InAppBrowser,
     Keyboard,
@@ -152,13 +149,6 @@ export const IONIC_NATIVE_PROVIDERS = [
             }
         },
         {
-            provide: Geolocation,
-            deps: [CoreAppProvider],
-            useFactory: (appProvider: CoreAppProvider): Geolocation => {
-                return appProvider.isMobile() ? new Geolocation() : new GeolocationMock();
-            }
-        },
-        {
             provide: Globalization,
             deps: [CoreAppProvider],
             useFactory: (appProvider: CoreAppProvider): Globalization => {
@@ -221,8 +211,7 @@ export const IONIC_NATIVE_PROVIDERS = [
     ]
 })
 export class CoreEmulatorModule {
-    constructor(appProvider: CoreAppProvider, initDelegate: CoreInitDelegate, helper: CoreEmulatorHelperProvider,
-            platform: Platform) {
+    constructor(appProvider: CoreAppProvider, initDelegate: CoreInitDelegate, helper: CoreEmulatorHelperProvider) {
         const win = <any> window; // Convert the "window" to "any" type to be able to use non-standard properties.
 
         // Emulate Custom URL Scheme plugin in desktop apps.
@@ -235,7 +224,7 @@ export class CoreEmulatorModule {
 
             // Listen for 'resume' events.
             require('electron').ipcRenderer.on('coreAppFocused', () => {
-                platform.resume.emit();
+                document.dispatchEvent(new Event('resume'));
             });
         }
 

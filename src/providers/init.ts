@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,23 +23,26 @@ import { CoreUtilsProvider } from './utils/utils';
 export interface CoreInitHandler {
     /**
      * A name to identify the handler.
+     * @type {string}
      */
     name: string;
 
     /**
      * Function to execute during the init process.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     load(): Promise<any>;
 
     /**
      * The highest priority is executed first. You should use values lower than MAX_RECOMMENDED_PRIORITY.
+     * @type {number}
      */
     priority?: number;
 
     /**
      * Set this to true when this process should be resolved before any following one.
+     * @type {boolean}
      */
     blocking?: boolean;
 }
@@ -104,7 +107,7 @@ export class CoreInitDelegate {
     /**
      * Instantly returns if the app is ready.
      *
-     * @return Whether it's ready.
+     * @return {boolean} Whether it's ready.
      */
     isReady(): boolean {
         return this.readiness.resolved;
@@ -113,8 +116,8 @@ export class CoreInitDelegate {
     /**
      * Convenience function to return a function that executes the process.
      *
-     * @param data The data of the process.
-     * @return Promise of the process.
+     * @param {CoreInitHandler} data The data of the process.
+     * @return {Promise<any>} Promise of the process.
      */
     protected prepareProcess(data: CoreInitHandler): Promise<any> {
         let promise;
@@ -135,7 +138,7 @@ export class CoreInitDelegate {
     /**
      * Notifies when the app is ready. This returns a promise that is resolved when the app is initialised.
      *
-     * @return Resolved when the app is initialised. Never rejected.
+     * @return {Promise<any>} Resolved when the app is initialised. Never rejected.
      */
     ready(): Promise<any> {
         if (typeof this.readiness === 'undefined') {
@@ -158,7 +161,7 @@ export class CoreInitDelegate {
      *
      * This delegate cannot be used by site plugins.
      *
-     * @param instance The instance of the handler.
+     * @param {CoreInitHandler} instance The instance of the handler.
      */
     registerProcess(handler: CoreInitHandler): void {
         if (typeof handler.priority == 'undefined') {

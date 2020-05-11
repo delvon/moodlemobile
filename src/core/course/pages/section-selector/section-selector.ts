@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 import { Component } from '@angular/core';
 import { IonicPage, NavParams, ViewController } from 'ionic-angular';
 import { CoreCourseHelperProvider } from '../../providers/helper';
-import { CoreCourseProvider } from '../../providers/course';
 
 /**
  * Page that displays course section selector.
@@ -27,39 +26,12 @@ import { CoreCourseProvider } from '../../providers/course';
 })
 export class CoreCourseSectionSelectorPage {
 
-    stealthModulesSectionId = CoreCourseProvider.STEALTH_MODULES_SECTION_ID;
     sections: any;
     selected: number;
-    courseId: number;
 
     constructor(navParams: NavParams, courseHelper: CoreCourseHelperProvider, private viewCtrl: ViewController) {
         this.sections = navParams.get('sections');
         this.selected = navParams.get('selected');
-        const course = navParams.get('course');
-
-        this.courseId = course && course.id;
-
-        if (course && course.enablecompletion && course.courseformatoptions && course.courseformatoptions.coursedisplay == 1 &&
-                course.completionusertracked !== false) {
-            this.sections.forEach((section) => {
-                let complete = 0,
-                    total = 0;
-                section.modules && section.modules.forEach((module) => {
-                    if (module.uservisible && typeof module.completiondata != 'undefined' &&
-                            module.completiondata.tracking > CoreCourseProvider.COMPLETION_TRACKING_NONE) {
-                        total++;
-                        if (module.completiondata.state == CoreCourseProvider.COMPLETION_COMPLETE ||
-                                module.completiondata.state == CoreCourseProvider.COMPLETION_COMPLETE_PASS) {
-                            complete++;
-                        }
-                    }
-                });
-
-                if (total > 0) {
-                    section.progress = complete / total * 100;
-                }
-            });
-        }
     }
 
     /**
@@ -72,7 +44,7 @@ export class CoreCourseSectionSelectorPage {
     /**
      * Select a section.
      *
-     * @param section Selected section object.
+     * @param {any} section Selected section object.
      */
     selectSection(section: any): void {
         if (section.uservisible !== false) {

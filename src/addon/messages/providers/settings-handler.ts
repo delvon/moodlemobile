@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ export class AddonMessagesSettingsHandler implements CoreSettingsHandler {
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean | Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.messagesProvider.isMessagePreferencesEnabled();
@@ -39,14 +39,14 @@ export class AddonMessagesSettingsHandler implements CoreSettingsHandler {
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreSettingsHandlerData} Data needed to render the handler.
      */
     getDisplayData(): CoreSettingsHandlerData {
         return {
             icon: 'chatbubbles',
-            title: 'addon.messages.messages',
+            title: 'addon.messages.messagepreferences',
             page: 'AddonMessagesSettingsPage',
-            class: 'addon-messages-settings-handler',
+            class: 'addon-messages-settings-handler'
         };
     }
 

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Injectable } from '@angular/core';
 import { CoreFileProvider } from '@providers/file';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 
@@ -30,118 +30,114 @@ export class AddonModAssignOfflineProvider {
     // Variables for database.
     static SUBMISSIONS_TABLE = 'addon_mod_assign_submissions';
     static SUBMISSIONS_GRADES_TABLE = 'addon_mod_assign_submissions_grading';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModAssignOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModAssignOfflineProvider.SUBMISSIONS_TABLE,
-                columns: [
-                    {
-                        name: 'assignid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'plugindata',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'onlinetimemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timecreated',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'submitted',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'submissionstatement',
-                        type: 'INTEGER'
-                    }
-                ],
-                primaryKeys: ['assignid', 'userid']
-            },
-            {
-                name: AddonModAssignOfflineProvider.SUBMISSIONS_GRADES_TABLE,
-                columns: [
-                    {
-                        name: 'assignid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'grade',
-                        type: 'REAL'
-                    },
-                    {
-                        name: 'attemptnumber',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'addattempt',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'workflowstate',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'applytoall',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'outcomes',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'plugindata',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    }
-                ],
-                primaryKeys: ['assignid', 'userid']
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: AddonModAssignOfflineProvider.SUBMISSIONS_TABLE,
+            columns: [
+                {
+                    name: 'assignid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'plugindata',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'onlinetimemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timecreated',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'submitted',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'submissionstatement',
+                    type: 'INTEGER'
+                }
+            ],
+            primaryKeys: ['assignid', 'userid']
+        },
+        {
+            name: AddonModAssignOfflineProvider.SUBMISSIONS_GRADES_TABLE,
+            columns: [
+                {
+                    name: 'assignid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'grade',
+                    type: 'REAL'
+                },
+                {
+                    name: 'attemptnumber',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'addattempt',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'workflowstate',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'applytoall',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'outcomes',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'plugindata',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                }
+            ],
+            primaryKeys: ['assignid', 'userid']
+        }
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private textUtils: CoreTextUtilsProvider,
             private fileProvider: CoreFileProvider, private timeUtils: CoreTimeUtilsProvider) {
         this.logger = logger.getInstance('AddonModAssignOfflineProvider');
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Delete a submission.
      *
-     * @param assignId Assignment ID.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
+     * @param {number} assignId Assignment ID.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved if deleted, rejected if failure.
      */
     deleteSubmission(assignId: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -155,10 +151,10 @@ export class AddonModAssignOfflineProvider {
     /**
      * Delete a submission grade.
      *
-     * @param assignId Assignment ID.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
+     * @param {number} assignId Assignment ID.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved if deleted, rejected if failure.
      */
     deleteSubmissionGrade(assignId: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -172,8 +168,8 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get all the assignments ids that have something to be synced.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with assignments id that have something to be synced.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<number[]>} Promise resolved with assignments id that have something to be synced.
      */
     getAllAssigns(siteId?: string): Promise<number[]> {
         const promises = [];
@@ -202,8 +198,8 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get all the stored submissions from all the assignments.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submissions.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]} Promise resolved with submissions.
      */
     protected getAllSubmissions(siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -222,8 +218,8 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get all the stored submissions grades from all the assignments.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submissions grades.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with submissions grades.
      */
     protected getAllSubmissionsGrade(siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -243,9 +239,9 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get all the stored submissions for a certain assignment.
      *
-     * @param assignId Assignment ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submissions.
+     * @param {number} assignId Assignment ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with submissions.
      */
     getAssignSubmissions(assignId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -264,9 +260,9 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get all the stored submissions grades for a certain assignment.
      *
-     * @param assignId Assignment ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submissions grades.
+     * @param {number} assignId Assignment ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with submissions grades.
      */
     getAssignSubmissionsGrade(assignId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -286,10 +282,10 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get a stored submission.
      *
-     * @param assignId Assignment ID.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submission.
+     * @param {number} assignId Assignment ID.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with submission.
      */
     getSubmission(assignId: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -308,10 +304,10 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get the path to the folder where to store files for an offline submission.
      *
-     * @param assignId Assignment ID.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the path.
+     * @param {number} assignId Assignment ID.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with the path.
      */
     getSubmissionFolder(assignId: number, userId?: number, siteId?: string): Promise<string> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -328,10 +324,10 @@ export class AddonModAssignOfflineProvider {
      * Get a stored submission grade.
      * Submission grades are not identified using attempt number so it can retrieve the feedback for a previous attempt.
      *
-     * @param assignId Assignment ID.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with submission grade.
+     * @param {number} assignId Assignment ID.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with submission grade.
      */
     getSubmissionGrade(assignId: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -352,11 +348,11 @@ export class AddonModAssignOfflineProvider {
     /**
      * Get the path to the folder where to store files for a certain plugin in an offline submission.
      *
-     * @param assignId Assignment ID.
-     * @param pluginName Name of the plugin. Must be unique (both in submission and feedback plugins).
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the path.
+     * @param {number} assignId Assignment ID.
+     * @param {string} pluginName Name of the plugin. Must be unique (both in submission and feedback plugins).
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with the path.
      */
     getSubmissionPluginFolder(assignId: number, pluginName: string, userId?: number, siteId?: string): Promise<string> {
         return this.getSubmissionFolder(assignId, userId, siteId).then((folderPath) => {
@@ -367,9 +363,9 @@ export class AddonModAssignOfflineProvider {
     /**
      * Check if the assignment has something to be synced.
      *
-     * @param assignId Assignment ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean: whether the assignment has something to be synced.
+     * @param {number} assignId Assignment ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether the assignment has something to be synced.
      */
     hasAssignOfflineData(assignId: number, siteId?: string): Promise<boolean> {
         const promises = [];
@@ -396,14 +392,14 @@ export class AddonModAssignOfflineProvider {
     /**
      * Mark/Unmark a submission as being submitted.
      *
-     * @param assignId Assignment ID.
-     * @param courseId Course ID the assign belongs to.
-     * @param submitted True to mark as submitted, false to mark as not submitted.
-     * @param acceptStatement True to accept the submission statement, false otherwise.
-     * @param timemodified The time the submission was last modified in online.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if marked, rejected if failure.
+     * @param {number} assignId Assignment ID.
+     * @param {number} courseId Course ID the assign belongs to.
+     * @param {boolean} submitted True to mark as submitted, false to mark as not submitted.
+     * @param {boolean} acceptStatement True to accept the submission statement, false otherwise.
+     * @param {number} timemodified The time the submission was last modified in online.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved if marked, rejected if failure.
      */
     markSubmitted(assignId: number, courseId: number, submitted: boolean, acceptStatement: boolean, timemodified: number,
             userId?: number, siteId?: string): Promise<any> {
@@ -438,14 +434,14 @@ export class AddonModAssignOfflineProvider {
     /**
      * Save a submission to be sent later.
      *
-     * @param assignId Assignment ID.
-     * @param courseId Course ID the assign belongs to.
-     * @param pluginData Data to save.
-     * @param timemodified The time the submission was last modified in online.
-     * @param submitted True if submission has been submitted, false otherwise.
-     * @param userId User ID. If not defined, site's current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if stored, rejected if failure.
+     * @param {number} assignId Assignment ID.
+     * @param {number} courseId Course ID the assign belongs to.
+     * @param {any} pluginData Data to save.
+     * @param {number} timemodified The time the submission was last modified in online.
+     * @param {boolean} submitted True if submission has been submitted, false otherwise.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved if stored, rejected if failure.
      */
     saveSubmission(assignId: number, courseId: number, pluginData: any, timemodified: number, submitted: boolean, userId?: number,
             siteId?: string): Promise<any> {
@@ -472,18 +468,18 @@ export class AddonModAssignOfflineProvider {
     /**
      * Save a grading to be sent later.
      *
-     * @param assignId Assign ID.
-     * @param userId User ID.
-     * @param courseId Course ID the assign belongs to.
-     * @param grade Grade to submit.
-     * @param attemptNumber Number of the attempt being graded.
-     * @param addAttempt Admit the user to attempt again.
-     * @param workflowState Next workflow State.
-     * @param applyToAll If it's a team submission, whether the grade applies to all group members.
-     * @param outcomes Object including all outcomes values. If empty, any of them will be sent.
-     * @param pluginData Plugin data to save.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if stored, rejected if failure.
+     * @param {number} assignId Assign ID.
+     * @param {number} userId User ID.
+     * @param {number} courseId Course ID the assign belongs to.
+     * @param {number} grade Grade to submit.
+     * @param {number} attemptNumber Number of the attempt being graded.
+     * @param {boolean} addAttempt Admit the user to attempt again.
+     * @param {string} workflowState Next workflow State.
+     * @param {boolean} applyToAll If it's a team submission, whether the grade applies to all group members.
+     * @param {any} outcomes Object including all outcomes values. If empty, any of them will be sent.
+     * @param {any} pluginData Plugin data to save.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved if stored, rejected if failure.
      */
     submitGradingForm(assignId: number, userId: number, courseId: number, grade: number, attemptNumber: number, addAttempt: boolean,
             workflowState: string, applyToAll: boolean, outcomes: any, pluginData: any, siteId?: string): Promise<any> {

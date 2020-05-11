@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@ import { Component, Input } from '@angular/core';
 /**
  * Component to show an empty box message. It will show an optional icon or image and a text centered on page.
  *
- * Use class="core-empty-box-clickable" if you want to add some clickable elements to the box.
- *
  * Usage:
  * <core-empty-box *ngIf="empty" icon="bell" [message]="'core.emptymessage' | translate"></core-empty-box>
  */
@@ -30,8 +28,6 @@ export class CoreEmptyBoxComponent {
     @Input() message: string; // Message to display.
     @Input() icon?: string; // Name of the icon to use.
     @Input() image?: string; // Image source. If an icon is provided, image won't be used.
-    @Input() inline?: boolean; // If this has to be shown inline instead of occupying whole page.
-                               // If image or icon is not supplied, it's true by default.
 
     constructor() {
         // Nothing to do.

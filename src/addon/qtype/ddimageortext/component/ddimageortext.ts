@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ export class AddonQtypeDdImageOrTextComponent extends CoreQuestionBaseComponent 
     protected questionInstance: AddonQtypeDdImageOrTextQuestion;
     protected drops: any[]; // The drop zones received in the init object of the question.
     protected destroyed = false;
-    protected textIsRendered = false;
-    protected ddAreaisRendered = false;
 
     constructor(protected loggerProvider: CoreLoggerProvider, injector: Injector, element: ElementRef) {
         super(loggerProvider, 'AddonQtypeDdImageOrTextComponent', injector);
@@ -66,20 +64,11 @@ export class AddonQtypeDdImageOrTextComponent extends CoreQuestionBaseComponent 
         this.question.readOnly = false;
 
         if (this.question.initObjects) {
-            // Moodle version <= 3.5.
             if (typeof this.question.initObjects.drops != 'undefined') {
                 this.drops = this.question.initObjects.drops;
             }
             if (typeof this.question.initObjects.readonly != 'undefined') {
                 this.question.readOnly = this.question.initObjects.readonly;
-            }
-        } else if (this.question.amdArgs) {
-            // Moodle version >= 3.6.
-            if (typeof this.question.amdArgs[1] != 'undefined') {
-                this.question.readOnly = this.question.amdArgs[1];
-            }
-            if (typeof this.question.amdArgs[2] != 'undefined') {
-                this.drops = this.question.amdArgs[2];
             }
         }
 
@@ -87,29 +76,9 @@ export class AddonQtypeDdImageOrTextComponent extends CoreQuestionBaseComponent 
     }
 
     /**
-     * The question ddArea has been rendered.
-     */
-    ddAreaRendered(): void {
-        this.ddAreaisRendered = true;
-        if (this.textIsRendered) {
-            this.questionRendered();
-        }
-    }
-
-    /**
-     * The question text has been rendered.
-     */
-    textRendered(): void {
-        this.textIsRendered = true;
-        if (this.ddAreaisRendered) {
-            this.questionRendered();
-        }
-    }
-
-    /**
      * The question has been rendered.
      */
-    protected questionRendered(): void {
+    questionRendered(): void {
         if (!this.destroyed) {
             // Create the instance.
             this.questionInstance = new AddonQtypeDdImageOrTextQuestion(this.loggerProvider, this.domUtils, this.element,

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ import { CoreCronHandler } from '@providers/cron';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreAppProvider } from '@providers/app';
+import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreLocalNotificationsProvider } from '@providers/local-notifications';
-import { CorePushNotificationsProvider } from '@core/pushnotifications/providers/pushnotifications';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
+import { AddonPushNotificationsProvider } from '@addon/pushnotifications/providers/pushnotifications';
+import { AddonPushNotificationsDelegate } from '@addon/pushnotifications/providers/delegate';
 import { CoreEmulatorHelperProvider } from '@core/emulator/providers/helper';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
 
 /**
  * Handler to inject an option into main menu.
@@ -43,32 +43,22 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
         loading: true
     };
 
-    protected unreadCount = 0;
-    protected contactRequestsCount = 0;
-    protected orMore = false;
-
     constructor(private messagesProvider: AddonMessagesProvider, private sitesProvider: CoreSitesProvider,
-            eventsProvider: CoreEventsProvider, private appProvider: CoreAppProvider,
-            private localNotificationsProvider: CoreLocalNotificationsProvider, private filterHelper: CoreFilterHelperProvider,
-            private pushNotificationsProvider: CorePushNotificationsProvider, utils: CoreUtilsProvider,
-            pushNotificationsDelegate: CorePushNotificationsDelegate, private emulatorHelper: CoreEmulatorHelperProvider) {
+            private eventsProvider: CoreEventsProvider, private appProvider: CoreAppProvider,
+            private localNotificationsProvider: CoreLocalNotificationsProvider, private textUtils: CoreTextUtilsProvider,
+            private pushNotificationsProvider: AddonPushNotificationsProvider, utils: CoreUtilsProvider,
+            pushNotificationsDelegate: AddonPushNotificationsDelegate, private emulatorHelper: CoreEmulatorHelperProvider) {
 
-        eventsProvider.on(AddonMessagesProvider.UNREAD_CONVERSATION_COUNTS_EVENT, (data) => {
-            this.unreadCount = data.favourites + data.individual + data.group + data.self;
-            this.orMore = data.orMore;
+        eventsProvider.on(AddonMessagesProvider.READ_CHANGED_EVENT, (data) => {
             this.updateBadge(data.siteId);
         });
 
-        eventsProvider.on(AddonMessagesProvider.CONTACT_REQUESTS_COUNT_EVENT, (data) => {
-            this.contactRequestsCount = data.count;
+        eventsProvider.on(AddonMessagesProvider.READ_CRON_EVENT, (data) => {
             this.updateBadge(data.siteId);
         });
 
         // Reset info on logout.
         eventsProvider.on(CoreEventsProvider.LOGOUT, (data) => {
-            this.unreadCount = 0;
-            this.contactRequestsCount = 0;
-            this.orMore = false;
             this.handler.badge = '';
             this.handler.loading = true;
         });
@@ -76,9 +66,8 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
         // If a message push notification is received, refresh the count.
         pushNotificationsDelegate.on('receive').subscribe((notification) => {
             // New message received. If it's from current site, refresh the data.
-            const isMessage = utils.isFalseOrZero(notification.notif) || notification.name == 'messagecontactrequests';
-            if (isMessage && this.sitesProvider.isCurrentSite(notification.site)) {
-                this.refreshBadge(notification.site);
+            if (utils.isFalseOrZero(notification.notif) && this.sitesProvider.isCurrentSite(notification.site)) {
+                this.updateBadge(notification.site);
             }
         });
 
@@ -89,7 +78,7 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.messagesProvider.isPluginEnabled();
@@ -98,80 +87,49 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreMainMenuHandlerToDisplay} Data needed to render the handler.
      */
     getDisplayData(): CoreMainMenuHandlerToDisplay {
-        this.handler.page = this.messagesProvider.isGroupMessagingEnabled() ?
-                'AddonMessagesGroupConversationsPage' : 'AddonMessagesIndexPage';
-
         if (this.handler.loading) {
-            this.refreshBadge();
+            this.updateBadge();
         }
 
         return this.handler;
     }
 
     /**
-     * Refreshes badge number.
+     * Triggers an update for the badge number and loading status. Mandatory if showBadge is enabled.
      *
-     * @param siteId Site ID or current Site if undefined.
-     * @param unreadOnly If true only the unread conversations count is refreshed.
-     * @return Resolve when done.
+     * @param {string} siteId Site ID or current Site if undefined.
      */
-    refreshBadge(siteId?: string, unreadOnly?: boolean): Promise<any> {
+    updateBadge(siteId?: string): void {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
         if (!siteId) {
             return;
         }
 
-        const promises = [];
-
-        promises.push(this.messagesProvider.refreshUnreadConversationCounts(siteId).catch(() => {
-            this.unreadCount = 0;
-            this.orMore = false;
-        }));
-
-        // Refresh the number of contact requests in 3.6+ sites.
-        if (!unreadOnly && this.messagesProvider.isGroupMessagingEnabled()) {
-            promises.push(this.messagesProvider.refreshContactRequestsCount(siteId).catch(() => {
-                this.contactRequestsCount = 0;
-            }));
-        }
-
-        return Promise.all(promises).finally(() => {
-            this.updateBadge(siteId);
+        this.messagesProvider.getUnreadConversationsCount(undefined, siteId).then((unread) => {
+            // Leave badge enter if there is a 0+ or a 0.
+            this.handler.badge = parseInt(unread, 10) > 0 ? unread : '';
+            // Update badge.
+            this.pushNotificationsProvider.updateAddonCounter('AddonMessages', unread, siteId);
+        }).catch(() => {
+            this.handler.badge = '';
+        }).finally(() => {
             this.handler.loading = false;
         });
-    }
-
-    /**
-     * Update badge number and push notifications counter from loaded data.
-     *
-     * @param siteId Site ID.
-     */
-    updateBadge(siteId: string): void {
-        const totalCount = this.unreadCount + (this.contactRequestsCount || 0);
-        if (totalCount > 0) {
-            this.handler.badge = totalCount + (this.orMore ? '+' : '');
-        } else {
-            this.handler.badge = '';
-        }
-
-        // Update push notifications badge.
-        this.pushNotificationsProvider.updateAddonCounter('AddonMessages', totalCount, siteId);
     }
 
     /**
      * Execute the process.
      * Receives the ID of the site affected, undefined for all sites.
      *
-     * @param siteId ID of the site affected, undefined for all sites.
-     * @param force Wether the execution is forced (manual sync).
-     * @return Promise resolved when done, rejected if failure.
+     * @param  {string} [siteId] ID of the site affected, undefined for all sites.
+     * @return {Promise<any>}         Promise resolved when done, rejected if failure.
      */
-    execute(siteId?: string, force?: boolean): Promise<any> {
+    execute(siteId?: string): Promise<any> {
         if (this.sitesProvider.isCurrentSite(siteId)) {
-            this.refreshBadge();
+            this.eventsProvider.trigger(AddonMessagesProvider.READ_CRON_EVENT, {}, siteId);
         }
 
         if (this.appProvider.isDesktop() && this.localNotificationsProvider.isAvailable()) {
@@ -186,38 +144,27 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
     /**
      * Get the time between consecutive executions.
      *
-     * @return Time between consecutive executions (in ms).
+     * @return {number} Time between consecutive executions (in ms).
      */
     getInterval(): number {
-        if (this.appProvider.isDesktop()) {
-            return 60000; // Desktop usually has a WiFi connection, check it every minute.
-        } else if (this.messagesProvider.isGroupMessagingEnabled() || this.messagesProvider.isMessageCountEnabled()) {
-            return 300000; // We have a WS to check the number, check it every 5 minutes.
-        } else {
-            return 600000; // Check it every 10 minutes.
-        }
+        return this.appProvider.isDesktop() ? 60000 : 600000; // 1 or 10 minutes.
     }
 
     /**
      * Whether it's a synchronization process or not.
      *
-     * @return True if is a sync process, false otherwise.
+     * @return {boolean} True if is a sync process, false otherwise.
      */
     isSync(): boolean {
         // This is done to use only wifi if using the fallback function.
-
-        if (this.appProvider.isDesktop()) {
-            // In desktop it is always sync, since it fetches messages to see if there's a new one.
-            return true;
-        }
-
-        return !this.messagesProvider.isMessageCountEnabled() && !this.messagesProvider.isGroupMessagingEnabled();
+        // In desktop it is always sync, since it fetches messages to see if there's a new one.
+        return !this.messagesProvider.isMessageCountEnabled() || this.appProvider.isDesktop();
     }
 
     /**
      * Whether the process should be executed during a manual sync.
      *
-     * @return True if is a manual sync process, false otherwise.
+     * @return {boolean} True if is a manual sync process, false otherwise.
      */
     canManualSync(): boolean {
         return true;
@@ -226,81 +173,30 @@ export class AddonMessagesMainMenuHandler implements CoreMainMenuHandler, CoreCr
     /**
      * Get the latest unread received messages from a site.
      *
-     * @param siteId Site ID. Default current.
-     * @return Promise resolved with the notifications.
+     * @param  {string} [siteId] Site ID. Default current.
+     * @return {Promise<any>}    Promise resolved with the notifications.
      */
     protected fetchMessages(siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            if (site.isVersionGreaterEqualThan('3.7')) {
-
-                // Use get conversations WS to be able to get group conversations messages.
-                return this.messagesProvider.getConversations(undefined, undefined, 0, site.id, undefined, false, true)
-                        .then((result) => {
-
-                    // Find the first unmuted conversation.
-                    const conv = result.conversations.find((conversation) => {
-                        return !conversation.ismuted;
-                    });
-
-                    if (conv.isread) {
-                        // The conversation is read, no unread messages.
-                        return [];
-                    }
-
-                    const currentUserId = site.getUserId(),
-                        message: any = conv.messages[0]; // Treat only the last message, is the one we're interested.
-
-                    if (!message || message.useridfrom == currentUserId) {
-                        // No last message or not from current user. Return empty list.
-                        return [];
-                    }
-
-                    // Add some calculated data.
-                    message.contexturl = '';
-                    message.contexturlname = '';
-                    message.convid = conv.id;
-                    message.fullmessage = message.text;
-                    message.fullmessageformat = 0;
-                    message.fullmessagehtml = '';
-                    message.notification = 0;
-                    message.read = 0;
-                    message.smallmessage = message.smallmessage || message.text;
-                    message.subject = conv.name;
-                    message.timecreated = message.timecreated * 1000;
-                    message.timeread = 0;
-                    message.useridto = currentUserId;
-                    message.usertofullname = site.getInfo().fullname;
-
-                    const userFrom = conv.members.find((member) => {
-                        return member.id == message.useridfrom;
-                    });
-                    message.userfromfullname = userFrom && userFrom.fullname;
-
-                    return [message];
-                });
-            } else {
-                return this.messagesProvider.getUnreadReceivedMessages(true, false, true, siteId).then((response) => {
-                    return response.messages;
-                });
-            }
+        return this.messagesProvider.getUnreadReceivedMessages(true, false, true, siteId).then((response) => {
+            return response.messages;
         });
     }
 
     /**
      * Given a message, return the title and the text for the message.
      *
-     * @param message Message.
-     * @return Promise resolved with an object with title and text.
+     * @param  {any} message Message.
+     * @return {Promise<any>}        Promise resolved with an object with title and text.
      */
     protected getTitleAndText(message: any): Promise<any> {
         const data = {
-            title: message.name || message.userfromfullname,
+            title: message.userfromfullname,
         };
 
-        return this.filterHelper.getFiltersAndFormatText(message.text, 'system', 0, {clean: true, singleLine: true}).catch(() => {
-            return {text: message.text};
-        }).then((result) => {
-            data['text'] = result.text;
+        return this.textUtils.formatText(message.text, true, true).catch(() => {
+            return message.text;
+        }).then((formattedText) => {
+            data['text'] = formattedText;
 
             return data;
         });

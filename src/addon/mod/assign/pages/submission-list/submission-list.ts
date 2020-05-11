@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,9 @@ import { TranslateService } from '@ngx-translate/core';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CoreGroupsProvider, CoreGroupInfo } from '@providers/groups';
-import {
-    AddonModAssignProvider, AddonModAssignAssign, AddonModAssignGrade, AddonModAssignSubmission
-} from '../../providers/assign';
+import { AddonModAssignProvider } from '../../providers/assign';
 import { AddonModAssignOfflineProvider } from '../../providers/assign-offline';
-import { AddonModAssignHelperProvider, AddonModAssignSubmissionFormatted } from '../../providers/helper';
+import { AddonModAssignHelperProvider } from '../../providers/helper';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
 
 /**
@@ -38,33 +35,24 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
     @ViewChild(CoreSplitViewComponent) splitviewCtrl: CoreSplitViewComponent;
 
     title: string; // Title to display.
-    assign: AddonModAssignAssign; // Assignment.
+    assign: any; // Assignment.
     submissions: any[]; // List of submissions
     loaded: boolean; // Whether data has been loaded.
     haveAllParticipants: boolean; // Whether all participants have been loaded.
     selectedSubmissionId: number; // Selected submission ID.
-    groupId = 0; // Group ID to show.
-
-    groupInfo: CoreGroupInfo = {
-        groups: [],
-        separateGroups: false,
-        visibleGroups: false
-    };
 
     protected moduleId: number; // Module ID the submission belongs to.
     protected courseId: number; // Course ID the assignment belongs to.
     protected selectedStatus: string; // The status to see.
     protected gradedObserver; // Observer to refresh data when a grade changes.
-    protected submissionsData: {canviewsubmissions: boolean, submissions?: AddonModAssignSubmission[]};
 
-    constructor(navParams: NavParams, protected sitesProvider: CoreSitesProvider, eventsProvider: CoreEventsProvider,
+    constructor(navParams: NavParams, sitesProvider: CoreSitesProvider, eventsProvider: CoreEventsProvider,
             protected domUtils: CoreDomUtilsProvider, protected translate: TranslateService,
             protected assignProvider: AddonModAssignProvider, protected assignOfflineProvider: AddonModAssignOfflineProvider,
-            protected assignHelper: AddonModAssignHelperProvider, protected groupsProvider: CoreGroupsProvider) {
+            protected assignHelper: AddonModAssignHelperProvider) {
 
         this.moduleId = navParams.get('moduleId');
         this.courseId = navParams.get('courseId');
-        this.groupId = navParams.get('groupId');
         this.selectedStatus = navParams.get('status');
 
         if (this.selectedStatus) {
@@ -107,14 +95,17 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
     /**
      * Fetch assignment data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchAssignment(): Promise<any> {
+        let participants,
+            submissionsData;
 
         // Get assignment data.
         return this.assignProvider.getAssignment(this.courseId, this.moduleId).then((assign) => {
             this.title = assign.name || this.title;
             this.assign = assign;
+            this.haveAllParticipants = true;
 
             // Get assignment submissions.
             return this.assignProvider.getSubmissions(assign.id);
@@ -124,53 +115,28 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
                 return Promise.reject(null);
             }
 
-            this.submissionsData = data;
+            submissionsData = data;
 
-            // Check if groupmode is enabled to avoid showing wrong numbers.
-            return this.groupsProvider.getActivityGroupInfo(this.assign.cmid, false).then((groupInfo) => {
-                this.groupInfo = groupInfo;
-
-                return this.setGroup(this.groupsProvider.validateGroupId(this.groupId, groupInfo));
+            // Get the participants.
+            return this.assignHelper.getParticipants(this.assign).then((parts) => {
+                this.haveAllParticipants = true;
+                participants = parts;
+            }).catch(() => {
+                this.haveAllParticipants = false;
             });
-        }).catch((error) => {
-            this.domUtils.showErrorModalDefault(error, 'Error getting assigment data.');
-        });
-    }
+        }).then(() => {
+            // We want to show the user data on each submission.
+            return this.assignProvider.getSubmissionsUserData(submissionsData.submissions, this.courseId, this.assign.id,
+                    this.assign.blindmarking && !this.assign.revealidentities, participants);
+        }).then((submissions) => {
 
-    /**
-     * Set group to see the summary.
-     *
-     * @param groupId Group ID.
-     * @return Resolved when done.
-     */
-    setGroup(groupId: number): Promise<any> {
-        this.groupId = groupId;
-
-        this.haveAllParticipants = true;
-
-        if (!this.sitesProvider.getCurrentSite().wsAvailable('mod_assign_list_participants')) {
-            // Submissions are not displayed in Moodle 3.1 without the local plugin, see MOBILE-2968.
-            this.haveAllParticipants = false;
-            this.submissions = [];
-
-            return Promise.resolve();
-        }
-
-        // Fetch submissions and grades.
-        const promises = [
-            this.assignHelper.getSubmissionsUserData(this.assign, this.submissionsData.submissions, this.groupId),
-            // Get assignment grades only if workflow is not enabled to check grading date.
-            !this.assign.markingworkflow ? this.assignProvider.getAssignmentGrades(this.assign.id) : Promise.resolve(null),
-        ];
-
-        return Promise.all(promises).then(([submissions, grades]: [AddonModAssignSubmissionFormatted[], AddonModAssignGrade[]]) => {
             // Filter the submissions to get only the ones with the right status and add some extra data.
             const getNeedGrading = this.selectedStatus == AddonModAssignProvider.NEED_GRADING,
                 searchStatus = getNeedGrading ? AddonModAssignProvider.SUBMISSION_STATUS_SUBMITTED : this.selectedStatus,
-                promises = [],
-                showSubmissions = [];
+                promises = [];
 
-            submissions.forEach((submission: AddonModAssignSubmissionForList) => {
+            this.submissions = [];
+            submissions.forEach((submission) => {
                 if (!searchStatus || searchStatus == submission.status) {
                     promises.push(this.assignOfflineProvider.getSubmissionGrade(this.assign.id, submission.userid).catch(() => {
                         // Ignore errors.
@@ -195,18 +161,6 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
                                 return;
                             }
 
-                            if (submission.gradingstatus == 'graded' && !this.assign.markingworkflow) {
-                                // Get the last grade of the submission.
-                                const grade = grades.filter((grade) => {
-                                    return grade.userid == submission.userid;
-                                }).reduce((a, b) => {
-                                    return ( a.timemodified > b.timemodified ? a : b );
-                                });
-
-                                if (grade && grade.timemodified < submission.timemodified) {
-                                    submission.gradingstatus = AddonModAssignProvider.GRADED_FOLLOWUP_SUBMIT;
-                                }
-                            }
                             submission.statusColor = this.assignProvider.getSubmissionStatusColor(submission.status);
                             submission.gradingColor = this.assignProvider.getSubmissionGradingStatusColor(submission.gradingstatus);
 
@@ -215,7 +169,7 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
                                 submission.statusTranslated = this.translate.instant('addon.mod_assign.submissionstatus_' +
                                     submission.status);
                             } else {
-                                submission.statusTranslated = '';
+                                submission.statusTranslated = false;
                             }
 
                             if (notSynced) {
@@ -226,33 +180,33 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
                                 submission.gradingStatusTranslationId =
                                     this.assignProvider.getSubmissionGradingStatusTranslationId(submission.gradingstatus);
                             } else {
-                                submission.gradingStatusTranslationId = '';
+                                submission.gradingStatusTranslationId = false;
                             }
 
-                            showSubmissions.push(submission);
+                            this.submissions.push(submission);
                         });
                     }));
                 }
             });
 
-            return Promise.all(promises).then(() => {
-                this.submissions = showSubmissions;
-            });
+            return Promise.all(promises);
+        }).catch((error) => {
+            this.domUtils.showErrorModalDefault(error, 'Error getting assigment data.');
         });
     }
 
     /**
      * Load a certain submission.
      *
-     * @param submission The submission to load.
+     * @param {any} submission The submission to load.
      */
     loadSubmission(submission: any): void {
-        if (this.selectedSubmissionId === submission.submitid && this.splitviewCtrl.isOn()) {
+        if (this.selectedSubmissionId === submission.id && this.splitviewCtrl.isOn()) {
             // Already selected.
             return;
         }
 
-        this.selectedSubmissionId = submission.submitid;
+        this.selectedSubmissionId = submission.id;
 
         this.splitviewCtrl.push('AddonModAssignSubmissionReviewPage', {
             courseId: this.courseId,
@@ -265,7 +219,7 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
     /**
      * Refresh all the data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected refreshAllData(): Promise<any> {
         const promises = [];
@@ -274,7 +228,6 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
         if (this.assign) {
             promises.push(this.assignProvider.invalidateAllSubmissionData(this.assign.id));
             promises.push(this.assignProvider.invalidateAssignmentUserMappingsData(this.assign.id));
-            promises.push(this.assignProvider.invalidateAssignmentGradesData(this.assign.id));
             promises.push(this.assignProvider.invalidateListParticipantsData(this.assign.id));
         }
 
@@ -286,7 +239,7 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
     /**
      * Refresh the list.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshList(refresher: any): void {
         this.refreshAllData().finally(() => {
@@ -301,13 +254,3 @@ export class AddonModAssignSubmissionListPage implements OnInit, OnDestroy {
         this.gradedObserver && this.gradedObserver.off();
     }
 }
-
-/**
- * Calculated data for an assign submission.
- */
-type AddonModAssignSubmissionForList = AddonModAssignSubmissionFormatted & {
-    statusColor?: string; // Calculated in the app. Color of the submission status.
-    gradingColor?: string; // Calculated in the app. Color of the submission grading status.
-    statusTranslated?: string; // Calculated in the app. Translated text of the submission status.
-    gradingStatusTranslationId?: string; // Calculated in the app. Key of the text of the submission grading status.
-};

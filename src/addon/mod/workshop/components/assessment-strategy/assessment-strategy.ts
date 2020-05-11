@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Input, OnInit, Injector, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, OnInit, Injector } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreSyncProvider } from '@providers/sync';
@@ -44,8 +44,6 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
     @Input() strategy: string;
     @Input() edit?: boolean;
 
-    @ViewChild('assessmentForm') formElement: ElementRef;
-
     componentClass: any;
     data = {
         workshopId: 0,
@@ -53,9 +51,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
         edit: false,
         selectedValues: [],
         fieldErrors: {},
-        strategy: '',
-        moduleId: 0,
-        courseId: null
+        strategy: ''
     };
     assessmentStrategyLoaded = false;
     notSupported = false;
@@ -105,8 +101,6 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
         this.data.workshopId = this.workshop.id;
         this.data.edit = this.edit;
         this.data.strategy = this.strategy;
-        this.data.moduleId = this.workshop.coursemodule;
-        this.data.courseId = this.workshop.course;
 
         this.componentClass = this.strategyDelegate.getComponentForPlugin(this.injector, this.strategy);
         if (this.componentClass) {
@@ -144,7 +138,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
     /**
      * Convenience function to load the assessment data.
      *
-     * @return Promised resvoled when data is loaded.
+     * @return {Promise<any>} Promised resvoled when data is loaded.
      */
     protected load(): Promise<any> {
         return this.workshopHelper.getReviewerAssessmentById(this.workshop.id, this.assessmentId, this.userId)
@@ -230,7 +224,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
     /**
      * Check if data has changed.
      *
-     * @return True if data has changed.
+     * @return {boolean} True if data has changed.
      */
     hasDataChanged(): boolean {
         if (!this.assessmentStrategyLoaded) {
@@ -260,7 +254,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
     /**
      * Save the assessment.
      *
-     * @return Promise resolved when done, rejected if assessment could not be saved.
+     * @return {Promise<any>} Promise resolved when done, rejected if assessment could not be saved.
      */
     saveAssessment(): Promise<any> {
         const files = this.fileSessionProvider.getFiles(AddonModWorkshopProvider.COMPONENT,
@@ -294,7 +288,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
                 // Save assessment in offline.
                 return this.workshopOffline.saveAssessment(this.workshop.id, this.assessmentId, this.workshop.course,
                         assessmentData).then(() => {
-                    return false;
+                    // Don't return anything.
                 });
             }
 
@@ -303,9 +297,6 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
             return this.workshopProvider.updateAssessment(this.workshop.id, this.assessmentId, this.workshop.course,
                 assessmentData, false, allowOffline);
         }).then((grade) => {
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, !!grade, this.sitesProvider.getCurrentSiteId());
-
             const promises = [];
 
             // If sent to the server, invalidate and clean.
@@ -341,7 +332,7 @@ export class AddonModWorkshopAssessmentStrategyComponent implements OnInit {
     /**
      * Feedback text changed.
      *
-     * @param text The new text.
+     * @param {string} text The new text.
      */
     onFeedbackChange(text: string): void {
         this.feedbackText = text;

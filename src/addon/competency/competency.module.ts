@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,17 +18,10 @@ import { AddonCompetencyHelperProvider } from './providers/helper';
 import { AddonCompetencyCourseOptionHandler } from './providers/course-option-handler';
 import { AddonCompetencyMainMenuHandler } from './providers/mainmenu-handler';
 import { AddonCompetencyUserHandler } from './providers/user-handler';
-import { AddonCompetencyCompetencyLinkHandler } from './providers/competency-link-handler';
-import { AddonCompetencyPlanLinkHandler } from './providers/plan-link-handler';
-import { AddonCompetencyPlansLinkHandler } from './providers/plans-link-handler';
-import { AddonCompetencyUserCompetencyLinkHandler } from './providers/user-competency-link-handler';
-import { AddonCompetencyPushClickHandler } from './providers/push-click-handler';
 import { AddonCompetencyComponentsModule } from './components/components.module';
 import { CoreCourseOptionsDelegate } from '@core/course/providers/options-delegate';
 import { CoreMainMenuDelegate } from '@core/mainmenu/providers/delegate';
 import { CoreUserDelegate } from '@core/user/providers/user-delegate';
-import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
 
 // List of providers (without handlers).
 export const ADDON_COMPETENCY_PROVIDERS: any[] = [
@@ -47,30 +40,16 @@ export const ADDON_COMPETENCY_PROVIDERS: any[] = [
         AddonCompetencyHelperProvider,
         AddonCompetencyCourseOptionHandler,
         AddonCompetencyMainMenuHandler,
-        AddonCompetencyUserHandler,
-        AddonCompetencyCompetencyLinkHandler,
-        AddonCompetencyPlanLinkHandler,
-        AddonCompetencyPlansLinkHandler,
-        AddonCompetencyUserCompetencyLinkHandler,
-        AddonCompetencyPushClickHandler
+        AddonCompetencyUserHandler
     ]
 })
 export class AddonCompetencyModule {
     constructor(mainMenuDelegate: CoreMainMenuDelegate, mainMenuHandler: AddonCompetencyMainMenuHandler,
             courseOptionsDelegate: CoreCourseOptionsDelegate, courseOptionHandler: AddonCompetencyCourseOptionHandler,
-            userDelegate: CoreUserDelegate, userHandler: AddonCompetencyUserHandler,
-            contentLinksDelegate: CoreContentLinksDelegate, competencyLinkHandler: AddonCompetencyCompetencyLinkHandler,
-            planLinkHandler: AddonCompetencyPlanLinkHandler, plansLinkHandler: AddonCompetencyPlansLinkHandler,
-            userComptencyLinkHandler: AddonCompetencyUserCompetencyLinkHandler,
-            pushNotificationsDelegate: CorePushNotificationsDelegate, pushClickHandler: AddonCompetencyPushClickHandler) {
+            userDelegate: CoreUserDelegate, userHandler: AddonCompetencyUserHandler) {
 
         mainMenuDelegate.registerHandler(mainMenuHandler);
         courseOptionsDelegate.registerHandler(courseOptionHandler);
         userDelegate.registerHandler(userHandler);
-        contentLinksDelegate.registerHandler(competencyLinkHandler);
-        contentLinksDelegate.registerHandler(planLinkHandler);
-        contentLinksDelegate.registerHandler(plansLinkHandler);
-        contentLinksDelegate.registerHandler(userComptencyLinkHandler);
-        pushNotificationsDelegate.registerClickHandler(pushClickHandler);
     }
 }

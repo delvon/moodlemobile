@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Optional, Injector, Input, ViewChild, ElementRef } from '@angular/core';
+import { Component, Optional, Injector, Input, ViewChild } from '@angular/core';
 import { Content, NavController } from 'ionic-angular';
 import { CoreGroupsProvider, CoreGroupInfo } from '@providers/groups';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
@@ -35,7 +35,6 @@ import { CoreTabsComponent } from '@components/tabs/tabs';
 })
 export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityComponent {
     @ViewChild(CoreTabsComponent) tabsComponent: CoreTabsComponent;
-    @ViewChild('passwordForm') formElement: ElementRef;
 
     @Input() group: number; // The group to display.
     @Input() action: string; // The "action" to display first.
@@ -57,14 +56,11 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     reportLoaded: boolean; // Whether the report data has been loaded.
     selectedGroupName: string; // The name of the selected group.
     overview: any; // Reports overview data.
-    finishedOffline: boolean; // Whether a retake was finished in offline.
 
     protected syncEventName = AddonModLessonSyncProvider.AUTO_SYNCED;
     protected accessInfo: any; // Lesson access info.
     protected password: string; // The password for the lesson.
     protected hasPlayed: boolean; // Whether the user has gone to the lesson player (attempted).
-    protected dataSentObserver; // To detect data sent to server.
-    protected dataSent = false; // Whether some data was sent to server while playing the lesson.
 
     constructor(injector: Injector, protected lessonProvider: AddonModLessonProvider, @Optional() content: Content,
             protected groupsProvider: CoreGroupsProvider, protected lessonOffline: AddonModLessonOfflineProvider,
@@ -94,7 +90,7 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Change the group displayed.
      *
-     * @param groupId Group ID to display.
+     * @param {number} groupId Group ID to display.
      */
     changeGroup(groupId: number): void {
         this.reportLoaded = false;
@@ -109,10 +105,10 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Get the lesson data.
      *
-     * @param refresh If it's refreshing content.
-     * @param sync If it should try to sync.
-     * @param showErrors If show errors to the user of hide them.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh=false] If it's refreshing content.
+     * @param {boolean} [sync=false] If the refresh is needs syncing.
+     * @param {boolean} [showErrors=false] If show errors to the user of hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
 
@@ -137,7 +133,6 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
             this.accessInfo = info;
             this.canManage = info.canmanage;
             this.canViewReports = info.canviewreports;
-            this.preventMessages = [];
 
             if (this.lessonProvider.isLessonOffline(this.lesson)) {
                 // Handle status.
@@ -161,19 +156,13 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
                     }
                 }));
 
-                // Check if the ser has a finished retake in offline.
-                promises.push(this.lessonOffline.hasFinishedRetake(this.lesson.id).then((finished) => {
-                    this.finishedOffline = finished;
-                }));
-
                 // Update the list of content pages viewed and question attempts.
                 promises.push(this.lessonProvider.getContentPagesViewedOnline(this.lesson.id, info.attemptscount));
                 promises.push(this.lessonProvider.getQuestionsAttemptsOnline(this.lesson.id, info.attemptscount));
             }
 
             if (info.preventaccessreasons && info.preventaccessreasons.length) {
-                let preventReason = this.lessonProvider.getPreventAccessReason(info, false);
-                const askPassword = preventReason.reason == 'passwordprotectedlesson';
+                const askPassword = info.preventaccessreasons.length == 1 && this.lessonProvider.isPasswordProtected(info);
 
                 if (askPassword) {
                     // The lesson requires a password. Check if there is one in memory or DB.
@@ -182,21 +171,15 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
 
                     promises.push(promise.then((password) => {
                         return this.validatePassword(password);
-                    }).then(() => {
-                        // Now that we have the password, get the access reason again ignoring the password.
-                        preventReason = this.lessonProvider.getPreventAccessReason(info, true);
-                        if (preventReason) {
-                            this.preventMessages = [preventReason];
-                        }
                     }).catch(() => {
                         // No password or the validation failed. Show password form.
                         this.askPassword = true;
-                        this.preventMessages = [preventReason];
+                        this.preventMessages = info.preventaccessreasons;
                         lessonReady = false;
                     }));
                 } else  {
                     // Lesson cannot be started.
-                    this.preventMessages = [preventReason];
+                    this.preventMessages = info.preventaccessreasons;
                     lessonReady = false;
                 }
             }
@@ -212,21 +195,19 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
                     this.lessonReady(refresh);
                 }
             });
-        }).finally(() => {
-            this.fillContextMenu(refresh);
         });
     }
 
     /**
      * Fetch the reports data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchReportData(): Promise<any> {
         return this.groupsProvider.getActivityGroupInfo(this.module.id).then((groupInfo) => {
             this.groupInfo = groupInfo;
 
-            return this.setGroup(this.groupsProvider.validateGroupId(this.group, groupInfo));
+            return this.setGroup(this.group || 0);
         }).finally(() => {
             this.reportLoaded = true;
         });
@@ -235,17 +216,10 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Checks if sync has succeed from result sync data.
      *
-     * @param result Data returned on the sync function.
-     * @return If suceed or not.
+     * @param {any} result Data returned on the sync function.
+     * @return {boolean} If suceed or not.
      */
     protected hasSyncSucceed(result: any): boolean {
-        if (result.updated || this.dataSent) {
-            // Check completion status if something was sent.
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-        }
-
-        this.dataSent = false;
-
         return result.updated;
     }
 
@@ -261,10 +235,6 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
         if (this.hasPlayed) {
             this.hasPlayed = false;
 
-            this.dataSentObserver && this.dataSentObserver.off(); // Stop listening for changes.
-            this.dataSentObserver = undefined;
-
-            // Refresh data.
             this.showLoadingAndRefresh(true, false);
         }
     }
@@ -279,23 +249,13 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
 
         if (this.navCtrl.getActive().component.name == 'AddonModLessonPlayerPage') {
             this.hasPlayed = true;
-
-            // Detect if anything was sent to server.
-            this.dataSentObserver && this.dataSentObserver.off();
-
-            this.dataSentObserver = this.eventsProvider.on(AddonModLessonProvider.DATA_SENT_EVENT, (data) => {
-                // Ignore launch sending because it only affects timers.
-                if (data.lessonId === this.lesson.id && data.type != 'launch') {
-                    this.dataSent = true;
-                }
-            }, this.siteId);
         }
     }
 
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -319,8 +279,8 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Compares sync event data with current data to check if refresh content is needed.
      *
-     * @param syncEventData Data receiven on sync observer.
-     * @return True if refresh is needed, false otherwise.
+     * @param {any} syncEventData Data receiven on sync observer.
+     * @return {boolean} True if refresh is needed, false otherwise.
      */
     protected isRefreshSyncNeeded(syncEventData: any): boolean {
         return this.lesson && syncEventData.lessonId == this.lesson.id;
@@ -329,24 +289,28 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Function called when the lesson is ready to be seen (no pending prevent access reasons).
      *
-     * @param refresh If it's refreshing content.
+     * @param {boolean} [refresh=false] If it's refreshing content.
      */
     protected lessonReady(refresh?: boolean): void {
         this.askPassword = false;
+        this.preventMessages = [];
         this.leftDuringTimed = this.hasOffline || this.lessonProvider.leftDuringTimed(this.accessInfo);
 
         if (this.password) {
             // Store the password in DB.
             this.lessonProvider.storePassword(this.lesson.id, this.password);
         }
+
+        // All data obtained, now fill the context menu.
+        this.fillContextMenu(refresh);
     }
 
     /**
      * Log viewing the lesson.
      */
     protected logView(): void {
-        this.lessonProvider.logViewLesson(this.lesson.id, this.password, this.lesson.name).then(() => {
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+        this.lessonProvider.logViewLesson(this.lesson.id, this.password).then(() => {
+            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
         }).catch((error) => {
             // Ignore errors.
         });
@@ -355,8 +319,8 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Open the lesson player.
      *
-     * @param continueLast Whether to continue the last retake.
-     * @return Promise resolved when done.
+     * @param  {boolean} continueLast Whether to continue the last retake.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected playLesson(continueLast: boolean): Promise<any> {
         // Calculate the pageId to load. If there is timelimit, lesson is always restarted from the start.
@@ -385,18 +349,9 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     }
 
     /**
-     * First tab selected.
-     */
-    indexSelected(): void {
-        this.selectedTab = 0;
-    }
-
-    /**
      * Reports tab selected.
      */
     reportsSelected(): void {
-        this.selectedTab = 1;
-
         if (!this.groupInfo) {
             this.fetchReportData().catch((error) => {
                 this.domUtils.showErrorModalDefault(error, 'Error getting report.');
@@ -426,8 +381,8 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Set a group to view the reports.
      *
-     * @param groupId Group ID.
-     * @return Promise resolved when done.
+     * @param  {number} groupId Group ID.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected setGroup(groupId: number): Promise<any> {
         this.group = groupId;
@@ -498,8 +453,8 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Displays some data based on the current status.
      *
-     * @param status The current status.
-     * @param previousStatus The previous status. If not defined, there is no previous status.
+     * @param {string} status The current status.
+     * @param {string} [previousStatus] The previous status. If not defined, there is no previous status.
      */
     protected showStatus(status: string, previousStatus?: string): void {
         this.showSpinner = status == CoreConstants.DOWNLOADING;
@@ -508,7 +463,7 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Start the lesson.
      *
-     * @param continueLast Whether to continue the last attempt.
+     * @param {boolean} [continueLast] Whether to continue the last attempt.
      */
     start(continueLast?: boolean): void {
         if (this.showSpinner) {
@@ -547,13 +502,9 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Submit password for password protected lessons.
      *
-     * @param e Event.
-     * @param passwordEl The password input.
+     * @param {HTMLInputElement} passwordEl The password input.
      */
-    submitPassword(e: Event, passwordEl: HTMLInputElement): void {
-        e.preventDefault();
-        e.stopPropagation();
-
+    submitPassword(passwordEl: HTMLInputElement): void {
         const password = passwordEl && passwordEl.value;
         if (!password) {
             this.domUtils.showErrorModal('addon.mod_lesson.emptypassword', true);
@@ -569,14 +520,6 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
             // Password validated.
             this.lessonReady(false);
 
-            // Now that we have the password, get the access reason again ignoring the password.
-            const preventReason = this.lessonProvider.getPreventAccessReason(this.accessInfo, true);
-            if (preventReason) {
-                this.preventMessages = [preventReason];
-            } else {
-                this.preventMessages = [];
-            }
-
             // Log view now that we have the password.
             this.logView();
         }).catch((error) => {
@@ -585,36 +528,23 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
             this.loaded = true;
             this.refreshIcon = 'refresh';
             this.syncIcon = 'sync';
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, true, this.siteId);
         });
     }
 
     /**
      * Performs the sync of the activity.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sync(): Promise<any> {
-        return this.lessonSync.syncLesson(this.lesson.id, true).then((result) => {
-            if (!result.updated && this.dataSent && this.isPrefetched()) {
-                // The user sent data to server, but not in the sync process. Check if we need to fetch data.
-                return this.lessonSync.prefetchAfterUpdate(this.module, this.courseId).catch(() => {
-                    // Ignore errors.
-                }).then(() => {
-                    return result;
-                });
-            }
-
-            return result;
-        });
+        return this.lessonSync.syncLesson(this.lesson.id, true);
     }
 
     /**
      * Validate a password and retrieve extra data.
      *
-     * @param password The password to validate.
-     * @return Promise resolved when done.
+     * @param {string} password The password to validate.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected validatePassword(password: string): Promise<any> {
         return this.lessonProvider.getLessonWithPassword(this.lesson.id, password).then((lessonData) => {
@@ -625,14 +555,5 @@ export class AddonModLessonIndexComponent extends CoreCourseModuleMainActivityCo
 
             return Promise.reject(error);
         });
-    }
-
-    /**
-     * Component being destroyed.
-     */
-    ngOnDestroy(): void {
-        super.ngOnDestroy();
-
-        this.dataSentObserver && this.dataSentObserver.off();
     }
 }

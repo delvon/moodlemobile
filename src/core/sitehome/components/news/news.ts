@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ export class CoreSiteHomeNewsComponent implements OnInit {
             return this.courseProvider.getModuleBasicInfo(forum.cmid).then((module) => {
                 this.show = true;
                 this.module = module;
-                module.handlerData = this.moduleDelegate.getModuleDataFor(module.modname, module, siteHomeId, module.section, true);
+                module.handlerData = this.moduleDelegate.getModuleDataFor(module.modname, module, siteHomeId, module.section);
             });
         }).catch(() => {
             // Ignore errors.

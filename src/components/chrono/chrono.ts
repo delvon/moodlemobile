@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import { Component, Input, OnChanges, OnDestroy, Output, EventEmitter, SimpleCha
  */
 @Component({
     selector: 'core-chrono',
-    template: '<span role="timer">{{ time / 1000 | coreSecondsToHMS }}</span>'
+    template: '<span>{{ time / 1000 | coreSecondsToHMS }}</span>'
 })
 export class CoreChronoComponent implements OnChanges, OnDestroy {
     @Input() running: boolean; // Set it to true to start the chrono. Set it to false to stop it.
@@ -52,7 +52,7 @@ export class CoreChronoComponent implements OnChanges, OnDestroy {
     }
 
     /**
-     * Component being changed.
+     * Component being initialized.
      */
     ngOnChanges(changes: { [name: string]: SimpleChange }): void {
         if (changes && changes.running) {

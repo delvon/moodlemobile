@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@ import { IonicPage, NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
-import {
-    AddonCompetencyProvider, AddonCompetencyDataForCourseCompetenciesPageResult, AddonCompetencyDataForPlanPageResult,
-    AddonCompetencyDataForPlanPageCompetency, AddonCompetencyDataForCourseCompetenciesPageCompetency
-} from '../../providers/competency';
+import { AddonCompetencyProvider } from '../../providers/competency';
 
 /**
  * Page that displays the list of competencies of a learning plan.
@@ -39,7 +36,7 @@ export class AddonCompetencyCompetenciesPage {
     protected userId: number;
 
     competenciesLoaded = false;
-    competencies: AddonCompetencyDataForPlanPageCompetency[] | AddonCompetencyDataForCourseCompetenciesPageCompetency[] = [];
+    competencies = [];
     title: string;
 
     constructor(navParams: NavParams, private translate: TranslateService, private domUtils: CoreDomUtilsProvider,
@@ -62,7 +59,7 @@ export class AddonCompetencyCompetenciesPage {
         this.fetchCompetencies().then(() => {
             if (!this.competencyId && this.splitviewCtrl.isOn() && this.competencies.length > 0) {
                 // Take first and load it.
-                this.openCompetency(this.competencies[0].competency.id);
+                this.openCompetency(this.competencies[0].id);
             }
         }).finally(() => {
             this.competenciesLoaded = true;
@@ -72,10 +69,10 @@ export class AddonCompetencyCompetenciesPage {
     /**
      * Fetches the competencies and updates the view.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected fetchCompetencies(): Promise<void> {
-        let promise: Promise<AddonCompetencyDataForPlanPageResult | AddonCompetencyDataForCourseCompetenciesPageResult>;
+        let promise;
 
         if (this.planId) {
             promise = this.competencyProvider.getLearningPlan(this.planId);
@@ -86,16 +83,13 @@ export class AddonCompetencyCompetenciesPage {
         }
 
         return promise.then((response) => {
+            if (response.competencycount <= 0) {
+                return Promise.reject(this.translate.instant('addon.competency.errornocompetenciesfound'));
+            }
 
             if (this.planId) {
-                const resp = <AddonCompetencyDataForPlanPageResult> response;
-
-                if (resp.competencycount <= 0) {
-                    return Promise.reject(this.translate.instant('addon.competency.errornocompetenciesfound'));
-                }
-
-                this.title = resp.plan.name;
-                this.userId = resp.plan.userid;
+                this.title = response.plan.name;
+                this.userId = response.plan.userid;
             } else {
                 this.title = this.translate.instant('addon.competency.coursecompetencies');
             }
@@ -108,7 +102,7 @@ export class AddonCompetencyCompetenciesPage {
     /**
      * Opens a competency.
      *
-     * @param competencyId
+     * @param {number} competencyId
      */
     openCompetency(competencyId: number): void {
         this.competencyId = competencyId;
@@ -124,7 +118,7 @@ export class AddonCompetencyCompetenciesPage {
     /**
      * Refreshes the competencies.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshCompetencies(refresher: any): void {
         let promise;

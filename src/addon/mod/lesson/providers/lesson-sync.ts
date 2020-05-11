@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,16 +17,14 @@ import { TranslateService } from '@ngx-translate/core';
 import { CoreAppProvider } from '@providers/app';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreSyncProvider } from '@providers/sync';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUrlUtilsProvider } from '@providers/utils/url';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreCourseProvider } from '@core/course/providers/course';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
-import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
-import { CoreCourseActivitySyncBaseProvider } from '@core/course/classes/activity-sync';
+import { CoreSyncBaseProvider } from '@classes/base-sync';
 import { AddonModLessonProvider } from './lesson';
 import { AddonModLessonOfflineProvider } from './lesson-offline';
 import { AddonModLessonPrefetchHandler } from './prefetch-handler';
@@ -37,11 +35,13 @@ import { AddonModLessonPrefetchHandler } from './prefetch-handler';
 export interface AddonModLessonSyncResult {
     /**
      * List of warnings.
+     * @type {string[]}
      */
     warnings: string[];
 
     /**
      * Whether some data was sent to the server or offline data was updated.
+     * @type {boolean}
      */
     updated: boolean;
 }
@@ -50,7 +50,7 @@ export interface AddonModLessonSyncResult {
  * Service to sync lesson.
  */
 @Injectable()
-export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvider {
+export class AddonModLessonSyncProvider extends CoreSyncBaseProvider {
 
     static AUTO_SYNCED = 'addon_mod_lesson_autom_synced';
 
@@ -58,57 +58,49 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
 
     // Variables for database.
     static RETAKES_FINISHED_TABLE = 'addon_mod_lesson_retakes_finished_sync';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModLessonSyncProvider',
-        version: 1,
-        tables: [
+    protected tablesSchema = {
+        name: AddonModLessonSyncProvider.RETAKES_FINISHED_TABLE,
+        columns: [
             {
-                name: AddonModLessonSyncProvider.RETAKES_FINISHED_TABLE,
-                columns: [
-                    {
-                        name: 'lessonid',
-                        type: 'INTEGER',
-                        primaryKey: true
-                    },
-                    {
-                        name: 'retake',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'pageid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timefinished',
-                        type: 'INTEGER'
-                    }
-                ]
+                name: 'lessonid',
+                type: 'INTEGER',
+                primaryKey: true
+            },
+            {
+                name: 'retake',
+                type: 'INTEGER'
+            },
+            {
+                name: 'pageid',
+                type: 'INTEGER'
+            },
+            {
+                name: 'timefinished',
+                type: 'INTEGER'
             }
         ]
     };
 
     constructor(loggerProvider: CoreLoggerProvider, sitesProvider: CoreSitesProvider, appProvider: CoreAppProvider,
             syncProvider: CoreSyncProvider, textUtils: CoreTextUtilsProvider, translate: TranslateService,
-            private courseProvider: CoreCourseProvider, private eventsProvider: CoreEventsProvider,
+            courseProvider: CoreCourseProvider, private eventsProvider: CoreEventsProvider,
             private lessonProvider: AddonModLessonProvider, private lessonOfflineProvider: AddonModLessonOfflineProvider,
-            protected prefetchHandler: AddonModLessonPrefetchHandler, timeUtils: CoreTimeUtilsProvider,
-            private utils: CoreUtilsProvider, private urlUtils: CoreUrlUtilsProvider,
-            private logHelper: CoreCourseLogHelperProvider, prefetchDelegate: CoreCourseModulePrefetchDelegate) {
+            private prefetchHandler: AddonModLessonPrefetchHandler, private timeUtils: CoreTimeUtilsProvider,
+            private utils: CoreUtilsProvider, private urlUtils: CoreUrlUtilsProvider) {
 
-        super('AddonModLessonSyncProvider', loggerProvider, sitesProvider, appProvider, syncProvider, textUtils, translate,
-                timeUtils, prefetchDelegate, prefetchHandler);
+        super('AddonModLessonSyncProvider', loggerProvider, sitesProvider, appProvider, syncProvider, textUtils, translate);
 
         this.componentTranslate = courseProvider.translateModuleName('lesson');
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTableFromSchema(this.tablesSchema);
     }
 
     /**
      * Unmark a retake as finished in a synchronization.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     deleteRetakeFinishedInSync(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -121,9 +113,9 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Get a retake finished in a synchronization for a certain lesson (if any).
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake entry (undefined if no retake).
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the retake entry (undefined if no retake).
      */
     getRetakeFinishedInSync(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -136,10 +128,10 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Check if a lesson has data to synchronize.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean: whether it has data to sync.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake  Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether it has data to sync.
      */
     hasDataToSync(lessonId: number, retake: number, siteId?: string): Promise<boolean> {
         const promises = [];
@@ -163,11 +155,11 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Mark a retake as finished in a synchronization.
      *
-     * @param lessonId Lesson ID.
-     * @param retake The retake number.
-     * @param pageId The page ID to start reviewing from.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake The retake number.
+     * @param {number} pageId The page ID to start reviewing from.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     setRetakeFinishedInSync(lessonId: number, retake: number, pageId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -183,32 +175,27 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Try to synchronize all the lessons in a certain site or in all sites.
      *
-     * @param siteId Site ID to sync. If not defined, sync all sites.
-     * @param force Wether to force sync not depending on last execution.
-     * @return Promise resolved if sync is successful, rejected if sync fails.
+     * @param {string} [siteId] Site ID to sync. If not defined, sync all sites.
+     * @return {Promise<any>} Promise resolved if sync is successful, rejected if sync fails.
      */
-    syncAllLessons(siteId?: string, force?: boolean): Promise<any> {
-        return this.syncOnSites('all lessons', this.syncAllLessonsFunc.bind(this), [force], siteId);
+    syncAllLessons(siteId?: string): Promise<any> {
+        return this.syncOnSites('all lessons', this.syncAllLessonsFunc.bind(this), [], siteId);
     }
 
     /**
      * Sync all lessons on a site.
      *
-     * @param siteId Site ID to sync.
-     * @param force Wether to force sync not depending on last execution.
-     * @param Promise resolved if sync is successful, rejected if sync fails.
+     * @param {string} [siteId] Site ID to sync. If not defined, sync all sites.
+     * @param {Promise<any>} Promise resolved if sync is successful, rejected if sync fails.
      */
-    protected syncAllLessonsFunc(siteId: string, force?: boolean): Promise<any> {
+    protected syncAllLessonsFunc(siteId?: string): Promise<any> {
         // Get all the lessons that have something to be synchronized.
         return this.lessonOfflineProvider.getAllLessonsWithData(siteId).then((lessons) => {
             // Sync all lessons that haven't been synced for a while.
             const promises = [];
 
-            lessons.map((lesson) => {
-                const promise = force ? this.syncLesson(lesson.id, false, false, siteId) :
-                    this.syncLessonIfNeeded(lesson.id, false, siteId);
-
-                return promise.then((result) => {
+            lessons.forEach((lesson) => {
+                promises.push(this.syncLessonIfNeeded(lesson.id, false, siteId).then((result) => {
                     if (result && result.updated) {
                         // Sync successful, send event.
                         this.eventsProvider.trigger(AddonModLessonSyncProvider.AUTO_SYNCED, {
@@ -216,7 +203,7 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
                             warnings: result.warnings
                         }, siteId);
                     }
-                });
+                }));
             });
 
             return Promise.all(promises);
@@ -226,10 +213,10 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Sync a lesson only if a certain time has passed since the last time.
      *
-     * @param lessonId Lesson ID.
-     * @param askPreflight Whether we should ask for password if needed.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the lesson is synced or if it doesn't need to be synced.
+     * @param {any} lessonId Lesson ID.
+     * @param {boolean} [askPreflight] Whether we should ask for password if needed.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the lesson is synced or if it doesn't need to be synced.
      */
     syncLessonIfNeeded(lessonId: number, askPassword?: boolean, siteId?: string): Promise<any> {
         return this.isSyncNeeded(lessonId, siteId).then((needed) => {
@@ -242,11 +229,11 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Try to synchronize a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param askPassword True if we should ask for password if needed, false otherwise.
-     * @param ignoreBlock True to ignore the sync block setting.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success.
+     * @param {number} lessonId Lesson ID.
+     * @param {boolean} askPassword True if we should ask for password if needed, false otherwise.
+     * @param {boolean} ignoreBlock True to ignore the sync block setting.
+     * @param {string} [siteId]     Site ID. If not defined, current site.
+     * @return {Promise<AddonModLessonSyncResult>} Promise resolved in success.
      */
     syncLesson(lessonId: number, askPassword?: boolean, ignoreBlock?: boolean, siteId?: string): Promise<AddonModLessonSyncResult> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -275,13 +262,8 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
 
         this.logger.debug('Try to sync lesson ' + lessonId + ' in site ' + siteId);
 
-        // Sync offline logs.
-        syncPromise = this.logHelper.syncIfNeeded(AddonModLessonProvider.COMPONENT, lessonId, siteId).catch(() => {
-            // Ignore errors.
-        }).then(() => {
-            // Try to synchronize the attempts first.
-            return this.lessonOfflineProvider.getLessonAttempts(lessonId, siteId);
-        }).then((attempts) => {
+        // Try to synchronize the attempts first.
+        syncPromise = this.lessonOfflineProvider.getLessonAttempts(lessonId, siteId).then((attempts) => {
             if (!attempts.length) {
                 return;
             } else if (!this.appProvider.isOnline()) {
@@ -292,7 +274,7 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
             courseId = attempts[0].courseid;
 
             // Get the info, access info and the lesson password if needed.
-            return this.lessonProvider.getLessonById(courseId, lessonId, false, false, siteId).then((lessonData) => {
+            return this.lessonProvider.getLessonById(courseId, lessonId, false, siteId).then((lessonData) => {
                 lesson = lessonData;
 
                 return this.prefetchHandler.getLessonPassword(lessonId, false, true, askPassword, siteId);
@@ -368,7 +350,7 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
                     // Data already retrieved when syncing attempts.
                     promise = Promise.resolve();
                 } else {
-                    promise = this.lessonProvider.getLessonById(courseId, lessonId, false, false, siteId).then((lessonData) => {
+                    promise = this.lessonProvider.getLessonById(courseId, lessonId, false, siteId).then((lessonData) => {
                         lesson = lessonData;
 
                         return this.prefetchHandler.getLessonPassword(lessonId, false, true, askPassword, siteId);
@@ -419,7 +401,7 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
                                 result.warnings.push(this.translate.instant('core.warningofflinedatadeleted', {
                                     component: this.componentTranslate,
                                     name: lesson.name,
-                                    error: this.textUtils.getErrorMessageFromError(error)
+                                    error: error
                                 }));
                             });
                         } else {
@@ -433,11 +415,31 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
             });
         }).then(() => {
             if (result.updated && courseId) {
-                // Data has been sent to server, update data.
-                return this.courseProvider.getModuleBasicInfoByInstance(lessonId, 'lesson', siteId).then((module) => {
-                    return this.prefetchAfterUpdate(module, courseId, undefined, siteId);
-                }).catch(() => {
+                // Data has been sent to server. Now invalidate the WS calls.
+                const promises = [];
+
+                promises.push(this.lessonProvider.invalidateAccessInformation(lessonId, siteId));
+                promises.push(this.lessonProvider.invalidateContentPagesViewed(lessonId, siteId));
+                promises.push(this.lessonProvider.invalidateQuestionsAttempts(lessonId, siteId));
+                promises.push(this.lessonProvider.invalidatePagesPossibleJumps(lessonId, siteId));
+                promises.push(this.lessonProvider.invalidateTimers(lessonId, siteId));
+
+                return this.utils.allPromises(promises).catch(() => {
                     // Ignore errors.
+                }).then(() => {
+                    // Sync successful, update some data that might have been modified.
+                    return this.lessonProvider.getAccessInformation(lessonId, false, false, siteId).then((info) => {
+                        const promises = [],
+                            retake = info.attemptscount;
+
+                        promises.push(this.lessonProvider.getContentPagesViewedOnline(lessonId, retake, false, false, siteId));
+                        promises.push(this.lessonProvider.getQuestionsAttemptsOnline(lessonId, retake, false, undefined, false,
+                                false, siteId));
+
+                        return Promise.all(promises);
+                    }).catch(() => {
+                        // Ignore errors.
+                    });
                 });
             }
         }).then(() => {
@@ -456,12 +458,12 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
     /**
      * Send an attempt to the site and delete it afterwards.
      *
-     * @param lesson Lesson.
-     * @param password Password (if any).
-     * @param attempt Attempt to send.
-     * @param result Result where to store the data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {any} lesson Lesson.
+     * @param {string} password Password (if any).
+     * @param {any} attempt Attempt to send.
+     * @param {AddonModLessonSyncResult} result Result where to store the data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sendAttempt(lesson: any, password: string, attempt: any, result: AddonModLessonSyncResult, siteId?: string)
             : Promise<any> {
@@ -483,7 +485,7 @@ export class AddonModLessonSyncProvider extends CoreCourseActivitySyncBaseProvid
                     result.warnings.push(this.translate.instant('core.warningofflinedatadeleted', {
                         component: this.componentTranslate,
                         name: lesson.name,
-                        error: this.textUtils.getErrorMessageFromError(error)
+                        error: error
                     }));
                 });
             } else {

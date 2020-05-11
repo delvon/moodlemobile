@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { CoreCourseOptionsHandler, CoreCourseOptionsHandlerData } from '@core/co
 import { CoreCourseProvider } from '@core/course/providers/course';
 import { AddonCompetencyCourseComponent } from '../components/course/course';
 import { AddonCompetencyProvider } from '../providers/competency';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
 
 /**
  * Course nav handler.
@@ -25,13 +24,13 @@ import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
 @Injectable()
 export class AddonCompetencyCourseOptionHandler implements CoreCourseOptionsHandler {
     name = 'AddonCompetency';
-    priority = 300;
+    priority = 700;
 
-    constructor(private competencyProvider: AddonCompetencyProvider, protected filterHelper: CoreFilterHelperProvider) {}
+    constructor(private competencyProvider: AddonCompetencyProvider) {}
 
     /**
      * Whether or not the handler is enabled ona site level.
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean|Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -40,11 +39,11 @@ export class AddonCompetencyCourseOptionHandler implements CoreCourseOptionsHand
     /**
      * Whether or not the handler is enabled for a certain course.
      *
-     * @param courseId The course ID.
-     * @param accessData Access type and data. Default, guest, ...
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return True or promise resolved with true if enabled.
+     * @param {number} courseId The course ID.
+     * @param {any} accessData Access type and data. Default, guest, ...
+     * @param {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabledForCourse(courseId: number, accessData: any, navOptions?: any, admOptions?: any): boolean | Promise<boolean> {
         if (accessData && accessData.type == CoreCourseProvider.ACCESS_GUEST) {
@@ -63,11 +62,11 @@ export class AddonCompetencyCourseOptionHandler implements CoreCourseOptionsHand
     /**
      * Returns the data needed to render the handler.
      *
-     * @param injector Injector.
-     * @param course The course.
-     * @return Data or promise resolved with the data.
+     * @param {Injector} injector Injector.
+     * @param {number} courseId The course ID.
+     * @return {CoreCourseOptionsHandlerData|Promise<CoreCourseOptionsHandlerData>} Data or promise resolved with the data.
      */
-    getDisplayData?(injector: Injector, course: any): CoreCourseOptionsHandlerData | Promise<CoreCourseOptionsHandlerData> {
+    getDisplayData?(injector: Injector, courseId: number): CoreCourseOptionsHandlerData | Promise<CoreCourseOptionsHandlerData> {
         return {
             title: 'addon.competency.competencies',
             class: 'addon-competency-course-handler',
@@ -78,10 +77,10 @@ export class AddonCompetencyCourseOptionHandler implements CoreCourseOptionsHand
     /**
      * Should invalidate the data to determine if the handler is enabled for a certain course.
      *
-     * @param courseId The course ID.
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return Promise resolved when done.
+     * @param {number} courseId The course ID.
+     * @param {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidateEnabledForCourse(courseId: number, navOptions?: any, admOptions?: any): Promise<any> {
         if (navOptions && typeof navOptions.competencies != 'undefined') {
@@ -90,43 +89,5 @@ export class AddonCompetencyCourseOptionHandler implements CoreCourseOptionsHand
         }
 
         return this.competencyProvider.invalidateCourseCompetencies(courseId);
-    }
-
-    /**
-     * Called when a course is downloaded. It should prefetch all the data to be able to see the addon in offline.
-     *
-     * @param course The course.
-     * @return Promise resolved when done.
-     */
-    prefetch(course: any): Promise<any> {
-        // Get the competencies in the course.
-        return this.competencyProvider.getCourseCompetencies(course.id, undefined, undefined, true).then((competencies) => {
-            const promises = [];
-
-            // Prefetch all the competencies.
-            if (competencies && competencies.competencies) {
-                competencies.competencies.forEach((competency) => {
-                    promises.push(this.competencyProvider.getCompetencyInCourse(course.id, competency.competency.id, undefined,
-                            undefined, true));
-
-                    promises.push(this.competencyProvider.getCompetencySummary(competency.competency.id, undefined, undefined,
-                            true));
-
-                    if (competency.coursemodules) {
-                        competency.coursemodules.forEach((module) => {
-                            promises.push(this.filterHelper.getFilters('module', module.id, {courseId: course.id}));
-                        });
-                    }
-
-                    if (competency.plans) {
-                        competency.plans.forEach((plan) => {
-                            promises.push(this.filterHelper.getFilters('user', plan.userid));
-                        });
-                    }
-                });
-            }
-
-            return Promise.all(promises);
-        });
     }
 }

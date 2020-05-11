@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -55,9 +55,7 @@ export class CoreGradesCoursesPage {
             }
 
             // Add log in Moodle.
-            return this.gradesProvider.logCoursesGradesView().catch(() => {
-                // Ignore errors.
-            });
+            return this.gradesProvider.logCoursesGradesView();
         }).finally(() => {
             this.gradesLoaded = true;
         });
@@ -66,7 +64,7 @@ export class CoreGradesCoursesPage {
     /**
      * Fetch all the data required for the view.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>}     Resolved when done.
      */
     fetchData(): Promise<any> {
         return this.gradesProvider.getCoursesGrades().then((grades) => {
@@ -81,7 +79,7 @@ export class CoreGradesCoursesPage {
     /**
      * Refresh data.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshGrades(refresher: any): void {
         this.gradesProvider.invalidateCoursesGradesData().finally(() => {
@@ -93,7 +91,7 @@ export class CoreGradesCoursesPage {
 
     /**
      * Navigate to the grades of the selected course.
-     * @param courseId Course Id where to navigate.
+     * @param {number} courseId  Course Id where to navigate.
      */
     gotoCourseGrades(courseId: number): void {
         this.courseId = courseId;

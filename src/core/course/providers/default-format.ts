@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Injectable, Injector } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { NavController } from 'ionic-angular';
 import { CoreCoursesProvider } from '@core/courses/providers/courses';
-import { CoreLoginHelperProvider } from '@core/login/providers/helper';
 import { CoreCourseFormatHandler } from './format-delegate';
+import { CoreCourseProvider } from './course';
 
 /**
  * Default handler used when the course format doesn't have a specific implementation.
@@ -26,14 +26,12 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
     name = 'CoreCourseFormatDefault';
     format = 'default';
 
-    protected loginHelper: CoreLoginHelperProvider; // Inject it later to prevent circular dependencies.
-
-    constructor(protected coursesProvider: CoreCoursesProvider, protected injector: Injector) { }
+    constructor(private coursesProvider: CoreCoursesProvider) { }
 
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -42,24 +40,18 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
     /**
      * Get the title to use in course page.
      *
-     * @param course The course.
-     * @return Title.
+     * @param {any} course The course.
+     * @return {string} Title.
      */
     getCourseTitle(course: any): string {
-        if (course.displayname) {
-            return course.displayname;
-        } else if (course.fullname) {
-            return course.fullname;
-        } else {
-            return '';
-        }
+        return course.fullname || '';
     }
 
     /**
      * Whether it allows seeing all sections at the same time. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether it can view all sections.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether it can view all sections.
      */
     canViewAllSections(course: any): boolean {
         return true;
@@ -68,8 +60,8 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
     /**
      * Whether the option to enable section/module download should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the option to enable section/module download should be displayed
+     * @param {any} course The course to check.
+     * @return {boolean} Whether the option to enable section/module download should be displayed
      */
     displayEnableDownload(course: any): boolean {
         return true;
@@ -78,8 +70,8 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
     /**
      * Whether the default section selector should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the default section selector should be displayed.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether the default section selector should be displayed.
      */
     displaySectionSelector(course: any): boolean {
         return true;
@@ -89,9 +81,9 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
      * Whether the course refresher should be displayed. If it returns false, a refresher must be included in the course format,
      * and the doRefresh method of CoreCourseSectionPage must be called on refresh. Defaults to true.
      *
-     * @param course The course to check.
-     * @param sections List of course sections.
-     * @return Whether the refresher should be displayed.
+     * @param {any} course The course to check.
+     * @param {any[]} sections List of course sections.
+     * @return {boolean} Whether the refresher should be displayed.
      */
     displayRefresher?(course: any, sections: any[]): boolean {
         return true;
@@ -100,52 +92,53 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
     /**
      * Given a list of sections, get the "current" section that should be displayed first.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Current section (or promise resolved with current section).
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {any|Promise<any>} Current section (or promise resolved with current section).
      */
     getCurrentSection(course: any, sections: any[]): any | Promise<any> {
-        let promise;
+        if (!this.coursesProvider.isGetCoursesByFieldAvailable()) {
+            // Cannot get the current section, return the first one.
+            if (sections[0].id != CoreCourseProvider.ALL_SECTIONS_ID) {
+                return sections[0];
+            }
 
-        // We need the "marker" to determine the current section.
-        if (typeof course.marker != 'undefined') {
-            // We already have it.
-            promise = Promise.resolve(course.marker);
-        } else if (!this.coursesProvider.isGetCoursesByFieldAvailable()) {
-            // Cannot get the current section, return all of them.
-            return sections[0];
-        } else {
-            // Try to retrieve the marker.
-            promise = this.coursesProvider.getCourseByField('id', course.id).catch(() => {
-                // Ignore errors.
-            }).then((course) => {
-                return course && course.marker;
-            });
+            return sections[1];
         }
 
-        return promise.then((marker) => {
-            if (marker > 0) {
+        // We need the "marker" to determine the current section.
+        return this.coursesProvider.getCoursesByField('id', course.id).catch(() => {
+            // Ignore errors.
+        }).then((courses) => {
+            if (courses && courses[0]) {
                 // Find the marked section.
-                const section = sections.find((sect) => {
-                        return sect.section == marker;
-                    });
+                const course = courses[0];
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    if (section.section == course.marker) {
+                        return section;
+                    }
+                }
+            }
 
-                if (section) {
+            // Marked section not found or we couldn't retrieve the marker. Return the first section.
+            for (let i = 0; i < sections.length; i++) {
+                const section = sections[i];
+                if (section.id != CoreCourseProvider.ALL_SECTIONS_ID) {
                     return section;
                 }
             }
 
-            // Marked section not found or we couldn't retrieve the marker. Return all sections.
-            return sections[0];
+            return Promise.reject(null);
         });
     }
 
     /**
      * Invalidate the data required to load the course format.
      *
-     * @param course The course to get the title.
-     * @param sections List of sections.
-     * @return Promise resolved when the data is invalidated.
+     * @param {any} course The course to get the title.
+     * @param {any[]} sections List of sections.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateData(course: any, sections: any[]): Promise<any> {
         return this.coursesProvider.invalidateCoursesByField('id', course.id);
@@ -157,34 +150,20 @@ export class CoreCourseFormatDefaultHandler implements CoreCourseFormatHandler {
      * getCourseFormatComponent because it will display the course handlers at the top.
      * Your page should include the course handlers using CoreCoursesDelegate.
      *
-     * @param navCtrl The NavController instance to use. If not defined, please use loginHelper.redirect.
-     * @param course The course to open. It should contain a "format" attribute.
-     * @param params Params to pass to the course page.
-     * @return Promise resolved when done.
+     * @param {NavController} navCtrl The NavController instance to use.
+     * @param {any} course The course to open. It should contain a "format" attribute.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    openCourse(navCtrl: NavController, course: any, params?: any): Promise<any> {
-        params = params || {};
-        Object.assign(params, { course: course });
-
-        if (navCtrl) {
-            // Don't return the .push promise, we don't want to display a loading modal during the page transition.
-            navCtrl.push('CoreCourseSectionPage', params);
-
-            return Promise.resolve();
-        } else {
-            // Open the course in the "phantom" tab.
-            this.loginHelper = this.loginHelper || this.injector.get(CoreLoginHelperProvider);
-
-            return this.loginHelper.redirect('CoreCourseSectionPage', params);
-        }
+    openCourse(navCtrl: NavController, course: any): Promise<any> {
+        return navCtrl.push('CoreCourseSectionPage', { course: course });
     }
 
     /**
      * Whether the view should be refreshed when completion changes. If your course format doesn't display
      * activity completion then you should return false.
      *
-     * @param course The course.
-     * @return Whether course view should be refreshed when an activity completion changes.
+     * @param {any} course The course.
+     * @return {boolean|Promise<boolean>} Whether course view should be refreshed when an activity completion changes.
      */
     shouldRefreshWhenCompletionChanges(course: any): boolean | Promise<boolean> {
         return true;

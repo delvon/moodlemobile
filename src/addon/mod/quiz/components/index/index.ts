@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     now: number; // Current time.
     syncTime: string; // Last synchronization time.
     hasOffline: boolean; // Whether the quiz has offline data.
-    hasSupportedQuestions: boolean; // Whether the quiz has at least 1 supported question.
     accessRules: string[]; // List of access rules of the quiz.
     unsupportedRules: string[]; // List of unsupported access rules of the quiz.
     unsupportedQuestions: string[]; // List of unsupported question types of the quiz.
@@ -86,8 +85,8 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
                 return;
             }
 
-            this.quizProvider.logViewQuiz(this.quizData.id, this.quizData.name).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+            this.quizProvider.logViewQuiz(this.quizData.id).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             }).catch((error) => {
                 // Ignore errors.
             });
@@ -148,10 +147,10 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Get the quiz data.
      *
-     * @param refresh If it's refreshing content.
-     * @param sync If it should try to sync.
-     * @param showErrors If show errors to the user of hide them.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh=false] If it's refreshing content.
+     * @param {boolean} [sync=false] If the refresh is needs syncing.
+     * @param {boolean} [showErrors=false] If show errors to the user of hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
 
@@ -215,26 +214,24 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
                 // Get question types in the quiz.
                 return this.quizProvider.getQuizRequiredQtypes(this.quizData.id).then((types) => {
                     this.unsupportedQuestions = this.quizProvider.getUnsupportedQuestions(types);
-                    this.hasSupportedQuestions = !!types.find((type) => {
-                        return type != 'random' && this.unsupportedQuestions.indexOf(type) == -1;
-                    });
 
                     return this.getAttempts();
                 });
             });
 
         }).then(() => {
+            // All data obtained, now fill the context menu.
+            this.fillContextMenu(refresh);
+
             // Quiz is ready to be shown, move it to the variable that is displayed.
             this.quiz = this.quizData;
-        }).finally(() => {
-            this.fillContextMenu(refresh);
         });
     }
 
     /**
      * Get the user attempts in the quiz and the result info.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected getAttempts(): Promise<void> {
 
@@ -304,7 +301,7 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
                 this.buttonText = '';
             } else if (this.quizAccessInfo.canattempt && this.preventMessages.length) {
                 this.buttonText = '';
-            } else if (!this.hasSupportedQuestions || this.unsupportedRules.length || !this.behaviourSupported) {
+            } else if (this.unsupportedQuestions.length || this.unsupportedRules.length || !this.behaviourSupported) {
                 this.buttonText = '';
             }
         }
@@ -313,7 +310,7 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Get result info to show.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected getResultInfo(): Promise<void> {
 
@@ -369,11 +366,11 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Go to review an attempt that has just been finished.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected goToAutoReview(): Promise<any> {
         // If we go to auto review it means an attempt was finished. Check completion status.
-        this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+        this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
 
         // Verify that user can see the review.
         const attemptId = this.autoReview.attemptId;
@@ -392,13 +389,13 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Checks if sync has succeed from result sync data.
      *
-     * @param result Data returned on the sync function.
-     * @return If suceed or not.
+     * @param {any} result Data returned on the sync function.
+     * @return {boolean} If suceed or not.
      */
     protected hasSyncSucceed(result: any): boolean {
         if (result.attemptFinished) {
             // An attempt was finished, check completion status.
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
         }
 
         // If the sync call isn't rejected it means the sync was successful.
@@ -458,7 +455,7 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -481,13 +478,13 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Compares sync event data with current data to check if refresh content is needed.
      *
-     * @param syncEventData Data receiven on sync observer.
-     * @return True if refresh is needed, false otherwise.
+     * @param {any} syncEventData Data receiven on sync observer.
+     * @return {boolean} True if refresh is needed, false otherwise.
      */
     protected isRefreshSyncNeeded(syncEventData: any): boolean {
         if (syncEventData.attemptFinished) {
             // An attempt was finished, check completion status.
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
         }
 
         if (this.quizData && syncEventData.quizId == this.quizData.id) {
@@ -509,23 +506,17 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Displays some data based on the current status.
      *
-     * @param status The current status.
-     * @param previousStatus The previous status. If not defined, there is no previous status.
+     * @param {string} status The current status.
+     * @param {string} [previousStatus] The previous status. If not defined, there is no previous status.
      */
     protected showStatus(status: string, previousStatus?: string): void {
         this.showStatusSpinner = status == CoreConstants.DOWNLOADING;
-
-        if (status == CoreConstants.DOWNLOADED && previousStatus == CoreConstants.DOWNLOADING) {
-            // Quiz downloaded now, maybe a new attempt was created. Load content again.
-            this.loaded = false;
-            this.loadContent();
-        }
     }
 
     /**
      * Performs the sync of the activity.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sync(): Promise<any> {
         return this.quizSync.syncQuiz(this.quizData, true);
@@ -534,8 +525,8 @@ export class AddonModQuizIndexComponent extends CoreCourseModuleMainActivityComp
     /**
      * Treat user attempts.
      *
-     * @param attempts The attempts to treat.
-     * @return Promise resolved when done.
+     * @param {any} attempts The attempts to treat.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected treatAttempts(attempts: any): Promise<any> {
         if (!attempts || !attempts.length) {

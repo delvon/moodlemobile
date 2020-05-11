@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { IonicPage, ViewController } from 'ionic-angular';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
-import { CoreDomUtilsProvider } from '@providers/utils/dom';
 
 /**
  * Page that displays a form to enter a password to self enrol in a course.
@@ -27,34 +24,21 @@ import { CoreDomUtilsProvider } from '@providers/utils/dom';
     templateUrl: 'self-enrol-password.html',
 })
 export class CoreCoursesSelfEnrolPasswordPage {
-
-    @ViewChild('enrolPasswordForm') formElement: ElementRef;
-
-    constructor(protected viewCtrl: ViewController,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected domUtils: CoreDomUtilsProvider) { }
+    constructor(private viewCtrl: ViewController) { }
 
     /**
      * Close help modal.
      */
     close(): void {
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
         this.viewCtrl.dismiss();
     }
 
     /**
      * Submit password.
      *
-     * @param e Event.
-     * @param password Password to submit.
+     * @param {string} password Password to submit.
      */
-    submitPassword(e: Event, password: string): void {
-        e.preventDefault();
-        e.stopPropagation();
-
-        this.domUtils.triggerFormSubmittedEvent(this.formElement, false, this.sitesProvider.getCurrentSiteId());
-
+    submitPassword(password: string): void {
         this.viewCtrl.dismiss(password);
     }
 }

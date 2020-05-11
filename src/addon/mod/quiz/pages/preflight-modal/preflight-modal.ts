@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, Injector, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, Injector, ViewChild } from '@angular/core';
 import { IonicPage, ViewController, NavParams, Content } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { FormBuilder, FormGroup } from '@angular/forms';
-import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { AddonModQuizAccessRuleDelegate } from '../../providers/access-rules-delegate';
@@ -32,7 +31,6 @@ import { AddonModQuizAccessRuleDelegate } from '../../providers/access-rules-del
 export class AddonModQuizPreflightModalPage implements OnInit {
 
     @ViewChild(Content) content: Content;
-    @ViewChild('preflightFormEl') formElement: ElementRef;
 
     preflightForm: FormGroup;
     title: string;
@@ -45,15 +43,9 @@ export class AddonModQuizPreflightModalPage implements OnInit {
     protected siteId: string;
     protected rules: string[];
 
-    constructor(params: NavParams,
-            fb: FormBuilder,
-            translate: TranslateService,
-            sitesProvider: CoreSitesProvider,
-            protected viewCtrl: ViewController,
-            protected accessRuleDelegate: AddonModQuizAccessRuleDelegate,
-            protected injector: Injector,
-            protected domUtils: CoreDomUtilsProvider,
-            protected eventsProvider: CoreEventsProvider) {
+    constructor(params: NavParams, fb: FormBuilder, translate: TranslateService, sitesProvider: CoreSitesProvider,
+            protected viewCtrl: ViewController, protected accessRuleDelegate: AddonModQuizAccessRuleDelegate,
+            protected injector: Injector, protected domUtils: CoreDomUtilsProvider) {
 
         this.title = params.get('title') || translate.instant('addon.mod_quiz.startattempt');
         this.quiz = params.get('quiz');
@@ -106,13 +98,8 @@ export class AddonModQuizPreflightModalPage implements OnInit {
 
     /**
      * Check that the data is valid and send it back.
-     *
-     * @param e Event.
      */
-    sendData(e: Event): void {
-        e.preventDefault();
-        e.stopPropagation();
-
+    sendData(): void {
         if (!this.preflightForm.valid) {
             // Form not valid. Scroll to the first element with errors.
             if (!this.domUtils.scrollToInputError(this.content)) {
@@ -120,8 +107,6 @@ export class AddonModQuizPreflightModalPage implements OnInit {
                 this.domUtils.showErrorModal('core.errorinvalidform', true);
             }
         } else {
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, false, this.siteId);
-
             this.viewCtrl.dismiss(this.preflightForm.value);
         }
     }
@@ -130,8 +115,6 @@ export class AddonModQuizPreflightModalPage implements OnInit {
      * Close modal.
      */
     closeModal(): void {
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.siteId);
-
         this.viewCtrl.dismiss();
     }
 }

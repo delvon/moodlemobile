@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import { Directive, Input, OnInit, ElementRef, Optional } from '@angular/core';
 import { NavController } from 'ionic-angular';
-import { CoreSplitViewComponent } from '@components/split-view/split-view';
 
 /**
  * Directive to go to user profile on click.
@@ -28,10 +27,7 @@ export class CoreUserLinkDirective implements OnInit {
 
     protected element: HTMLElement;
 
-    constructor(element: ElementRef,
-            @Optional() private navCtrl: NavController,
-            @Optional() private svComponent: CoreSplitViewComponent) {
-
+    constructor(element: ElementRef, @Optional() private navCtrl: NavController) {
         // This directive can be added dynamically. In that case, the first param is the anchor HTMLElement.
         this.element = element.nativeElement || element;
     }
@@ -45,10 +41,7 @@ export class CoreUserLinkDirective implements OnInit {
             if (!event.defaultPrevented) {
                 event.preventDefault();
                 event.stopPropagation();
-
-                // Decide which navCtrl to use. If this directive is inside a split view, use the split view's master nav.
-                const navCtrl = this.svComponent ? this.svComponent.getMasterNav() : this.navCtrl;
-                navCtrl.push('CoreUserProfilePage', { userId: this.userId, courseId: this.courseId });
+                this.navCtrl.push('CoreUserProfilePage', { userId: this.userId, courseId: this.courseId });
             }
         });
     }

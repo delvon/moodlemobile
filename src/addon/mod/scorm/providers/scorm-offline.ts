@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import { Injectable } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreSyncProvider } from '@providers/sync';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
@@ -34,99 +34,95 @@ export class AddonModScormOfflineProvider {
     // Variables for database.
     static ATTEMPTS_TABLE = 'addon_mod_scorm_offline_attempts';
     static TRACKS_TABLE = 'addon_mod_scorm_offline_scos_tracks';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModScormOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModScormOfflineProvider.ATTEMPTS_TABLE,
-                columns: [
-                    {
-                        name: 'scormid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'attempt', // Attempt number.
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timecreated',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'snapshot',
-                        type: 'TEXT'
-                    },
-                ],
-                primaryKeys: ['scormid', 'userid', 'attempt']
-            },
-            {
-                name: AddonModScormOfflineProvider.TRACKS_TABLE,
-                columns: [
-                    {
-                        name: 'scormid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'attempt', // Attempt number.
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'scoid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'element',
-                        type: 'TEXT',
-                        notNull: true
-                    },
-                    {
-                        name: 'value',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'synced',
-                        type: 'INTEGER'
-                    },
-                ],
-                primaryKeys: ['scormid', 'userid', 'attempt', 'scoid', 'element']
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: AddonModScormOfflineProvider.ATTEMPTS_TABLE,
+            columns: [
+                {
+                    name: 'scormid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'attempt', // Attempt number.
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timecreated',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'snapshot',
+                    type: 'TEXT'
+                },
+            ],
+            primaryKeys: ['scormid', 'userid', 'attempt']
+        },
+        {
+            name: AddonModScormOfflineProvider.TRACKS_TABLE,
+            columns: [
+                {
+                    name: 'scormid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'attempt', // Attempt number.
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'scoid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'element',
+                    type: 'TEXT',
+                    notNull: true
+                },
+                {
+                    name: 'value',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'synced',
+                    type: 'INTEGER'
+                },
+            ],
+            primaryKeys: ['scormid', 'userid', 'attempt', 'scoid', 'element']
+        }
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private timeUtils: CoreTimeUtilsProvider,
             private syncProvider: CoreSyncProvider, private utils: CoreUtilsProvider, private textUtils: CoreTextUtilsProvider,
             private userProvider: CoreUserProvider) {
         this.logger = logger.getInstance('AddonModScormOfflineProvider');
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
@@ -134,12 +130,12 @@ export class AddonModScormOfflineProvider {
      * This function is used to convert attempts into new attempts, so the stored snapshot will be removed and
      * entries will be marked as not synced.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Number of the attempt to change.
-     * @param newAttempt New attempt number.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the attempt number changes.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Number of the attempt to change.
+     * @param {number} newAttempt New attempt number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the attempt number changes.
      */
     changeAttemptNumber(scormId: number, attempt: number, newAttempt: number, siteId?: string, userId?: number): Promise<any> {
 
@@ -186,13 +182,13 @@ export class AddonModScormOfflineProvider {
     /**
      * Creates a new offline attempt. It can be created from scratch or as a copy of another attempt.
      *
-     * @param scorm SCORM.
-     * @param attempt Number of the new attempt.
-     * @param userData User data to store in the attempt.
-     * @param snapshot Optional. Snapshot to store in the attempt.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the new attempt is created.
+     * @param {any} scorm SCORM.
+     * @param {number} attempt Number of the new attempt.
+     * @param {any} userData User data to store in the attempt.
+     * @param {any} [snapshot] Optional. Snapshot to store in the attempt.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the new attempt is created.
      */
     createNewAttempt(scorm: any, attempt: number, userData: any, snapshot?: any, siteId?: string, userId?: number): Promise<any> {
 
@@ -248,11 +244,11 @@ export class AddonModScormOfflineProvider {
     /**
      * Delete all the stored data from an attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when all the data has been deleted.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when all the data has been deleted.
      */
     deleteAttempt(scormId: number, attempt: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -279,8 +275,8 @@ export class AddonModScormOfflineProvider {
      * Helper function to return a formatted list of interactions for reports.
      * This function is based in Moodle's scorm_format_interactions.
      *
-     * @param scoUserData Userdata from a certain SCO.
-     * @return Formatted userdata.
+     * @param {any} scoUserData Userdata from a certain SCO.
+     * @return {any} Formatted userdata.
      */
     protected formatInteractions(scoUserData: any): any {
         const formatted: any = {};
@@ -334,8 +330,8 @@ export class AddonModScormOfflineProvider {
     /**
      * Get all the offline attempts in a certain site.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the offline attempts are retrieved.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved when the offline attempts are retrieved.
      */
     getAllAttempts(siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -352,11 +348,11 @@ export class AddonModScormOfflineProvider {
     /**
      * Get an offline attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved with the attempt.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<number>} Promise resolved with the attempt.
      */
     getAttempt(scormId: number, attempt: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -374,11 +370,11 @@ export class AddonModScormOfflineProvider {
     /**
      * Get the creation time of an attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved with time the attempt was created.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<number>} Promise resolved with time the attempt was created.
      */
     getAttemptCreationTime(scormId: number, attempt: number, siteId?: string, userId?: number): Promise<number> {
         return this.getAttempt(scormId, attempt, siteId, userId).catch(() => {
@@ -391,10 +387,10 @@ export class AddonModScormOfflineProvider {
     /**
      * Get the offline attempts done by a user in the given SCORM.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the offline attempts are retrieved.
+     * @param {number} scormId  SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any[]>} Promise resolved when the offline attempts are retrieved.
      */
     getAttempts(scormId: number, siteId?: string, userId?: number): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -413,11 +409,11 @@ export class AddonModScormOfflineProvider {
     /**
      * Get the snapshot of an attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved with the snapshot or undefined if no snapshot.
+     * @param {number} scormId  SCORM ID.
+     * @param {number} attempt  Attempt number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved with the snapshot or undefined if no snapshot.
      */
     getAttemptSnapshot(scormId: number, attempt: number, siteId?: string, userId?: number): Promise<any> {
         return this.getAttempt(scormId, attempt, siteId, userId).catch(() => {
@@ -430,12 +426,10 @@ export class AddonModScormOfflineProvider {
     /**
      * Get launch URLs from a list of SCOs, indexing them by SCO ID.
      *
-     * @param scos List of SCOs. Each SCO needs to have 'id' and 'launch' properties.
-     * @return Launch URLs indexed by SCO ID.
+     * @param {any[]} scos List of SCOs. Each SCO needs to have 'id' and 'launch' properties.
+     * @return {{[scoId: number]: string}} Launch URLs indexed by SCO ID.
      */
     protected getLaunchUrlsFromScos(scos: any[]): {[scoId: number]: string} {
-        scos = scos || [];
-
         const response = {};
 
         scos.forEach((sco) => {
@@ -448,13 +442,13 @@ export class AddonModScormOfflineProvider {
     /**
      * Get data stored in local DB for a certain scorm and attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param excludeSynced Whether it should only return not synced entries.
-     * @param excludeNotSynced Whether it should only return synced entries.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved with the entries.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {boolean} [excludeSynced] Whether it should only return not synced entries.
+     * @param {boolean} [excludeNotSynced] Whether it should only return synced entries.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any[]>} Promise resolved with the entries.
      */
     getScormStoredData(scormId: number, attempt: number, excludeSynced?: boolean, excludeNotSynced?: boolean, siteId?: string,
             userId?: number): Promise<any[]> {
@@ -491,17 +485,14 @@ export class AddonModScormOfflineProvider {
     /**
      * Get the user data for a certain SCORM and offline attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param scos SCOs returned by AddonModScormProvider.getScos. If not supplied, this function will only return the
-     *             SCOs that have something stored and cmi.launch_data will be undefined.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the user data is retrieved.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} scos SCOs returned by AddonModScormProvider.getScos.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the user data is retrieved.
      */
     getScormUserData(scormId: number, attempt: number, scos: any[], siteId?: string, userId?: number): Promise<any> {
-        scos = scos || [];
-
         let fullName = '',
             userName = '';
 
@@ -627,16 +618,16 @@ export class AddonModScormOfflineProvider {
      * Insert a track in the offline tracks store.
      * This function is based on Moodle's scorm_insert_track.
      *
-     * @param scormId SCORM ID.
-     * @param scoId SCO ID.
-     * @param attempt Attempt number.
-     * @param element Name of the element to insert.
-     * @param value Value to insert.
-     * @param forceCompleted True if SCORM forces completed.
-     * @param scoData User data for the given SCO.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not set use site's current user.
-     * @return Promise resolved when the insert is done.
+     * @param {number} scormId SCORM ID.
+     * @param {number} scoId SCO ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} element Name of the element to insert.
+     * @param {any} value Value to insert.
+     * @param {boolean} [forceCompleted] True if SCORM forces completed.
+     * @param {any} [scoData] User data for the given SCO.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not set use site's current user.
+     * @return {Promise<any>} Promise resolved when the insert is done.
      */
     protected insertTrack(scormId: number, scoId: number, attempt: number, element: string, value: any, forceCompleted?: boolean,
             scoData?: any, siteId?: string, userId?: number): Promise<any> {
@@ -692,15 +683,15 @@ export class AddonModScormOfflineProvider {
     /**
      * Insert a track in the DB.
      *
-     * @param db Site's DB.
-     * @param userId User ID.
-     * @param scormId SCORM ID.
-     * @param scoId SCO ID.
-     * @param attempt Attempt number.
-     * @param element Name of the element to insert.
-     * @param value Value of the element to insert.
-     * @param synchronous True if insert should NOT return a promise. Please use it only if synchronous is a must.
-     * @return Returns a promise if synchronous=false, otherwise returns a boolean.
+     * @param {SQLiteDB} db Site's DB.
+     * @param {number} userId User ID.
+     * @param {number} scormId SCORM ID.
+     * @param {number} scoId SCO ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} element Name of the element to insert.
+     * @param {any} value Value of the element to insert.
+     * @param {boolean} synchronous True if insert should NOT return a promise. Please use it only if synchronous is a must.
+     * @return {boolean|Promise<any>} Returns a promise if synchronous=false, otherwise returns a boolean.
      */
     protected insertTrackToDB(db: SQLiteDB, userId: number, scormId: number, scoId: number, attempt: number, element: string,
             value: any, synchronous?: boolean): boolean | Promise<any> {
@@ -731,15 +722,15 @@ export class AddonModScormOfflineProvider {
      * Please use this function only if synchronous is a must. It's recommended to use insertTrack.
      * This function is based on Moodle's scorm_insert_track.
      *
-     * @param scormId SCORM ID.
-     * @param scoId SCO ID.
-     * @param attempt Attempt number.
-     * @param element Name of the element to insert.
-     * @param value Value of the element to insert.
-     * @param forceCompleted True if SCORM forces completed.
-     * @param scoData User data for the given SCO.
-     * @param userId User ID. If not set use current user.
-     * @return Promise resolved when the insert is done.
+     * @param {number} scormId SCORM ID.
+     * @param {number} scoId SCO ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} element Name of the element to insert.
+     * @param {any} value Value of the element to insert.
+     * @param {boolean} [forceCompleted] True if SCORM forces completed.
+     * @param {any} [scoData] User data for the given SCO.
+     * @param {number} [userId] User ID. If not set use current user.
+     * @return {boolean} Promise resolved when the insert is done.
      */
     protected insertTrackSync(scormId: number, scoId: number, attempt: number, element: string, value: any,
             forceCompleted?: boolean, scoData?: any, userId?: number): boolean {
@@ -791,12 +782,12 @@ export class AddonModScormOfflineProvider {
     /**
      * Mark all the entries from a SCO and attempt as synced.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param scoId SCO ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when marked.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {number} scoId SCO ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when marked.
      */
     markAsSynced(scormId: number, attempt: number, scoId: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -817,8 +808,8 @@ export class AddonModScormOfflineProvider {
     /**
      * Removes the default data form user data.
      *
-     * @param userData User data returned by AddonModScormProvider.getScormUserData.
-     * @return User data without default data.
+     * @param {any} userData User data returned by AddonModScormProvider.getScormUserData.
+     * @return {any} User data without default data.
      */
     protected removeDefaultData(userData: any): any {
         const result = this.utils.clone(userData);
@@ -833,14 +824,14 @@ export class AddonModScormOfflineProvider {
     /**
      * Saves a SCORM tracking record in offline.
      *
-     * @param scorm SCORM.
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data to store.
-     * @param userData User data for this attempt and SCO.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when data is saved.
+     * @param {any} scorm SCORM.
+     * @param {number} scoId Sco ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data to store.
+     * @param {any} userData User data for this attempt and SCO.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when data is saved.
      */
     saveTracks(scorm: any, scoId: number, attempt: number, tracks: any[], userData: any, siteId?: string, userId?: number)
             : Promise<any> {
@@ -869,13 +860,13 @@ export class AddonModScormOfflineProvider {
      * Saves a SCORM tracking record in offline returning a synchronous value.
      * Please use this function only if synchronous is a must. It's recommended to use saveTracks.
      *
-     * @param scorm SCORM.
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data to store.
-     * @param userData User data for this attempt and SCO.
-     * @return True if data to insert is valid, false otherwise. Returning true doesn't mean that the data
-     *         has been stored, this function can return true but the insertion can still fail somehow.
+     * @param  {any} scorm    SCORM.
+     * @param  {number} scoId    Sco ID.
+     * @param  {number} attempt  Attempt number.
+     * @param  {Object[]} tracks Tracking data to store.
+     * @param  {any} userData User data for this attempt and SCO.
+     * @return {boolean}         True if data to insert is valid, false otherwise. Returning true doesn't mean that the data
+     *                           has been stored, this function can return true but the insertion can still fail somehow.
      */
     saveTracksSync(scorm: any, scoId: number, attempt: number, tracks: any[], userData: any, userId?: number): boolean {
         userId = userId || this.sitesProvider.getCurrentSiteUserId();
@@ -895,10 +886,10 @@ export class AddonModScormOfflineProvider {
      * Check for a parameter in userData and return it if it's set or return 'ifempty' if it's empty.
      * Based on Moodle's scorm_isset function.
      *
-     * @param userData Contains user's data.
-     * @param param Name of parameter that should be checked.
-     * @param ifEmpty Value to be replaced with if param is not set.
-     * @return Value from userData[param] if set, ifEmpty otherwise.
+     * @param {any} userData Contains user's data.
+     * @param {string} param Name of parameter that should be checked.
+     * @param {any} [ifEmpty] Value to be replaced with if param is not set.
+     * @return {any} Value from userData[param] if set, ifEmpty otherwise.
      */
     protected scormIsset(userData: any, param: string, ifEmpty: any = ''): any {
         if (typeof userData[param] != 'undefined') {
@@ -911,12 +902,12 @@ export class AddonModScormOfflineProvider {
     /**
      * Set an attempt's snapshot.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param userData User data to store as snapshot.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when snapshot has been stored.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {any} userData User data to store as snapshot.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when snapshot has been stored.
      */
     setAttemptSnapshot(scormId: number, attempt: number, userData: any, siteId?: string, userId?: number): Promise<any> {
 

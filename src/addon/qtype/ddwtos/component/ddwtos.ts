@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, Injector, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, Injector, ElementRef } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
 import { CoreQuestionBaseComponent } from '@core/question/classes/base-question-component';
 import { AddonQtypeDdwtosQuestion } from '../classes/ddwtos';
@@ -25,14 +25,11 @@ import { AddonQtypeDdwtosQuestion } from '../classes/ddwtos';
     templateUrl: 'addon-qtype-ddwtos.html'
 })
 export class AddonQtypeDdwtosComponent extends CoreQuestionBaseComponent implements OnInit, OnDestroy {
-    @ViewChild('questiontext') questionTextEl: ElementRef;
 
     protected element: HTMLElement;
     protected questionInstance: AddonQtypeDdwtosQuestion;
     protected inputIds: string[] = []; // Ids of the inputs of the question (where the answers will be stored).
     protected destroyed = false;
-    protected textIsRendered = false;
-    protected answerAreRendered = false;
 
     constructor(protected loggerProvider: CoreLoggerProvider, injector: Injector, element: ElementRef) {
         super(loggerProvider, 'AddonQtypeDdwtosComponent', injector);
@@ -83,45 +80,18 @@ export class AddonQtypeDdwtosComponent extends CoreQuestionBaseComponent impleme
             this.question.text += inputEl.outerHTML;
             this.inputIds.push(inputEl.getAttribute('id'));
         });
-
-        this.question.loaded = false;
-    }
-
-    /**
-     * The question answers have been rendered.
-     */
-    answersRendered(): void {
-        this.answerAreRendered = true;
-        if (this.textIsRendered) {
-            this.questionRendered();
-        }
-    }
-
-    /**
-     * The question text has been rendered.
-     */
-    textRendered(): void {
-        this.textIsRendered = true;
-        if (this.answerAreRendered) {
-            this.questionRendered();
-        }
     }
 
     /**
      * The question has been rendered.
      */
-    protected questionRendered(): void {
+    questionRendered(): void {
         if (!this.destroyed) {
-            this.domUtils.waitForImages(this.questionTextEl.nativeElement).then(() => {
-                // Create the instance.
-                this.questionInstance = new AddonQtypeDdwtosQuestion(this.loggerProvider, this.domUtils, this.element,
-                        this.question, this.question.readOnly, this.inputIds, this.textUtils);
+            // Create the instance.
+            this.questionInstance = new AddonQtypeDdwtosQuestion(this.loggerProvider, this.domUtils, this.element, this.question,
+                    this.question.readOnly, this.inputIds);
 
-                this.questionHelper.treatCorrectnessIconsClicks(this.element, this.component, this.componentId, this.contextLevel,
-                        this.contextInstanceId, this.courseId);
-
-                this.question.loaded = true;
-            });
+            this.questionHelper.treatCorrectnessIconsClicks(this.element, this.component, this.componentId);
         }
     }
 

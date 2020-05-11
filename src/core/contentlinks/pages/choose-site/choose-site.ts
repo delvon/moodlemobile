@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,10 @@
 
 import { Component, OnInit } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
-import { TranslateService } from '@ngx-translate/core';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreContentLinksDelegate, CoreContentLinksAction } from '../../providers/delegate';
 import { CoreContentLinksHelperProvider } from '../../providers/helper';
-import { CoreLoginHelperProvider } from '@core/login/providers/helper';
 
 /**
  * Page to display the list of sites to choose one to perform a content link action.
@@ -35,11 +33,10 @@ export class CoreContentLinksChooseSitePage implements OnInit {
     sites: any[];
     loaded: boolean;
     protected action: CoreContentLinksAction;
-    protected isRootURL: boolean;
 
     constructor(private navCtrl: NavController, navParams: NavParams, private contentLinksDelegate: CoreContentLinksDelegate,
-            private sitesProvider: CoreSitesProvider, private domUtils: CoreDomUtilsProvider, private translate: TranslateService,
-            private contentLinksHelper: CoreContentLinksHelperProvider, private loginHelper: CoreLoginHelperProvider) {
+            private sitesProvider: CoreSitesProvider, private domUtils: CoreDomUtilsProvider,
+            private contentLinksHelper: CoreContentLinksHelperProvider) {
         this.url = navParams.get('url');
     }
 
@@ -51,35 +48,19 @@ export class CoreContentLinksChooseSitePage implements OnInit {
             return this.leaveView();
         }
 
-        // Check if it's the root URL.
-        this.sitesProvider.isStoredRootURL(this.url).then((data): any => {
-            if (data.site) {
-                // It's the root URL.
-                this.isRootURL = true;
-
-                return data.siteIds;
-            } else if (data.siteIds.length) {
-                // Not root URL, but the URL belongs to at least 1 site. Check if there is any action to treat the link.
-                return this.contentLinksDelegate.getActionsFor(this.url).then((actions): any => {
-                    this.action = this.contentLinksHelper.getFirstValidAction(actions);
-                    if (!this.action) {
-                        return Promise.reject(this.translate.instant('core.contentlinks.errornoactions'));
-                    }
-
-                    return this.action.sites;
-                });
-            } else {
-                // No sites to treat the URL.
-                return Promise.reject(this.translate.instant('core.contentlinks.errornosites'));
+        // Get the action to perform.
+        this.contentLinksDelegate.getActionsFor(this.url).then((actions) => {
+            this.action = this.contentLinksHelper.getFirstValidAction(actions);
+            if (!this.action) {
+                return Promise.reject(null);
             }
-        }).then((siteIds) => {
-            // Get the sites that can perform the action.
-            return this.sitesProvider.getSites(siteIds);
-        }).then((sites) => {
-            this.sites = sites;
 
-        }).catch((error) => {
-            this.domUtils.showErrorModalDefault(error, 'core.contentlinks.errornosites', true);
+            // Get the sites that can perform the action.
+            return this.sitesProvider.getSites(this.action.sites).then((sites) => {
+                this.sites = sites;
+            });
+        }).catch(() => {
+            this.domUtils.showErrorModal('core.contentlinks.errornosites', true);
             this.leaveView();
         }).finally(() => {
             this.loaded = true;
@@ -96,14 +77,10 @@ export class CoreContentLinksChooseSitePage implements OnInit {
     /**
      * Perform the action on a certain site.
      *
-     * @param siteId Site ID.
+     * @param {string} siteId Site ID.
      */
     siteClicked(siteId: string): void {
-        if (this.isRootURL) {
-            this.loginHelper.redirect('', {}, siteId);
-        } else {
-            this.action.action(siteId, this.navCtrl);
-        }
+        this.action.action(siteId, this.navCtrl);
     }
 
     /**

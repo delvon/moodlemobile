@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,12 +67,6 @@ export class CoreLoadingComponent implements OnInit, OnChanges {
             // Default loading message.
             this.message = this.translate.instant('core.loading');
         }
-
-        // Add class if loaded on init.
-        if (this.hideUntil) {
-            this.element.classList.add('core-loading-loaded');
-            this.content.nativeElement.classList.add('core-loading-content');
-        }
     }
 
     ngOnChanges(changes: { [name: string]: SimpleChange }): void {
@@ -84,13 +78,11 @@ export class CoreLoadingComponent implements OnInit, OnChanges {
                     setTimeout(() => {
                         // Change CSS to force calculate height.
                         this.content.nativeElement.classList.add('core-loading-content');
-                        this.content.nativeElement.classList.remove('core-loading-content-loading');
                     }, 500);
                 });
             } else {
                 this.element.classList.remove('core-loading-loaded');
                 this.content.nativeElement.classList.remove('core-loading-content');
-                this.content.nativeElement.classList.add('core-loading-content-loading');
             }
 
             // Trigger the event after a timeout since the elements inside ngIf haven't been added to DOM yet.

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { IonicModule } from 'ionic-angular';
 import { TranslateModule } from '@ngx-translate/core';
 import { CoreQuestionDelegate } from '@core/question/providers/delegate';
 import { CoreDirectivesModule } from '@directives/directives.module';
-import { CoreComponentsModule } from '@components/components.module';
 import { AddonQtypeMultichoiceHandler } from './providers/handler';
 import { AddonQtypeMultichoiceComponent } from './component/multichoice';
 
@@ -28,7 +27,6 @@ import { AddonQtypeMultichoiceComponent } from './component/multichoice';
     imports: [
         IonicModule,
         TranslateModule.forChild(),
-        CoreComponentsModule,
         CoreDirectivesModule
     ],
     providers: [

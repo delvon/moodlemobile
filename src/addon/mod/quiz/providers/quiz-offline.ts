@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreQuestionProvider } from '@core/question/providers/question';
@@ -33,68 +33,64 @@ export class AddonModQuizOfflineProvider {
 
     // Variables for database.
     static ATTEMPTS_TABLE = 'addon_mod_quiz_attempts';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModQuizOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModQuizOfflineProvider.ATTEMPTS_TABLE,
-                columns: [
-                    {
-                        name: 'id', // Attempt ID.
-                        type: 'INTEGER',
-                        primaryKey: true
-                    },
-                    {
-                        name: 'attempt', // Attempt number.
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'userid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'quizid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'currentpage',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timecreated',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'finished',
-                        type: 'INTEGER'
-                    }
-                ]
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: AddonModQuizOfflineProvider.ATTEMPTS_TABLE,
+            columns: [
+                {
+                    name: 'id', // Attempt ID.
+                    type: 'INTEGER',
+                    primaryKey: true
+                },
+                {
+                    name: 'attempt', // Attempt number.
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'userid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'quizid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'currentpage',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timecreated',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'finished',
+                    type: 'INTEGER'
+                }
+            ]
+        }
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private timeUtils: CoreTimeUtilsProvider,
             private questionProvider: CoreQuestionProvider, private translate: TranslateService, private utils: CoreUtilsProvider,
             private behaviourDelegate: CoreQuestionBehaviourDelegate) {
         this.logger = logger.getInstance('AddonModQuizOfflineProvider');
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Classify the answers in questions.
      *
-     * @param answers List of answers.
-     * @return Object with the questions, the keys are the slot. Each question contains its answers.
+     * @param {any} answers List of answers.
+     * @return {any} Object with the questions, the keys are the slot. Each question contains its answers.
      */
     classifyAnswersInQuestions(answers: any): any {
         const questionsWithAnswers = {};
@@ -120,8 +116,8 @@ export class AddonModQuizOfflineProvider {
      * Given a list of questions with answers classified in it (@see AddonModQuizOfflineProvider.classifyAnswersInQuestions),
      * returns a list of answers (including prefix in the name).
      *
-     * @param questions Questions.
-     * @return Answers.
+     * @param {any} questions Questions.
+     * @return {any} Answers.
      */
     extractAnswersFromQuestions(questions: any): any {
         const answers = {};
@@ -140,8 +136,8 @@ export class AddonModQuizOfflineProvider {
     /**
      * Get all the offline attempts in a certain site.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the offline attempts.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the offline attempts.
      */
     getAllAttempts(siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -152,9 +148,9 @@ export class AddonModQuizOfflineProvider {
     /**
      * Retrieve an attempt answers from site DB.
      *
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the answers.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the answers.
      */
     getAttemptAnswers(attemptId: number, siteId?: string): Promise<any[]> {
         return this.questionProvider.getAttemptAnswers(AddonModQuizProvider.COMPONENT, attemptId, siteId);
@@ -163,9 +159,9 @@ export class AddonModQuizOfflineProvider {
     /**
      * Retrieve an attempt from site DB.
      *
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the attempt.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the attempt.
      */
     getAttemptById(attemptId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -176,10 +172,10 @@ export class AddonModQuizOfflineProvider {
     /**
      * Retrieve an attempt from site DB.
      *
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, user current site's user.
-     * @return Promise resolved with the attempts.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId]  Site ID. If not defined, current site.
+     * @param {number} [userId]  User ID. If not defined, user current site's user.
+     * @return {Promise<any[]>} Promise resolved with the attempts.
      */
     getQuizAttempts(quizId: number, siteId?: string, userId?: number): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -192,10 +188,10 @@ export class AddonModQuizOfflineProvider {
     /**
      * Load local state in the questions.
      *
-     * @param attemptId Attempt ID.
-     * @param questions List of questions.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} attemptId Attempt ID.
+     * @param {any[]} questions List of questions.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     loadQuestionsLocalStates(attemptId: number, questions: any[], siteId?: string): Promise<any[]> {
         const promises = [];
@@ -220,13 +216,13 @@ export class AddonModQuizOfflineProvider {
     /**
      * Process an attempt, saving its data.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param questions Object with the questions of the quiz. The keys should be the question slot.
-     * @param data Data to save.
-     * @param finish Whether to finish the quiz.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} questions Object with the questions of the quiz. The keys should be the question slot.
+     * @param {any} data Data to save.
+     * @param {boolean} [finish] Whether to finish the quiz.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     processAttempt(quiz: any, attempt: any, questions: any, data: any, finish?: boolean, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -265,9 +261,9 @@ export class AddonModQuizOfflineProvider {
     /**
      * Remove an attempt and its answers from local DB.
      *
-     * @param attemptId Attempt ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} attemptId Attempt ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeAttemptAndAnswers(attemptId: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -289,10 +285,10 @@ export class AddonModQuizOfflineProvider {
     /**
      * Remove a question and its answers from local DB.
      *
-     * @param attemptId Attempt ID.
-     * @param slot Question slot.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when finished.
+     * @param {number} attemptId Attempt ID.
+     * @param {number} slot Question slot.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when finished.
      */
     removeQuestionAndAnswers(attemptId: number, slot: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -308,13 +304,13 @@ export class AddonModQuizOfflineProvider {
     /**
      * Save an attempt's answers and calculate state for questions modified.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param questions Object with the questions of the quiz. The keys should be the question slot.
-     * @param answers Answers to save.
-     * @param timeMod Time modified to set in the answers. If not defined, current time.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} questions Object with the questions of the quiz. The keys should be the question slot.
+     * @param {any} answers Answers to save.
+     * @param {number} [timeMod] Time modified to set in the answers. If not defined, current time.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     saveAnswers(quiz: any, attempt: any, questions: any, answers: any, timeMod?: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -376,10 +372,10 @@ export class AddonModQuizOfflineProvider {
     /**
      * Set attempt's current page.
      *
-     * @param attemptId Attempt ID.
-     * @param page Page to set.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} attemptId Attempt ID.
+     * @param {number} page Page to set.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     setAttemptCurrentPage(attemptId: number, page: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {

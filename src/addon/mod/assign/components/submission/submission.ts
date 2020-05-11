@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,12 +29,10 @@ import { CoreCourseProvider } from '@core/course/providers/course';
 import { CoreFileUploaderHelperProvider } from '@core/fileuploader/providers/helper';
 import { CoreGradesHelperProvider } from '@core/grades/providers/helper';
 import { CoreUserProvider } from '@core/user/providers/user';
-import {
-    AddonModAssignProvider, AddonModAssignAssign, AddonModAssignSubmissionFeedback, AddonModAssignSubmission,
-    AddonModAssignSubmissionAttempt, AddonModAssignSubmissionPreviousAttempt, AddonModAssignPlugin
-} from '../../providers/assign';
+import { AddonModAssignProvider } from '../../providers/assign';
 import { AddonModAssignHelperProvider } from '../../providers/helper';
 import { AddonModAssignOfflineProvider } from '../../providers/assign-offline';
+import * as moment from 'moment';
 import { CoreTabsComponent } from '@components/tabs/tabs';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
 import { AddonModAssignSubmissionPluginComponent } from '../submission-plugin/submission-plugin';
@@ -58,11 +56,11 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
 
     loaded: boolean; // Whether data has been loaded.
     selectedTab: number; // Tab selected on start.
-    assign: AddonModAssignAssign; // The assignment the submission belongs to.
-    userSubmission: AddonModAssignSubmission; // The submission object.
+    assign: any; // The assignment the submission belongs to.
+    userSubmission: any; // The submission object.
     isSubmittedForGrading: boolean; // Whether the submission has been submitted for grading.
     submitModel: any = {}; // Model where to store the data to submit (for grading).
-    feedback: AddonModAssignSubmissionFeedbackFormatted; // The feedback.
+    feedback: any; // The feedback.
     hasOffline: boolean; // Whether there is offline data.
     submittedOffline: boolean; // Whether it was submitted in offline.
     fromDate: string; // Readable date when the assign started accepting submissions.
@@ -70,7 +68,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     maxAttemptsText: string; // The text for maximum attempts.
     blindMarking: boolean; // Whether blind marking is enabled.
     user: any; // The user.
-    lastAttempt: AddonModAssignSubmissionAttemptFormatted; // The last attempt.
+    lastAttempt: any; // The last attempt.
     membersToSubmit: any[]; // Team members that need to submit the assignment.
     canSubmit: boolean; // Whether the user can submit for grading.
     canEdit: boolean; // Whether the user can edit the submission.
@@ -80,7 +78,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     gradingStatusTranslationId: string; // Key of the text to display for the grading status.
     gradingColor: string; // Color to apply to the grading status.
     workflowStatusTranslationId: string; // Key of the text to display for the workflow status.
-    submissionPlugins: AddonModAssignPlugin[]; // List of submission plugins.
+    submissionPlugins: string[]; // List of submission plugins names.
     timeRemaining: string; // Message about time remaining.
     timeRemainingClass: string; // Class to apply to time remaining message.
     statusTranslated: string; // Status.
@@ -102,8 +100,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
 
     protected siteId: string; // Current site ID.
     protected currentUserId: number; // Current user ID.
-    protected previousAttempt: AddonModAssignSubmissionPreviousAttempt; // The previous attempt.
-    protected isPreviousAttemptEmpty: boolean; // Whether the previous attempt contains an empty submission.
+    protected previousAttempt: any; // The previous attempt.
     protected submissionStatusAvailable: boolean; // Whether we were able to retrieve the submission status.
     protected originalGrades: any = {}; // Object with the original grade data, to check for changes.
     protected isDestroyed: boolean; // Whether the component has been destroyed.
@@ -135,7 +132,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Calculate the time remaining message and class.
      *
-     * @param response Response of get submission status.
+     * @param {any} response Response of get submission status.
      */
     protected calculateTimeRemaining(response: any): void {
         if (this.assign.duedate > 0) {
@@ -182,7 +179,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Check if the user can leave the view. If there are changes to be saved, it will ask for confirm.
      *
-     * @return Promise resolved if can leave the view, rejected otherwise.
+     * @return {Promise<void>} Promise resolved if can leave the view, rejected otherwise.
      */
     canLeave(): Promise<void> {
         // Check if there is data to save.
@@ -213,7 +210,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             return this.goToEdit();
         }
 
-        const previousSubmission = this.previousAttempt.submission;
+        const previousSubmission = this.assignProvider.getSubmissionObjectFromAttempt(this.assign, this.previousAttempt);
         let modal = this.domUtils.showModalLoading();
 
         this.assignHelper.getSubmissionSizeForCopy(this.assign, previousSubmission).catch(() => {
@@ -256,7 +253,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Discard feedback drafts.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected discardDrafts(): Promise<any> {
         if (this.feedback && this.feedback.plugins) {
@@ -281,7 +278,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Check if there's data to save (grade).
      *
-     * @return Promise resolved with boolean: whether there's data to save.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether there's data to save.
      */
     protected hasDataToSave(): Promise<boolean> {
         if (!this.canSaveGrades || !this.loaded) {
@@ -307,8 +304,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         }
 
         if (this.feedback && this.feedback.plugins) {
-            return this.assignHelper.hasFeedbackDataChanged(this.assign, this.userSubmission, this.feedback, this.submitId)
-                    .catch(() => {
+            return this.assignHelper.hasFeedbackDataChanged(this.assign, this.submitId, this.feedback).catch(() => {
                 // Error ocurred, consider there are no changes.
                 return false;
             });
@@ -334,7 +330,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Invalidate and refresh data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidateAndRefresh(): Promise<any> {
         this.loaded = false;
@@ -343,8 +339,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
 
         promises.push(this.assignProvider.invalidateAssignmentData(this.courseId));
         if (this.assign) {
-            promises.push(this.assignProvider.invalidateSubmissionStatusData(this.assign.id, this.submitId, undefined,
-                !!this.blindId));
+            promises.push(this.assignProvider.invalidateSubmissionStatusData(this.assign.id, this.submitId, !!this.blindId));
             promises.push(this.assignProvider.invalidateAssignmentUserMappingsData(this.assign.id));
             promises.push(this.assignProvider.invalidateListParticipantsData(this.assign.id));
         }
@@ -368,13 +363,12 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Load the data to render the submission.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected loadData(): Promise<any> {
         let isBlind = !!this.blindId;
 
         this.previousAttempt = undefined;
-        this.isPreviousAttemptEmpty = true;
 
         if (!this.submitId) {
             this.submitId = this.currentUserId;
@@ -389,7 +383,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             this.assign = assign;
 
             if (assign.allowsubmissionsfromdate && assign.allowsubmissionsfromdate >= time) {
-                this.fromDate = this.timeUtils.userDate(assign.allowsubmissionsfromdate * 1000);
+                this.fromDate = moment(assign.allowsubmissionsfromdate * 1000).format(this.translate.instant('core.dfmediumdate'));
             }
 
             this.currentAttempt = 0;
@@ -415,7 +409,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             return Promise.all(promises);
         }).then(() => {
             // Get submission status.
-            return this.assignProvider.getSubmissionStatusWithRetry(this.assign, this.submitId, undefined, isBlind);
+            return this.assignProvider.getSubmissionStatus(this.assign.id, this.submitId, isBlind);
         }).then((response) => {
 
             const promises = [];
@@ -430,7 +424,6 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                     return a.attemptnumber - b.attemptnumber;
                 });
                 this.previousAttempt = previousAttempts[previousAttempts.length - 1];
-                this.isPreviousAttemptEmpty = this.assignHelper.isSubmissionEmpty(this.assign, this.previousAttempt.submission);
             }
 
             // Treat last attempt.
@@ -445,7 +438,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             // Check if there's any unsupported plugin for editing.
             if (!this.userSubmission || !this.userSubmission.plugins) {
                 // Submission not created yet, we have to use assign configs to detect the plugins used.
-                this.userSubmission = this.assignHelper.createEmptySubmission();
+                this.userSubmission = {};
                 this.userSubmission.plugins = this.assignHelper.getPluginsEnabled(this.assign, 'assignsubmission');
             }
 
@@ -465,21 +458,19 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Load the data to render the feedback and grade.
      *
-     * @param feedback The feedback data from the submission status.
-     * @return Promise resolved when done.
+     * @param {any} feedback The feedback data from the submission status.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    protected loadFeedback(feedback: AddonModAssignSubmissionFeedback): Promise<any> {
+    protected loadFeedback(feedback: any): Promise<any> {
         this.grade = {
             method: false,
             grade: false,
-            gradebookGrade: false,
             modified: 0,
             gradingStatus: false,
             addAttempt : false,
             applyToAll: false,
             scale: false,
-            lang: false,
-            disabled: false
+            lang: false
         };
 
         this.originalGrades =  {
@@ -493,14 +484,12 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             this.feedback = feedback;
 
             // If we have data about the grader, get its profile.
-            if (feedback.grade && feedback.grade.grader > 0) {
+            if (feedback.grade && feedback.grade.grader) {
                 this.userProvider.getProfile(feedback.grade.grader, this.courseId).then((profile) => {
                     this.grader = profile;
                 }).catch(() => {
                     // Ignore errors.
                 });
-            } else {
-                delete this.grader;
             }
 
             // Check if the grade uses advanced grading.
@@ -514,9 +503,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             // Do not override already loaded grade.
             if (feedback.grade && feedback.grade.grade && !this.grade.grade) {
                 const parsedGrade = parseFloat(feedback.grade.grade);
-                this.grade.grade = parsedGrade >= 0 ? parsedGrade : null;
-                this.grade.gradebookGrade = this.utils.formatFloat(this.grade.grade);
-                this.originalGrades.grade = this.grade.grade;
+                this.grade.grade = parsedGrade || parsedGrade == 0 ? parsedGrade : null;
             }
         } else {
             // If no feedback, always show Submission.
@@ -564,21 +551,9 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                     this.assignProvider.getSubmissionGradingStatusTranslationId(this.grade.gradingStatus);
             }
 
-            if (this.isGrading && this.lastAttempt.gradingstatus == 'graded' && !this.assign.markingworkflow) {
-                if (this.feedback.gradeddate < this.lastAttempt.submission.timemodified) {
-                    this.lastAttempt.gradingstatus = AddonModAssignProvider.GRADED_FOLLOWUP_SUBMIT;
-
-                    // Get grading text and color.
-                    this.gradingStatusTranslationId = this.assignProvider.getSubmissionGradingStatusTranslationId(
-                            this.lastAttempt.gradingstatus);
-                    this.gradingColor = this.assignProvider.getSubmissionGradingStatusColor(this.lastAttempt.gradingstatus);
-
-                }
-            }
-
             if (!this.feedback || !this.feedback.plugins) {
                 // Feedback plugins not present, we have to use assign configs to detect the plugins used.
-                this.feedback = this.assignHelper.createEmptyFeedback();
+                this.feedback = {};
                 this.feedback.plugins = this.assignHelper.getPluginsEnabled(this.assign, 'assignfeedback');
             }
 
@@ -594,7 +569,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                     if (data && (!feedback || !feedback.gradeddate || feedback.gradeddate < data.timemodified)) {
                         // If grade has been modified from gradebook, do not use offline.
                         if (this.grade.modified < data.timemodified) {
-                            this.grade.grade = !this.grade.scale ? this.utils.formatFloat(data.grade) : data.grade;
+                            this.grade.grade = data.grade;
                             this.gradingStatusTranslationId = 'addon.mod_assign.gradenotsynced';
                             this.gradingColor = '';
                             this.originalGrades.grade = this.grade.grade;
@@ -628,9 +603,20 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Open a user profile.
+     *
+     * @param {number} userId User to open.
+     */
+    openUserProfile(userId: number): void {
+        // Open a user profile. If this component is inside a split view, use the master nav to open it.
+        const navCtrl = this.splitviewCtrl ? this.splitviewCtrl.getMasterNav() : this.navCtrl;
+        navCtrl.push('CoreUserProfilePage', { userId: userId, courseId: this.courseId });
+    }
+
+    /**
      * Set the submission status name and class.
      *
-     * @param status Submission status.
+     * @param {any} status Submission status.
      */
     protected setStatusNameAndClass(status: any): void {
         if (this.hasOffline || this.submittedOffline) {
@@ -686,7 +672,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Submit for grading.
      *
-     * @param acceptStatement Whether the statement has been accepted.
+     * @param {boolean} acceptStatement Whether the statement has been accepted.
      */
     submitForGrading(acceptStatement: boolean): void {
         if (this.assign.requiresubmissionstatement && !acceptStatement) {
@@ -719,7 +705,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Submit a grade and feedback.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     submitGrade(): Promise<any> {
         // Check if there's something to be saved.
@@ -731,7 +717,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
             const attemptNumber = this.userSubmission ? this.userSubmission.attemptnumber : -1,
                 outcomes = {},
                 // Scale "no grade" uses -1 instead of 0.
-                grade = this.grade.scale && this.grade.grade == 0 ? -1 : this.utils.unformatFloat(this.grade.grade, true);
+                grade = this.grade.scale && this.grade.grade == 0 ? -1 : this.utils.unformatFloat(this.grade.grade);
 
             if (grade === false) {
                 // Grade is invalid.
@@ -770,6 +756,8 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                         userId: this.currentUserId
                     }, this.siteId);
                 });
+            }).catch((error) => {
+                this.domUtils.showErrorModalDefault(error, 'core.error', true);
             }).finally(() => {
                 // Select submission view.
                 this.tabs.selectTab(0);
@@ -781,7 +769,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Treat the grade info.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected treatGradeInfo(): Promise<any> {
         // Check if grading method is simple or not.
@@ -798,10 +786,6 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         if (this.gradeInfo.scale) {
             this.grade.scale = this.utils.makeMenuFromList(this.gradeInfo.scale, this.translate.instant('core.nograde'));
         } else {
-            // Format the grade.
-            this.grade.grade = this.utils.formatFloat(this.grade.grade);
-            this.originalGrades.grade = this.grade.grade;
-
             // Get current language to format grade input field.
             this.langProvider.getCurrentLanguage().then((lang) => {
                 this.grade.lang = lang;
@@ -829,15 +813,14 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
 
                     // Not using outcomes or scale, get the numeric grade.
                     if (this.grade.scale) {
-                        this.grade.gradebookGrade = this.utils.formatFloat(this.gradesHelper.getGradeValueFromLabel(
-                                this.grade.scale, grade.gradeformatted));
+                        this.grade.grade = this.gradesHelper.getGradeValueFromLabel(this.grade.scale, grade.gradeformatted);
                     } else {
                         const parsedGrade = parseFloat(grade.gradeformatted);
-                        this.grade.gradebookGrade = parsedGrade || parsedGrade == 0 ? this.utils.formatFloat(parsedGrade) : null;
+                        this.grade.grade = parsedGrade || parsedGrade == 0 ? parsedGrade : null;
                     }
 
-                    this.grade.disabled = grade.gradeislocked || grade.gradeisoverridden;
                     this.grade.modified = grade.gradedategraded;
+                    this.originalGrades.grade = this.grade.grade;
                 } else if (grade.outcomeid) {
 
                     // Only show outcomes with info on it, outcomeid could be null if outcomes are disabled on site.
@@ -853,7 +836,6 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                             outcomes.push(outcome);
                         }
                     });
-                    this.gradeInfo.disabled = grade.gradeislocked || grade.gradeisoverridden;
                 }
             });
 
@@ -864,8 +846,8 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     /**
      * Treat the last attempt.
      *
-     * @param response Response of get submission status.
-     * @param promises List where to add the promises.
+     * @param {any} response Response of get submission status.
+     * @param {any[]} promises List where to add the promises.
      */
     protected treatLastAttempt(response: any, promises: any[]): void {
         if (!response.lastattempt) {
@@ -892,7 +874,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         // Show error if submission statement should be shown but it couldn't be retrieved.
         this.showErrorStatementEdit = submissionStatementMissing && !this.assign.submissiondrafts &&
                 this.submitId == this.currentUserId;
-        this.showErrorStatementSubmit = submissionStatementMissing && !!this.assign.submissiondrafts;
+        this.showErrorStatementSubmit = submissionStatementMissing && this.assign.submissiondrafts;
 
         this.userSubmission = this.assignProvider.getSubmissionObjectFromAttempt(this.assign, response.lastattempt);
 
@@ -905,8 +887,8 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         if (this.assign.teamsubmission) {
             if (response.lastattempt.submissiongroup) {
                 // Get the name of the group.
-                promises.push(this.groupsProvider.getActivityAllowedGroups(this.assign.cmid).then((result) => {
-                    result.groups.forEach((group) => {
+                promises.push(this.groupsProvider.getActivityAllowedGroups(this.assign.cmid).then((groups) => {
+                    groups.forEach((group) => {
                         if (group.id == response.lastattempt.submissiongroup) {
                             this.lastAttempt.submissiongroupname = group.name;
                         }
@@ -961,17 +943,3 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         }
     }
 }
-
-/**
- * Submission attempt with some calculated data.
- */
-type AddonModAssignSubmissionAttemptFormatted = AddonModAssignSubmissionAttempt & {
-    submissiongroupname?: string; // Calculated in the app. Group name the attempt belongs to.
-};
-
-/**
- * Feedback of an assign submission with some calculated data.
- */
-type AddonModAssignSubmissionFeedbackFormatted = AddonModAssignSubmissionFeedback & {
-    advancedgrade?: boolean; // Calculated in the app. Whether it uses advanced grading.
-};

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import { AddonModResourceProvider } from './resource';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreFilepoolProvider } from '@providers/filepool';
 import { CoreFileProvider } from '@providers/file';
-import { CoreFileHelperProvider } from '@providers/file-helper';
 import { CoreAppProvider } from '@providers/app';
 import { CoreMimetypeUtilsProvider } from '@providers/utils/mimetype';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
@@ -37,38 +36,48 @@ export class AddonModResourceHelperProvider {
     // Display using object tag.
     protected DISPLAY_EMBED = 1;
 
-    constructor(protected courseProvider: CoreCourseProvider,
-            protected domUtils: CoreDomUtilsProvider,
-            protected resourceProvider: AddonModResourceProvider,
-            protected courseHelper: CoreCourseHelperProvider,
-            protected textUtils: CoreTextUtilsProvider,
-            protected mimetypeUtils: CoreMimetypeUtilsProvider,
-            protected fileProvider: CoreFileProvider,
-            protected appProvider: CoreAppProvider,
-            protected filepoolProvider: CoreFilepoolProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected fileHelper: CoreFileHelperProvider) {
+    constructor(private courseProvider: CoreCourseProvider, private domUtils: CoreDomUtilsProvider,
+            private resourceProvider: AddonModResourceProvider, private courseHelper: CoreCourseHelperProvider,
+            private textUtils: CoreTextUtilsProvider, private mimetypeUtils: CoreMimetypeUtilsProvider,
+            private fileProvider: CoreFileProvider, private appProvider: CoreAppProvider,
+            private filepoolProvider: CoreFilepoolProvider, private sitesProvider: CoreSitesProvider) {
     }
 
     /**
      * Get the HTML to display an embedded resource.
      *
-     * @param module The module object.
-     * @param courseId The course ID.
-     * @return Promise resolved with the HTML.
+     * @param {any} module The module object.
+     * @param {number} courseId The course ID.
+     * @return {Promise<any>} Promise resolved with the HTML.
      */
     getEmbeddedHtml(module: any, courseId: number): Promise<any> {
         return this.courseHelper.downloadModuleWithMainFileIfNeeded(module, courseId, AddonModResourceProvider.COMPONENT,
                 module.id, module.contents).then((result) => {
-            return this.mimetypeUtils.getEmbeddedHtml(module.contents[0], result.path);
+            const file = module.contents[0],
+                ext = this.mimetypeUtils.getFileExtension(file.filename),
+                type = this.mimetypeUtils.getExtensionType(ext),
+                mimeType = this.mimetypeUtils.getMimeType(ext);
+
+            if (type == 'image') {
+                return '<img src="' + result.path + '"></img>';
+            }
+
+            if (type == 'audio' || type == 'video') {
+                return '<' + type + ' controls title="' + file.filename + '"" src="' + result.path + '">' +
+                    '<source src="' + result.path + '" type="' + mimeType + '">' +
+                    '</' + type + '>';
+            }
+
+            // Shouldn't reach here, the user should have called CoreMimetypeUtilsProvider#canBeEmbedded.
+            return '';
         });
     }
 
     /**
      * Download all the files needed and returns the src of the iframe.
      *
-     * @param module The module object.
-     * @return Promise resolved with the iframe src.
+     * @param {any} module The module object.
+     * @return {Promise<string>} Promise resolved with the iframe src.
      */
     getIframeSrc(module: any): Promise<string> {
         if (!module.contents.length) {
@@ -89,7 +98,7 @@ export class AddonModResourceHelperProvider {
             // Error getting directory, there was an error downloading or we're in browser. Return online URL.
             if (this.appProvider.isOnline() && mainFile.fileurl) {
                 // This URL is going to be injected in an iframe, we need this to make it work.
-                return this.sitesProvider.getCurrentSite().checkAndFixPluginfileURL(mainFile.fileurl);
+                return Promise.resolve(this.sitesProvider.getCurrentSite().fixPluginfileURL(mainFile.fileurl));
             }
 
             return Promise.reject(null);
@@ -99,23 +108,16 @@ export class AddonModResourceHelperProvider {
     /**
      * Whether the resource has to be displayed embedded.
      *
-     * @param module The module object.
-     * @param display The display mode (if available).
-     * @return Whether the resource should be displayed embeded.
+     * @param {any} module    The module object.
+     * @param {number} [display] The display mode (if available).
+     * @return {boolean}         Whether the resource should be displayed embeded.
      */
     isDisplayedEmbedded(module: any, display: number): boolean {
-        if ((!module.contents.length && !module.contentsinfo) || !this.fileProvider.isAvailable() ||
-                (!this.sitesProvider.getCurrentSite().isVersionGreaterEqualThan('3.7') && this.isNextcloudFile(module))) {
+        if (!module.contents.length || !this.fileProvider.isAvailable()) {
             return false;
         }
 
-        let ext;
-
-        if (module.contentsinfo) {
-            ext = this.mimetypeUtils.getExtension(module.contentsinfo.mimetypes[0]);
-        } else {
-            ext = this.mimetypeUtils.getFileExtension(module.contents[0].filename);
-        }
+        const ext = this.mimetypeUtils.getFileExtension(module.contents[0].filename);
 
         return (display == this.DISPLAY_EMBED || display == this.DISPLAY_AUTO) && this.mimetypeUtils.canBeEmbedded(ext);
     }
@@ -123,63 +125,26 @@ export class AddonModResourceHelperProvider {
     /**
      * Whether the resource has to be displayed in an iframe.
      *
-     * @param module The module object.
-     * @return Whether the resource should be displayed in an iframe.
+     * @param {any} module The module object.
+     * @return {boolean}   Whether the resource should be displayed in an iframe.
      */
     isDisplayedInIframe(module: any): boolean {
-        if ((!module.contents.length && !module.contentsinfo) || !this.fileProvider.isAvailable()) {
+        if (!module.contents.length || !this.fileProvider.isAvailable()) {
             return false;
         }
 
-        let mimetype;
-
-        if (module.contentsinfo) {
-            mimetype = module.contentsinfo.mimetypes[0];
-        } else {
-            const ext = this.mimetypeUtils.getFileExtension(module.contents[0].filename);
+        const ext = this.mimetypeUtils.getFileExtension(module.contents[0].filename),
             mimetype = this.mimetypeUtils.getMimeType(ext);
-        }
 
         return mimetype == 'text/html';
     }
 
     /**
-     * Check if main file of resource is downloadable.
-     *
-     * @param module Module instance.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean: whether main file is downloadable.
-     */
-    isMainFileDownloadable(module: any, siteId?: string): Promise<boolean> {
-        siteId = siteId || this.sitesProvider.getCurrentSiteId();
-
-        const mainFile = module.contents[0];
-        const fileUrl = this.fileHelper.getFileUrl(mainFile);
-        const timemodified = this.fileHelper.getFileTimemodified(mainFile);
-
-        return this.filepoolProvider.isFileDownloadable(siteId, fileUrl, timemodified);
-    }
-
-    /**
-     * Check if the resource is a Nextcloud file.
-     *
-     * @param module Module to check.
-     * @return Whether it's a Nextcloud file.
-     */
-    isNextcloudFile(module: any): boolean {
-        if (module.contentsinfo) {
-            return module.contentsinfo.repositorytype == 'nextcloud';
-        }
-
-        return module.contents && module.contents[0] && module.contents[0].repositorytype == 'nextcloud';
-    }
-
-    /**
      * Opens a file of the resource activity.
      *
-     * @param module Module where to get the contents.
-     * @param courseId Course Id, used for completion purposes.
-     * @return Resolved when done.
+     * @param  {any} module        Module where to get the contents.
+     * @param  {number} courseId   Course Id, used for completion purposes.
+     * @return {Promise<any>}      Resolved when done.
      */
     openModuleFile(module: any, courseId: number): Promise<any> {
         const modal = this.domUtils.showModalLoading();
@@ -187,10 +152,8 @@ export class AddonModResourceHelperProvider {
         // Download and open the file from the resource contents.
         return this.courseHelper.downloadModuleAndOpenFile(module, courseId, AddonModResourceProvider.COMPONENT, module.id,
                 module.contents).then(() => {
-            this.resourceProvider.logView(module.instance, module.name).then(() => {
-                this.courseProvider.checkModuleCompletion(courseId, module.completiondata);
-            }).catch(() => {
-                // Ignore errors.
+            this.resourceProvider.logView(module.instance).then(() => {
+                this.courseProvider.checkModuleCompletion(courseId, module.completionstatus);
             });
         }).catch((error) => {
             this.domUtils.showErrorModalDefault(error, 'addon.mod_resource.errorwhileloadingthecontent', true);

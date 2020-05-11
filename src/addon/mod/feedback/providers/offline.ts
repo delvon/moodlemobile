@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import { Injectable } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 
@@ -28,52 +28,48 @@ export class AddonModFeedbackOfflineProvider {
 
     // Variables for database.
     static FEEDBACK_TABLE = 'addon_mod_feedback_answers';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModFeedbackOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModFeedbackOfflineProvider.FEEDBACK_TABLE,
-                columns: [
-                    {
-                        name: 'feedbackid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'page',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'responses',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    }
-                ],
-                primaryKeys: ['feedbackid', 'page']
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: AddonModFeedbackOfflineProvider.FEEDBACK_TABLE,
+            columns: [
+                {
+                    name: 'feedbackid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'page',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'responses',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                }
+            ],
+            primaryKeys: ['feedbackid', 'page']
+        }
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider,
         private textUtils: CoreTextUtilsProvider, private timeUtils: CoreTimeUtilsProvider) {
         this.logger = logger.getInstance('AddonModFeedbackOfflineProvider');
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Delete the stored for a certain feedback page.
      *
-     * @param feedbackId Feedback ID.
-     * @param page Page of the form to delete responses from.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if deleted, rejected if failure.
+     * @param  {number} feedbackId Feedback ID.
+     * @param  {number} page       Page of the form to delete responses from.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved if deleted, rejected if failure.
      */
     deleteFeedbackPageResponses(feedbackId: number, page: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -84,8 +80,8 @@ export class AddonModFeedbackOfflineProvider {
     /**
      * Get all the stored feedback responses data from all the feedback.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with entries.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved with entries.
      */
     getAllFeedbackResponses(siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -102,9 +98,9 @@ export class AddonModFeedbackOfflineProvider {
     /**
      * Get all the stored responses from a certain feedback.
      *
-     * @param feedbackId Feedback ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with responses.
+     * @param  {number} feedbackId Feedback ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved with responses.
      */
     getFeedbackResponses(feedbackId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -121,10 +117,10 @@ export class AddonModFeedbackOfflineProvider {
     /**
      * Get the stored responses for a certain feedback page.
      *
-     * @param feedbackId Feedback ID.
-     * @param page Page of the form to get responses from.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with responses.
+     * @param  {number} feedbackId Feedback ID.
+     * @param  {number} page       Page of the form to get responses from.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved with responses.
      */
     getFeedbackPageResponses(feedbackId: number, page: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -139,9 +135,9 @@ export class AddonModFeedbackOfflineProvider {
     /**
      * Get if the feedback have something to be synced.
      *
-     * @param feedbackId Feedback ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with true if the feedback have something to be synced.
+     * @param  {number} feedbackId Feedback ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved with true if the feedback have something to be synced.
      */
     hasFeedbackOfflineData(feedbackId: number, siteId?: string): Promise<any> {
         return this.getFeedbackResponses(feedbackId, siteId).then((responses) => {
@@ -152,12 +148,12 @@ export class AddonModFeedbackOfflineProvider {
     /**
      * Save page responses to be sent later.
      *
-     * @param feedbackId Feedback ID.
-     * @param page The page being processed.
-     * @param responses The data to be processed the key is the field name (usually type[index]_id)
-     * @param courseId Course ID the feedback belongs to.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if stored, rejected if failure.
+     * @param  {number} feedbackId   Feedback ID.
+     * @param  {number} page         The page being processed.
+     * @param  {any} responses    The data to be processed the key is the field name (usually type[index]_id)
+     * @param  {number} courseId     Course ID the feedback belongs to.
+     * @param  {string} [siteId]     Site ID. If not defined, current site.
+     * @return {Promise<any>}             Promise resolved if stored, rejected if failure.
      */
     saveResponses(feedbackId: number, page: number, responses: any, courseId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {

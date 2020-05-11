@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ import { AddonModChoiceComponentsModule } from './components/components.module';
 import { AddonModChoiceModuleHandler } from './providers/module-handler';
 import { AddonModChoiceProvider } from './providers/choice';
 import { AddonModChoiceLinkHandler } from './providers/link-handler';
-import { AddonModChoiceListLinkHandler } from './providers/list-link-handler';
 import { AddonModChoicePrefetchHandler } from './providers/prefetch-handler';
 import { AddonModChoiceSyncProvider } from './providers/sync';
 import { AddonModChoiceSyncCronHandler } from './providers/sync-cron-handler';
 import { AddonModChoiceOfflineProvider } from './providers/offline';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // List of providers (without handlers).
 export const ADDON_MOD_CHOICE_PROVIDERS: any[] = [
@@ -47,7 +47,6 @@ export const ADDON_MOD_CHOICE_PROVIDERS: any[] = [
         AddonModChoiceModuleHandler,
         AddonModChoicePrefetchHandler,
         AddonModChoiceLinkHandler,
-        AddonModChoiceListLinkHandler,
         AddonModChoiceSyncCronHandler
     ]
 })
@@ -55,13 +54,26 @@ export class AddonModChoiceModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModChoiceModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModChoicePrefetchHandler,
             contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModChoiceLinkHandler,
-            cronDelegate: CoreCronDelegate, syncHandler: AddonModChoiceSyncCronHandler,
-            listLinkHandler: AddonModChoiceListLinkHandler) {
-
+            cronDelegate: CoreCronDelegate, syncHandler: AddonModChoiceSyncCronHandler, updateManager: CoreUpdateManagerProvider) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
         cronDelegate.register(syncHandler);
+
+        // Allow migrating the tables from the old app to the new schema.
+        updateManager.registerSiteTableMigration({
+            name: 'mma_mod_choice_offline_responses',
+            newName: AddonModChoiceOfflineProvider.CHOICE_TABLE,
+            fields: [
+                {
+                    name: 'responses',
+                    type: 'object'
+                },
+                {
+                    name: 'deleting',
+                    type: 'boolean'
+                }
+            ]
+        });
     }
 }

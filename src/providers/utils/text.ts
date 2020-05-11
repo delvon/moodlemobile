@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +13,9 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { ModalController, Platform } from 'ionic-angular';
+import { ModalController } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreLangProvider } from '../lang';
-
-/**
- * Different type of errors the app can treat.
- */
-export type CoreTextErrorObject = {
-    message?: string;
-    error?: string;
-    content?: string;
-    body?: string;
-};
 
 /*
  * "Utils" service with helper functions for text.
@@ -77,48 +66,17 @@ export class CoreTextUtilsProvider {
         {old: /_mmaModUrl/g, new: '_AddonModUrl'},
         {old: /_mmaModWiki/g, new: '_AddonModWiki'},
         {old: /_mmaModWorkshop/g, new: '_AddonModWorkshop'},
-        {old: /remoteAddOn_/g, new: 'sitePlugin_'},
     ];
 
     protected template = document.createElement('template'); // A template element to convert HTML to element.
 
-    constructor(private translate: TranslateService, private langProvider: CoreLangProvider, private modalCtrl: ModalController,
-            private sanitizer: DomSanitizer, private platform: Platform) { }
-
-    /**
-     * Add ending slash from a path or URL.
-     *
-     * @param text Text to treat.
-     * @return Treated text.
-     */
-    addEndingSlash(text: string): string {
-        if (!text) {
-            return '';
-        }
-
-        if (text.slice(-1) != '/') {
-            return text + '/';
-        }
-
-        return text;
-    }
-
-    /**
-     * Given an address as a string, return a URL to open the address in maps.
-     *
-     * @param address The address.
-     * @return URL to view the address.
-     */
-    buildAddressURL(address: string): SafeUrl {
-        return this.sanitizer.bypassSecurityTrustUrl((this.platform.is('android') ? 'geo:0,0?q=' : 'http://maps.google.com?q=') +
-                encodeURIComponent(address));
-    }
+    constructor(private translate: TranslateService, private langProvider: CoreLangProvider, private modalCtrl: ModalController) { }
 
     /**
      * Given a list of sentences, build a message with all of them wrapped in <p>.
      *
-     * @param messages Messages to show.
-     * @return Message with all the messages.
+     * @param {string[]} messages Messages to show.
+     * @return {string} Message with all the messages.
      */
     buildMessage(messages: string[]): string {
         let result = '';
@@ -133,47 +91,15 @@ export class CoreTextUtilsProvider {
     }
 
     /**
-     * Build a message with several paragraphs.
-     *
-     * @param paragraphs List of paragraphs.
-     * @return Built message.
-     */
-    buildSeveralParagraphsMessage(paragraphs: (string | CoreTextErrorObject)[]): string {
-        // Filter invalid messages, and convert them to messages in case they're errors.
-        const messages: string[] = [];
-
-        paragraphs.forEach((paragraph) => {
-            // If it's an error, get its message.
-            const message = this.getErrorMessageFromError(paragraph);
-
-            if (paragraph) {
-                messages.push(message);
-            }
-        });
-
-        if (messages.length < 2) {
-            return messages[0] || '';
-        }
-
-        let builtMessage = messages[0];
-
-        for (let i = 1; i < messages.length; i++) {
-            builtMessage = this.translate.instant('core.twoparagraphs', { p1: builtMessage, p2: messages[i] });
-        }
-
-        return builtMessage;
-    }
-
-    /**
      * Convert size in bytes into human readable format
      *
-     * @param bytes Number of bytes to convert.
-     * @param precision Number of digits after the decimal separator.
-     * @return Size in human readable format.
+     * @param {number} bytes Number of bytes to convert.
+     * @param {number} [precision=2] Number of digits after the decimal separator.
+     * @return {string} Size in human readable format.
      */
     bytesToSize(bytes: number, precision: number = 2): string {
 
-        if (typeof bytes == 'undefined' || bytes === null || bytes < 0) {
+        if (typeof bytes == 'undefined' || bytes < 0) {
             return this.translate.instant('core.notapplicable');
         }
 
@@ -200,9 +126,9 @@ export class CoreTextUtilsProvider {
     /**
      * Clean HTML tags.
      *
-     * @param text The text to be cleaned.
-     * @param singleLine True if new lines should be removed (all the text in a single line).
-     * @return Clean text.
+     * @param {string} text The text to be cleaned.
+     * @param {boolean} [singleLine] True if new lines should be removed (all the text in a single line).
+     * @return {string} Clean text.
      */
     cleanTags(text: string, singleLine?: boolean): string {
         if (typeof text != 'string') {
@@ -227,9 +153,9 @@ export class CoreTextUtilsProvider {
     /**
      * Concatenate two paths, adding a slash between them if needed.
      *
-     * @param leftPath Left path.
-     * @param rightPath Right path.
-     * @return Concatenated path.
+     * @param {string} leftPath Left path.
+     * @param {string} rightPath Right path.
+     * @return {string} Concatenated path.
      */
     concatenatePaths(leftPath: string, rightPath: string): string {
         if (!leftPath) {
@@ -254,8 +180,8 @@ export class CoreTextUtilsProvider {
      * Convert some HTML as text into an HTMLElement. This HTML is put inside a div or a body.
      * This function is the same as in DomUtils, but we cannot use that one because of circular dependencies.
      *
-     * @param html Text to convert.
-     * @return Element.
+     * @param {string} html Text to convert.
+     * @return {HTMLElement} Element.
      */
     protected convertToElement(html: string): HTMLElement {
         // Add a div to hold the content, that's the element that will be returned.
@@ -267,27 +193,17 @@ export class CoreTextUtilsProvider {
     /**
      * Count words in a text.
      *
-     * @param text Text to count.
-     * @return Number of words.
+     * @param {string} text Text to count.
+     * @return {number} Number of words.
      */
     countWords(text: string): number {
         if (!text || typeof text != 'string') {
             return 0;
         }
-        const blockTags = ['address', 'article', 'aside', 'blockquote', 'br', ' details', 'dialog', 'dd', 'div', 'dl', 'dt',
-            'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr',
-            'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul'];
 
         // Clean HTML scripts and tags.
         text = text.replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '');
-        // Replace block tags by space to get word count aware of line break and remove inline tags.
-        text = text.replace(/<(\/[ ]*)?([a-zA-Z0-9]+)[^>]*>/gi, (str, p1, match) => {
-            if (blockTags.indexOf(match) >= 0) {
-                return ' ';
-            }
-
-            return '';
-        });
+        text = text.replace(/<\/?(?!\!)[^>]*>/gi, '');
         // Decode HTML entities.
         text = this.decodeHTMLEntities(text);
         // Replace underscores (which are classed as word characters) with spaces.
@@ -300,8 +216,8 @@ export class CoreTextUtilsProvider {
     /**
      * Decode an escaped HTML text. This implementation is based on PHP's htmlspecialchars_decode.
      *
-     * @param text Text to decode.
-     * @return Decoded text.
+     * @param {string|number} text Text to decode.
+     * @return {string} Decoded text.
      */
     decodeHTML(text: string | number): string {
         if (typeof text == 'undefined' || text === null || (typeof text == 'number' && isNaN(text))) {
@@ -315,15 +231,15 @@ export class CoreTextUtilsProvider {
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
             .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, '\'')
+            .replace(/&#039;/g, '')
             .replace(/&nbsp;/g, ' ');
     }
 
     /**
      * Decode HTML entities in a text. Equivalent to PHP html_entity_decode.
      *
-     * @param text Text to decode.
-     * @return Decoded text.
+     * @param {string} text Text to decode.
+     * @return {string} Decoded text.
      */
     decodeHTMLEntities(text: string): string {
         if (text) {
@@ -337,8 +253,8 @@ export class CoreTextUtilsProvider {
     /**
      * Same as Javascript's decodeURI, but if an exception is thrown it will return the original URI.
      *
-     * @param uri URI to decode.
-     * @return Decoded URI, or original URI if an exception is thrown.
+     * @param {string} uri URI to decode.
+     * @return {string} Decoded URI, or original URI if an exception is thrown.
      */
     decodeURI(uri: string): string {
         try {
@@ -353,8 +269,8 @@ export class CoreTextUtilsProvider {
     /**
      * Same as Javascript's decodeURIComponent, but if an exception is thrown it will return the original URI.
      *
-     * @param uri URI to decode.
-     * @return Decoded URI, or original URI if an exception is thrown.
+     * @param {string} uri URI to decode.
+     * @return {string} Decoded URI, or original URI if an exception is thrown.
      */
     decodeURIComponent(uri: string): string {
         try {
@@ -369,8 +285,8 @@ export class CoreTextUtilsProvider {
     /**
      * Escapes some characters in a string to be used as a regular expression.
      *
-     * @param text Text to escape.
-     * @return Escaped text.
+     * @param {string} text Text to escape.
+     * @return {string} Escaped text.
      */
     escapeForRegex(text: string): string {
         if (!text || typeof text != 'string') {
@@ -383,8 +299,8 @@ export class CoreTextUtilsProvider {
     /**
      * Escape an HTML text. This implementation is based on PHP's htmlspecialchars.
      *
-     * @param text Text to escape.
-     * @return Escaped text.
+     * @param {string|number} text Text to escape.
+     * @return {string} Escaped text.
      */
     escapeHTML(text: string | number): string {
         if (typeof text == 'undefined' || text === null || (typeof text == 'number' && isNaN(text))) {
@@ -404,29 +320,20 @@ export class CoreTextUtilsProvider {
     /**
      * Shows a text on a new page.
      *
-     * @param title Title of the new state.
-     * @param text Content of the text to be expanded.
-     * @param component Component to link the embedded files to.
-     * @param componentId An ID to use in conjunction with the component.
-     * @param files List of files to display along with the text.
-     * @param filter Whether the text should be filtered.
-     * @param contextLevel The context level.
-     * @param instanceId The instance ID related to the context.
-     * @param courseId Course ID the text belongs to. It can be used to improve performance with filters.
+     * @param {string} title Title of the new state.
+     * @param {string} text Content of the text to be expanded.
+     * @param {string} [component] Component to link the embedded files to.
+     * @param {string|number} [componentId] An ID to use in conjunction with the component.
+     * @param {any[]} [files] List of files to display along with the text.
      */
-    expandText(title: string, text: string, component?: string, componentId?: string | number, files?: any[],
-            filter?: boolean, contextLevel?: string, instanceId?: number, courseId?: number): void {
+    expandText(title: string, text: string, component?: string, componentId?: string | number, files?: any[]): void {
         if (text.length > 0) {
             const params: any = {
                 title: title,
                 content: text,
                 component: component,
                 componentId: componentId,
-                files: files,
-                filter: filter,
-                contextLevel: contextLevel,
-                instanceId: instanceId,
-                courseId: courseId
+                files: files
             };
 
             // Open a modal with the contents.
@@ -440,8 +347,8 @@ export class CoreTextUtilsProvider {
     /**
      * Formats a text, in HTML replacing new lines by correct html new lines.
      *
-     * @param text Text to format.
-     * @return Formatted text.
+     * @param {string} text Text to format.
+     * @return {string} Formatted text.
      */
     formatHtmlLines(text: string): string {
         const hasHTMLTags = this.hasHTMLTags(text);
@@ -461,15 +368,13 @@ export class CoreTextUtilsProvider {
     /**
      * Formats a text, treating multilang tags and cleaning HTML if needed.
      *
-     * @param text Text to format.
-     * @param clean Whether HTML tags should be removed.
-     * @param singleLine Whether new lines should be removed. Only valid if clean is true.
-     * @param shortenLength Number of characters to shorten the text.
-     * @param highlight Text to highlight.
-     * @return Promise resolved with the formatted text.
-     * @deprecated since 3.8.0. Please use CoreFilterProvider.formatText instead.
+     * @param {string} text Text to format.
+     * @param {boolean} [clean] Whether HTML tags should be removed.
+     * @param {boolean} [singleLine] Whether new lines should be removed. Only valid if clean is true.
+     * @param {number} [shortenLength] Number of characters to shorten the text.
+     * @return {Promise<string>} Promise resolved with the formatted text.
      */
-    formatText(text: string, clean?: boolean, singleLine?: boolean, shortenLength?: number, highlight?: string): Promise<string> {
+    formatText(text: string, clean?: boolean, singleLine?: boolean, shortenLength?: number): Promise<string> {
         return this.treatMultilangTags(text).then((formatted) => {
             if (clean) {
                 formatted = this.cleanTags(formatted, singleLine);
@@ -477,33 +382,16 @@ export class CoreTextUtilsProvider {
             if (shortenLength > 0) {
                 formatted = this.shortenText(formatted, shortenLength);
             }
-            if (highlight) {
-                formatted = this.highlightText(formatted, highlight);
-            }
 
             return formatted;
         });
     }
 
     /**
-     * Get the error message from an error object.
-     *
-     * @param error Error object.
-     * @return Error message, undefined if not found.
-     */
-    getErrorMessageFromError(error: string | CoreTextErrorObject): string {
-        if (typeof error == 'string') {
-            return error;
-        }
-
-        return error && (error.message || error.error || error.content || error.body);
-    }
-
-    /**
      * Get the pluginfile URL to replace @@PLUGINFILE@@ wildcards.
      *
-     * @param files Files to extract the URL from. They need to have the URL in a 'url' or 'fileurl' attribute.
-     * @return Pluginfile URL, undefined if no files found.
+     * @param {any[]} files Files to extract the URL from. They need to have the URL in a 'url' or 'fileurl' attribute.
+     * @return {string} Pluginfile URL, undefined if no files found.
      */
     getTextPluginfileUrl(files: any[]): string {
         if (files && files.length) {
@@ -519,54 +407,19 @@ export class CoreTextUtilsProvider {
     /**
      * Check if a text contains HTML tags.
      *
-     * @param text Text to check.
-     * @return Whether it has HTML tags.
+     * @param {string} text Text to check.
+     * @return {boolean} Whether it has HTML tags.
      */
     hasHTMLTags(text: string): boolean {
         return /<[a-z][\s\S]*>/i.test(text);
     }
 
     /**
-     * Highlight all occurrences of a certain text inside another text. It will add some HTML code to highlight it.
-     *
-     * @param text Full text.
-     * @param searchText Text to search and highlight.
-     * @return Highlighted text.
-     */
-    highlightText(text: string, searchText: string): string {
-        if (!text || typeof text != 'string') {
-            return '';
-        } else if (!searchText) {
-            return text;
-        }
-
-        const regex = new RegExp('(' + searchText + ')', 'gi');
-
-        return text.replace(regex, '<span class="matchtext">$1</span>');
-    }
-
-    /**
-     * Check if HTML content is blank.
-     *
-     * @param content HTML content.
-     * @return True if the string does not contain actual content: text, images, etc.
-     */
-    htmlIsBlank(content: string): boolean {
-        if (!content) {
-            return true;
-        }
-
-        this.template.innerHTML = content;
-
-        return this.template.content.textContent == '' && this.template.content.querySelector('img, object, hr') === null;
-    }
-
-    /**
      * Check if a text contains Unicode long chars.
      * Using as threshold Hex value D800
      *
-     * @param text Text to check.
-     * @return True if has Unicode chars, false otherwise.
+     * @param {string} text Text to check.
+     * @return {boolean} True if has Unicode chars, false otherwise.
      */
     hasUnicode(text: string): boolean {
         for (let x = 0; x < text.length; x++) {
@@ -581,8 +434,8 @@ export class CoreTextUtilsProvider {
     /**
      * Check if an object has any long Unicode char.
      *
-     * @param data Object to be checked.
-     * @return If the data has any long Unicode char on it.
+     * @param {object} data Object to be checked.
+     * @return {boolean} If the data has any long Unicode char on it.
      */
     hasUnicodeData(data: object): boolean {
         for (const el in data) {
@@ -601,10 +454,10 @@ export class CoreTextUtilsProvider {
     /**
      * Same as Javascript's JSON.parse, but it will handle errors.
      *
-     * @param json JSON text.
-     * @param defaultValue Default value t oreturn if the parse fails. Defaults to the original value.
-     * @param logErrorFn An error to call with the exception to log the error. If not supplied, no error.
-     * @return JSON parsed as object or what it gets.
+     * @param {string} json JSON text.
+     * @param {any} [defaultValue] Default value t oreturn if the parse fails. Defaults to the original value.
+     * @param {Function} [logErrorFn] An error to call with the exception to log the error. If not supplied, no error.
+     * @return {any} JSON parsed as object or what it gets.
      */
     parseJSON(json: string, defaultValue?: any, logErrorFn?: Function): any {
         try {
@@ -621,28 +474,10 @@ export class CoreTextUtilsProvider {
     }
 
     /**
-     * Remove ending slash from a path or URL.
-     *
-     * @param text Text to treat.
-     * @return Treated text.
-     */
-    removeEndingSlash(text: string): string {
-        if (!text) {
-            return '';
-        }
-
-        if (text.slice(-1) == '/') {
-            return text.substr(0, text.length - 1);
-        }
-
-        return text;
-    }
-
-    /**
      * Replace all characters that cause problems with files in Android and iOS.
      *
-     * @param text Text to treat.
-     * @return Treated text.
+     * @param {string} text Text to treat.
+     * @return {string} Treated text.
      */
     removeSpecialCharactersForFiles(text: string): string {
         if (!text || typeof text != 'string') {
@@ -655,9 +490,9 @@ export class CoreTextUtilsProvider {
     /**
      * Replace all the new lines on a certain text.
      *
-     * @param text The text to be treated.
-     * @param newValue Text to use instead of new lines.
-     * @return Treated text.
+     * @param {string} text The text to be treated.
+     * @param {string} newValue Text to use instead of new lines.
+     * @return {string} Treated text.
      */
     replaceNewLines(text: string, newValue: string): string {
         if (!text || typeof text != 'string') {
@@ -670,9 +505,9 @@ export class CoreTextUtilsProvider {
     /**
      * Replace @@PLUGINFILE@@ wildcards with the real URL in a text.
      *
-     * @param Text to treat.
-     * @param files Files to extract the pluginfile URL from. They need to have the URL in a url or fileurl attribute.
-     * @return Treated text.
+     * @param {string} Text to treat.
+     * @param {any[]} files Files to extract the pluginfile URL from. They need to have the URL in a url or fileurl attribute.
+     * @return {string} Treated text.
      */
     replacePluginfileUrls(text: string, files: any[]): string {
         if (text && typeof text == 'string') {
@@ -688,9 +523,9 @@ export class CoreTextUtilsProvider {
     /**
      * Replace pluginfile URLs with @@PLUGINFILE@@ wildcards.
      *
-     * @param text Text to treat.
-     * @param files Files to extract the pluginfile URL from. They need to have the URL in a url or fileurl attribute.
-     * @return Treated text.
+     * @param {string} text Text to treat.
+     * @param {any[]} files Files to extract the pluginfile URL from. They need to have the URL in a url or fileurl attribute.
+     * @return {string} Treated text.
      */
     restorePluginfileUrls(text: string, files: any[]): string {
         if (text && typeof text == 'string') {
@@ -709,9 +544,9 @@ export class CoreTextUtilsProvider {
      * 7.toFixed(2) -> 7.00
      * roundToDecimals(7, 2) -> 7
      *
-     * @param num Number to round.
-     * @param decimals Number of decimals. By default, 2.
-     * @return Rounded number.
+     * @param {number} num Number to round.
+     * @param {number} [decimals=2] Number of decimals. By default, 2.
+     * @return {number} Rounded number.
      */
     roundToDecimals(num: number, decimals: number = 2): number {
         const multiplier = Math.pow(10, decimals);
@@ -725,8 +560,8 @@ export class CoreTextUtilsProvider {
      * Returns text with HTML characters (like "<", ">", etc.) properly quoted.
      * Based on Moodle's s() function.
      *
-     * @param text Text to treat.
-     * @return Treated text.
+     * @param {string} text Text to treat.
+     * @return {string} Treated text.
      */
     s(text: string): string {
         if (!text) {
@@ -739,9 +574,9 @@ export class CoreTextUtilsProvider {
     /**
      * Shortens a text to length and adds an ellipsis.
      *
-     * @param text The text to be shortened.
-     * @param length The desired length.
-     * @return Shortened text.
+     * @param {string} text The text to be shortened.
+     * @param {number} length The desired length.
+     * @return {string} Shortened text.
      */
     shortenText(text: string, length: number): string {
         if (text.length > length) {
@@ -762,8 +597,8 @@ export class CoreTextUtilsProvider {
      * Strip Unicode long char of a given text.
      * Using as threshold Hex value D800
      *
-     * @param text Text to check.
-     * @return Without the Unicode chars.
+     * @param {string} text Text to check.
+     * @return {string} Without the Unicode chars.
      */
     stripUnicode(text: string): string {
         let stripped = '';
@@ -777,40 +612,10 @@ export class CoreTextUtilsProvider {
     }
 
     /**
-     * Replace text within a portion of a string. Equivalent to PHP's substr_replace.
-     * Credits to http://locutus.io/php/strings/substr_replace/
-     *
-     * @param str The string to treat.
-     * @param replace The value to put inside the string.
-     * @param start The index where to start putting the new string. If negative, it will count from the end of the string.
-     * @param length Length of the portion of string which is to be replaced. If negative, it represents the number of characters
-     *               from the end of string at which to stop replacing. If not provided, replace until the end of the string.
-     * @return Treated string.
-     */
-    substrReplace(str: string, replace: string, start: number, length?: number): string {
-        length = typeof length != 'undefined' ? length : str.length;
-
-        if (start < 0) {
-            start = start + str.length;
-        }
-
-        if (length < 0) {
-            length = length + str.length - start;
-        }
-
-        return [
-            str.slice(0, start),
-            replace.substr(0, length),
-            replace.slice(length),
-            str.slice(start + length)
-        ].join('');
-    }
-
-    /**
      * Treat the list of disabled features, replacing old nomenclature with the new one.
      *
-     * @param features List of disabled features.
-     * @return Treated list.
+     * @param {string} features List of disabled features.
+     * @return {string} Treated list.
      */
     treatDisabledFeatures(features: string): string {
         if (!features) {
@@ -829,9 +634,8 @@ export class CoreTextUtilsProvider {
     /**
      * Treat the multilang tags from a HTML code, leaving only the current language.
      *
-     * @param text The text to be treated.
-     * @return Promise resolved with the formatted text.
-     * @deprecated since 3.8.0. Now this is handled by AddonFilterMultilangHandler.
+     * @param {string} text The text to be treated.
+     * @return {Promise<string>} Promise resolved with the formatted text.
      */
     treatMultilangTags(text: string): Promise<string> {
         if (!text || typeof text != 'string') {
@@ -866,8 +670,8 @@ export class CoreTextUtilsProvider {
     /**
      * If a number has only 1 digit, add a leading zero to it.
      *
-     * @param num Number to convert.
-     * @return Number with leading zeros.
+     * @param {string|number} num Number to convert.
+     * @return {string} Number with leading zeros.
      */
     twoDigits(num: string | number): string {
         if (num < 10) {
@@ -880,8 +684,8 @@ export class CoreTextUtilsProvider {
     /**
      * Make a string's first character uppercase.
      *
-     * @param text Text to treat.
-     * @return Treated text.
+     * @param {string} text Text to treat.
+     * @return {string} Treated text.
      */
     ucFirst(text: string): string {
         return text.charAt(0).toUpperCase() + text.slice(1);
@@ -891,9 +695,9 @@ export class CoreTextUtilsProvider {
      * Unserialize Array from PHP.
      * Taken from: https://github.com/kvz/locutus/blob/master/src/php/var/unserialize.js
      *
-     * @param data String to unserialize.
-     * @param logErrorFn An error to call with the exception to log the error. If not supplied, no error.
-     * @return Unserialized data.
+     * @param  {string} data String to unserialize.
+     * @param {Function} [logErrorFn] An error to call with the exception to log the error. If not supplied, no error.
+     * @return {any}         Unserialized data.
      */
     unserialize (data: string, logErrorFn?: Function): any {
         //  Discuss at: http://locutus.io/php/unserialize/

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ import { Component, Optional } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
-import { AddonCompetencyProvider, AddonCompetencySummary } from '../../providers/competency';
+import { AddonCompetencyProvider } from '../../providers/competency';
 
 /**
  * Page that displays a learning plan.
@@ -29,15 +29,11 @@ import { AddonCompetencyProvider, AddonCompetencySummary } from '../../providers
 export class AddonCompetencyCompetencySummaryPage {
     competencyLoaded = false;
     competencyId: number;
-    competency: AddonCompetencySummary;
-    contextLevel: string;
-    contextInstanceId: number;
+    competency: any;
 
     constructor(private navCtrl: NavController, navParams: NavParams, private domUtils: CoreDomUtilsProvider,
             @Optional() private svComponent: CoreSplitViewComponent, private competencyProvider: AddonCompetencyProvider) {
         this.competencyId = navParams.get('competencyId');
-        this.contextLevel = navParams.get('contextLevel');
-        this.contextInstanceId = navParams.get('contextInstanceId');
     }
 
     /**
@@ -45,11 +41,7 @@ export class AddonCompetencyCompetencySummaryPage {
      */
     ionViewDidLoad(): void {
         this.fetchCompetency().then(() => {
-            const name = this.competency.competency && this.competency.competency.shortname;
-
-            this.competencyProvider.logCompetencyView(this.competencyId, name).catch(() => {
-                // Ignore errors.
-            });
+            this.competencyProvider.logCompetencyView(this.competencyId);
         }).finally(() => {
             this.competencyLoaded = true;
         });
@@ -58,17 +50,11 @@ export class AddonCompetencyCompetencySummaryPage {
     /**
      * Fetches the competency summary and updates the view.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected fetchCompetency(): Promise<void> {
-        return this.competencyProvider.getCompetencySummary(this.competencyId).then((result) => {
-            if (!this.contextLevel || typeof this.contextInstanceId == 'undefined') {
-                // Context not specified, use user context.
-                this.contextLevel = 'user';
-                this.contextInstanceId = result.usercompetency.userid;
-            }
-
-            this.competency = result.competency;
+        return this.competencyProvider.getCompetencySummary(this.competencyId).then((competency) => {
+            this.competency = competency;
         }).catch((message) => {
             this.domUtils.showErrorModalDefault(message, 'Error getting competency summary data.');
         });
@@ -77,7 +63,7 @@ export class AddonCompetencyCompetencySummaryPage {
     /**
      * Refreshes the competency summary.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshCompetency(refresher: any): void {
         this.competencyProvider.invalidateCompetencySummary(this.competencyId).finally(() => {
@@ -90,15 +76,11 @@ export class AddonCompetencyCompetencySummaryPage {
     /**
      * Opens the summary of a competency.
      *
-     * @param competencyId
+     * @param {number} competencyId
      */
     openCompetencySummary(competencyId: number): void {
         // Decide which navCtrl to use. If this page is inside a split view, use the split view's master nav.
         const navCtrl = this.svComponent ? this.svComponent.getMasterNav() : this.navCtrl;
-        navCtrl.push('AddonCompetencyCompetencySummaryPage', {
-            competencyId,
-            contextLevel: this.contextLevel,
-            contextInstanceId: this.contextInstanceId
-        });
+        navCtrl.push('AddonCompetencyCompetencySummaryPage', {competencyId});
     }
 }

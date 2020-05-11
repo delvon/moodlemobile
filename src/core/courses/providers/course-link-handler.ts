@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +16,11 @@ import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreContentLinksHandlerBase } from '@core/contentlinks/classes/base-handler';
 import { CoreContentLinksAction } from '@core/contentlinks/providers/delegate';
+import { CoreLoginHelperProvider } from '@core/login/providers/helper';
 import { CoreCourseProvider } from '@core/course/providers/course';
-import { CoreCourseHelperProvider } from '@core/course/providers/helper';
 import { CoreCoursesProvider } from './courses';
-import { NavController } from 'ionic-angular';
-import { CoreLoggerProvider } from '@providers/logger';
 
 /**
  * Handler to treat links to course view or enrol (except site home).
@@ -34,26 +31,21 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
     pattern = /((\/enrol\/index\.php)|(\/course\/enrol\.php)|(\/course\/view\.php)).*([\?\&]id=\d+)/;
 
     protected waitStart = 0;
-    protected logger;
 
     constructor(private sitesProvider: CoreSitesProvider, private coursesProvider: CoreCoursesProvider,
-            private domUtils: CoreDomUtilsProvider,
-            private translate: TranslateService, private courseProvider: CoreCourseProvider,
-            private textUtils: CoreTextUtilsProvider, private courseHelper: CoreCourseHelperProvider,
-            loggerProvider: CoreLoggerProvider) {
+            private loginHelper: CoreLoginHelperProvider, private domUtils: CoreDomUtilsProvider,
+            private translate: TranslateService, private courseProvider: CoreCourseProvider) {
         super();
-
-        this.logger = loggerProvider.getInstance('CoreCoursesCourseLinkHandler');
     }
 
     /**
      * Get the list of actions for a link (url).
      *
-     * @param siteIds List of sites the URL belongs to.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return List of (or promise resolved with list of) actions.
+     * @param {string[]} siteIds List of sites the URL belongs to.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {CoreContentLinksAction[]|Promise<CoreContentLinksAction[]>} List of (or promise resolved with list of) actions.
      */
     getActions(siteIds: string[], url: string, params: any, courseId?: number):
             CoreContentLinksAction[] | Promise<CoreContentLinksAction[]> {
@@ -61,6 +53,7 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
 
         const sectionId = params.sectionid ? parseInt(params.sectionid, 10) : null,
             pageParams: any = {
+                course: { id: courseId },
                 sectionId: sectionId || null
             };
         let sectionNumber = typeof params.section != 'undefined' ? parseInt(params.section, 10) : NaN;
@@ -81,20 +74,12 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
             action: (siteId, navCtrl?): void => {
                 siteId = siteId || this.sitesProvider.getCurrentSiteId();
                 if (siteId == this.sitesProvider.getCurrentSiteId()) {
-                    // Check if we already are in the course index page.
-                    if (this.courseProvider.currentViewIsCourse(navCtrl, courseId)) {
-                        // Current view is this course, just select the contents tab.
-                        this.courseProvider.selectCourseTab('', pageParams);
-
-                        return;
-                    } else {
-                        this.actionEnrol(courseId, url, pageParams, navCtrl).catch(() => {
-                            // Ignore errors.
-                        });
-                    }
+                    this.actionEnrol(courseId, url, pageParams).catch(() => {
+                        // Ignore errors.
+                    });
                 } else {
-                    // Don't pass the navCtrl to make the course the new history root (to avoid "loops" in history).
-                    this.courseHelper.getAndOpenCourse(undefined, courseId, pageParams, siteId);
+                    // Use redirect to make the course the new history root (to avoid "loops" in history).
+                    this.loginHelper.redirect('CoreCourseSectionPage', pageParams, siteId);
                 }
             }
         }];
@@ -104,11 +89,11 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
      * Check if the handler is enabled for a certain site (site + user) and a URL.
      * If not defined, defaults to true.
      *
-     * @param siteId The site ID.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return Whether the handler is enabled for the URL and site.
+     * @param {string} siteId The site ID.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {boolean|Promise<boolean>} Whether the handler is enabled for the URL and site.
      */
     isEnabled(siteId: string, url: string, params: any, courseId?: number): boolean | Promise<boolean> {
         courseId = parseInt(params.id, 10);
@@ -126,22 +111,17 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
     /**
      * Action to perform when an enrol link is clicked.
      *
-     * @param courseId Course ID.
-     * @param url Treated URL.
-     * @param pageParams Params to send to the new page.
-     * @param navCtrl NavController for adding new pages to the current history. Optional for legacy support, but
-     *                generates a warning if omitted.
-     * @return Promise resolved when done.
+     * @param {number} courseId Course ID.
+     * @param {string} url Treated URL.
+     * @param {any} pageParams Params to send to the new page.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    protected actionEnrol(courseId: number, url: string, pageParams: any, navCtrl?: NavController): Promise<any> {
+    protected actionEnrol(courseId: number, url: string, pageParams: any): Promise<any> {
         const modal = this.domUtils.showModalLoading(),
             isEnrolUrl = !!url.match(/(\/enrol\/index\.php)|(\/course\/enrol\.php)/);
-        let course;
 
         // Check if user is enrolled in the course.
-        return this.coursesProvider.getUserCourse(courseId).then((courseObj) => {
-            course = courseObj;
-        }).catch(() => {
+        return this.coursesProvider.getUserCourse(courseId).catch(() => {
             // User is not enrolled in the course. Check if can self enrol.
             return this.canSelfEnrol(courseId).then(() => {
                 modal.dismiss();
@@ -152,9 +132,7 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
 
                 return promise.then(() => {
                     // Enrol URL or user confirmed.
-                    return this.selfEnrol(courseId).then((courseObj) => {
-                        course = courseObj;
-                    }).catch((error) => {
+                    return this.selfEnrol(courseId).catch((error) => {
                         if (error) {
                             this.domUtils.showErrorModal(error);
                         }
@@ -172,15 +150,14 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
                     modal.dismiss();
 
                     if (error) {
-                        error = this.textUtils.getErrorMessageFromError(error) || error;
+                        error = error.message || error.error || error.content || error.body || error;
                     }
                     if (!error) {
                         error = this.translate.instant('core.courses.notenroled');
                     }
 
-                    const body = this.textUtils.buildSeveralParagraphsMessage(
-                            [error, this.translate.instant('core.confirmopeninbrowser')]);
-
+                    const body = this.translate.instant('core.twoparagraphs',
+                        { p1: error, p2: this.translate.instant('core.confirmopeninbrowser') });
                     this.domUtils.showConfirm(body).then(() => {
                         this.sitesProvider.getCurrentSite().openInBrowserWithAutoLogin(url);
                     }).catch(() => {
@@ -191,34 +168,18 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
                 });
             });
         }).then(() => {
-            // Check if we need to retrieve the course.
-            if (!course) {
-                return this.courseHelper.getCourse(courseId).then((data) => {
-                    return data.course;
-                }).catch(() => {
-                    // Cannot get course, return a "fake".
-                    return { id: courseId };
-                });
-            }
-
-            return course;
-        }).then((course) => {
             modal.dismiss();
 
-            if (typeof navCtrl === 'undefined') {
-                this.logger.warn('navCtrl was not passed to actionEnrol');
-            }
-
-            // Now open the course.
-            this.courseHelper.openCourse(navCtrl, course, pageParams);
+            // Use redirect to make the course the new history root (to avoid "loops" in history).
+            this.loginHelper.redirect('CoreCourseSectionPage', pageParams, this.sitesProvider.getCurrentSiteId());
         });
     }
 
     /**
      * Check if a user can be "automatically" self enrolled in a course.
      *
-     * @param courseId Course ID.
-     * @return Promise resolved if user can be enrolled in a course, rejected otherwise.
+     * @param {number} courseId Course ID.
+     * @return {Promise<any>} Promise resolved if user can be enrolled in a course, rejected otherwise.
      */
     protected canSelfEnrol(courseId: number): Promise<any> {
         // Check that the course has self enrolment enabled.
@@ -243,9 +204,9 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
     /**
      * Try to self enrol a user in a course.
      *
-     * @param courseId Course ID.
-     * @param password Password.
-     * @return Promise resolved when the user is enrolled, rejected otherwise.
+     * @param {number} courseId Course ID.
+     * @param {string} [password] Password.
+     * @return {Promise<any>} Promise resolved when the user is enrolled, rejected otherwise.
      */
     protected selfEnrol(courseId: number, password?: string): Promise<any> {
         const modal = this.domUtils.showModalLoading();
@@ -271,7 +232,7 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
 
                 if (typeof password != 'undefined') {
                     // The user attempted a password. Show an error message.
-                    this.domUtils.showErrorModal(error);
+                    this.domUtils.showErrorModal(error.message);
                 }
 
                 return this.domUtils.showPrompt(body, title, placeholder).then((password) => {
@@ -286,9 +247,9 @@ export class CoreCoursesCourseLinkHandler extends CoreContentLinksHandlerBase {
     /**
      * Wait for the user to be enrolled in a course.
      *
-     * @param courseId The course ID.
-     * @param first If it's the first call (true) or it's a recursive call (false).
-     * @return Promise resolved when enrolled or timeout.
+     * @param {number} courseId The course ID.
+     * @param {boolean} first If it's the first call (true) or it's a recursive call (false).
+     * @return {Promise<any>} Promise resolved when enrolled or timeout.
      */
     protected waitForEnrolled(courseId: number, first?: boolean): Promise<any> {
         if (first) {

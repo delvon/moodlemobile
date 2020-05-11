@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 import { Component, Optional, Injector } from '@angular/core';
 import { Content } from 'ionic-angular';
 import { CoreCourseModuleMainActivityComponent } from '@core/course/classes/main-activity-component';
-import { AddonModSurveyProvider, AddonModSurveySurvey } from '../../providers/survey';
-import { AddonModSurveyHelperProvider, AddonModSurveyQuestionFormatted } from '../../providers/helper';
+import { AddonModSurveyProvider } from '../../providers/survey';
+import { AddonModSurveyHelperProvider } from '../../providers/helper';
 import { AddonModSurveyOfflineProvider } from '../../providers/offline';
 import { AddonModSurveySyncProvider } from '../../providers/sync';
 
@@ -31,8 +31,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     component = AddonModSurveyProvider.COMPONENT;
     moduleName = 'survey';
 
-    survey: AddonModSurveySurvey;
-    questions: AddonModSurveyQuestionFormatted[];
+    survey: any;
+    questions: any;
     answers = {};
 
     protected userId: number;
@@ -53,10 +53,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
         this.userId = this.sitesProvider.getCurrentSiteUserId();
 
         this.loadContent(false, true).then(() => {
-            this.surveyProvider.logView(this.survey.id, this.survey.name).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-            }).catch(() => {
-                // Ignore errors.
+            this.surveyProvider.logView(this.survey.id).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             });
         });
     }
@@ -64,7 +62,7 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -80,8 +78,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Compares sync event data with current data to check if refresh content is needed.
      *
-     * @param syncEventData Data receiven on sync observer.
-     * @return True if refresh is needed, false otherwise.
+     * @param {any} syncEventData Data receiven on sync observer.
+     * @return {boolean}          True if refresh is needed, false otherwise.
      */
     protected isRefreshSyncNeeded(syncEventData: any): boolean {
         if (this.survey && syncEventData.surveyId == this.survey.id && syncEventData.userId == this.userId) {
@@ -94,16 +92,16 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Download survey contents.
      *
-     * @param refresh If it's refreshing content.
-     * @param sync If it should try to sync.
-     * @param showErrors If show errors to the user of hide them.
-     * @return Promise resolved when done.
+     * @param  {boolean}      [refresh=false]    If it's refreshing content.
+     * @param  {boolean}      [sync=false]       If the refresh is needs syncing.
+     * @param  {boolean}      [showErrors=false] If show errors to the user of hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
         return this.surveyProvider.getSurvey(this.courseId, this.module.id).then((survey) => {
             this.survey = survey;
 
-            this.description = survey.intro;
+            this.description = survey.intro || survey.description;
             this.dataRetrieved.emit(survey);
 
             if (sync) {
@@ -126,7 +124,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
             if (!this.survey.surveydone && !this.hasOffline) {
                 return this.fetchQuestions();
             }
-        }).finally(() => {
+        }).then(() => {
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
         });
     }
@@ -134,7 +133,7 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Convenience function to get survey questions.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchQuestions(): Promise<any> {
         return this.surveyProvider.getQuestions(this.survey.id).then((questions) => {
@@ -143,13 +142,13 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
             // Init answers object.
             this.questions.forEach((q) => {
                 if (q.name) {
-                    const isTextArea = q.multiArray && q.multiArray.length === 0 && q.type === 0;
+                    const isTextArea = q.multi && q.multi.length === 0 && q.type === 0;
                     this.answers[q.name] = q.required ? -1 : (isTextArea ? '' : '0');
                 }
 
-                if (q.multiArray && !q.multiArray.length && q.parent === 0 && q.type > 0) {
+                if (q.multi && !q.multi.length && q.parent === 0 && q.type > 0) {
                     // Options shown in a select. Remove all HTML.
-                    q.optionsArray = q.optionsArray.map((option) => {
+                    q.options = q.options.map((option) => {
                         return this.textUtils.cleanTags(option);
                     });
                 }
@@ -160,13 +159,16 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Check if answers are valid to be submitted.
      *
-     * @return If answers are valid
+     * @return {boolean}  If answers are valid
      */
     isValidResponse(): boolean {
-        return !this.questions.some((question) => {
-            return question.required && question.name &&
-                (question.type === 0 ? this.answers[question.name] == '' : parseInt(this.answers[question.name], 10) === -1);
-        });
+        for (const x in this.answers) {
+            if (this.answers[x] === -1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -184,20 +186,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
                 });
             }
 
-            return this.surveyProvider.submitAnswers(this.survey.id, this.survey.name, this.courseId, answers).then((online) => {
-                if (online && this.isPrefetched()) {
-                    // The survey is downloaded, update the data.
-                    return this.surveySync.prefetchAfterUpdate(this.module, this.courseId).then(() => {
-                        // Update the view.
-                        this.showLoadingAndFetch(false, false);
-                    }).catch((error) => {
-                        // Prefetch failed, refresh the data.
-                        return this.showLoadingAndRefresh(false);
-                    });
-                } else {
-                    // Not downloaded, refresh the data.
-                    return this.showLoadingAndRefresh(false);
-                }
+            return this.surveyProvider.submitAnswers(this.survey.id, this.survey.name, this.courseId, answers).then(() => {
+                return this.showLoadingAndRefresh(false);
             }).finally(() => {
                 modal.dismiss();
             });
@@ -209,7 +199,7 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Performs the sync of the activity.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sync(): Promise<any> {
         return this.surveySync.syncSurvey(this.survey.id, this.userId);
@@ -218,8 +208,8 @@ export class AddonModSurveyIndexComponent extends CoreCourseModuleMainActivityCo
     /**
      * Checks if sync has succeed from result sync data.
      *
-     * @param result Data returned on the sync function.
-     * @return If suceed or not.
+     * @param  {any}     result Data returned on the sync function.
+     * @return {boolean}        If suceed or not.
      */
     protected hasSyncSucceed(result: any): boolean {
         return result.answersSent;

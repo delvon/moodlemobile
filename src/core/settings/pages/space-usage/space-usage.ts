@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,11 @@
 import { Component, } from '@angular/core';
 import { IonicPage } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreSitesProvider, CoreSiteBasicInfo } from '@providers/sites';
+import { CoreAppProvider } from '@providers/app';
+import { CoreFilepoolProvider } from '@providers/filepool';
+import { CoreSitesProvider } from '@providers/sites';
+import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CoreSettingsHelper, CoreSiteSpaceUsage } from '../../providers/helper';
 
 /**
  * Page that displays the space usage settings.
@@ -29,19 +31,14 @@ import { CoreSettingsHelper, CoreSiteSpaceUsage } from '../../providers/helper';
 })
 export class CoreSettingsSpaceUsagePage {
 
-    loaded = false;
+    usageLoaded = false;
     sites = [];
     currentSiteId = '';
-    totals: CoreSiteSpaceUsage = {
-        cacheEntries: 0,
-        spaceUsage: 0
-    };
+    totalUsage = 0;
 
-    constructor(protected sitesProvider: CoreSitesProvider,
-            protected settingsHelper: CoreSettingsHelper,
-            protected domUtils: CoreDomUtilsProvider,
-            protected translate: TranslateService,
-    ) {
+    constructor(private filePoolProvider: CoreFilepoolProvider,
+            private sitesProvider: CoreSitesProvider, private textUtils: CoreTextUtilsProvider,
+            private translate: TranslateService, private domUtils: CoreDomUtilsProvider, appProvider: CoreAppProvider) {
         this.currentSiteId = this.sitesProvider.getCurrentSiteId();
     }
 
@@ -49,78 +46,115 @@ export class CoreSettingsSpaceUsagePage {
      * View loaded.
      */
     ionViewDidLoad(): void {
-        this.loadSiteData().finally(() => {
-            this.loaded = true;
+        this.fetchData().finally(() => {
+            this.usageLoaded = true;
         });
     }
 
     /**
-     * Convenience function to load site data/usage and calculate the totals.
+     * Convenience function to calculate each site's usage, and the total usage.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
-    protected async loadSiteData(): Promise<void> {
-        // Calculate total usage.
-        let totalSize = 0;
-        let totalEntries = 0;
+    protected calculateSizeUsage(): Promise<any> {
+        return this.sitesProvider.getSortedSites().then((sites) => {
+            this.sites = sites;
 
-        this.sites = await this.sitesProvider.getSortedSites();
+            // Get space usage.
+            const promises = this.sites.map((siteEntry) => {
+                return this.sitesProvider.getSite(siteEntry.id).then((site) => {
+                    return site.getSpaceUsage().then((size) => {
+                        siteEntry.spaceUsage = size;
+                    });
+                });
+            });
 
-        // Get space usage.
-        await Promise.all(this.sites.map(async (site) => {
-            const siteInfo = await this.settingsHelper.getSiteSpaceUsage(site.id);
+            return Promise.all(promises);
+        });
+    }
 
-            site.cacheEntries = siteInfo.cacheEntries;
-            site.spaceUsage = siteInfo.spaceUsage;
+    /**
+     * Convenience function to calculate total usage.
+     */
+    protected calculateTotalUsage(): void {
+        let total = 0;
+        this.sites.forEach((site) => {
+            if (site.spaceUsage) {
+                total += parseInt(site.spaceUsage, 10);
+            }
+        });
+        this.totalUsage = total;
+    }
 
-            totalSize += (site.spaceUsage ? parseInt(site.spaceUsage, 10) : 0);
-            totalEntries += (site.cacheEntries ? parseInt(site.cacheEntries, 10) : 0);
-        }));
+    /**
+     * Convenience function to calculate space usage.
+     *
+     * @return {Promise<any>} Resolved when done.
+     */
+    protected fetchData(): Promise<any> {
+        const promises = [
+            this.calculateSizeUsage().then(() => this.calculateTotalUsage()),
+        ];
 
-        this.totals.spaceUsage = totalSize;
-        this.totals.cacheEntries = totalEntries;
+        return Promise.all(promises);
     }
 
     /**
      * Refresh the data.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshData(refresher: any): void {
-        this.loadSiteData().finally(() => {
+        this.fetchData().finally(() => {
             refresher.complete();
         });
     }
 
     /**
-     * Deletes files of a site and the tables that can be cleared.
+     * Convenience function to update site size, along with total usage.
      *
-     * @param siteData Site object with space usage.
+     * @param {any} site Site object with space usage.
+     * @param {number} newUsage New space usage of the site in bytes.
      */
-    deleteSiteStorage(siteData: CoreSiteBasicInfoWithUsage): void {
-        this.settingsHelper.deleteSiteStorage(siteData.siteName, siteData.id).then((newInfo) => {
-            this.totals.spaceUsage -= siteData.spaceUsage - newInfo.spaceUsage;
-            this.totals.spaceUsage -= siteData.cacheEntries - newInfo.cacheEntries;
-            siteData.spaceUsage = newInfo.spaceUsage;
-            siteData.cacheEntries = newInfo.cacheEntries;
-        }).catch(() => {
-            // Ignore cancelled confirmation modal.
-        });
+    protected updateSiteUsage(site: any, newUsage: number): void {
+        const oldUsage = site.spaceUsage;
+        site.spaceUsage = newUsage;
+        this.totalUsage -= oldUsage - newUsage;
     }
 
     /**
-     * Show information about space usage actions.
+     * Deletes files of a site.
+     *
+     * @param {any} siteData Site object with space usage.
      */
-    showInfo(): void {
-        this.domUtils.showAlert(this.translate.instant('core.help'),
-            this.translate.instant('core.settings.spaceusagehelp'));
-    }
-}
+    deleteSiteFiles(siteData: any): void {
+        this.textUtils.formatText(siteData.siteName).then((siteName) => {
+            const title = this.translate.instant('core.settings.deletesitefilestitle');
+            const message = this.translate.instant('core.settings.deletesitefiles', {sitename: siteName});
 
-/**
- * Basic site info with space usage and cache entries that can be erased.
- */
-export interface CoreSiteBasicInfoWithUsage extends CoreSiteBasicInfo {
-    cacheEntries?: number; // Number of cached entries that can be cleared.
-    spaceUsage?: number; // Space used in this site.
+            this.domUtils.showConfirm(message, title).then(() => {
+                return this.sitesProvider.getSite(siteData.id);
+            }).then((site) => {
+                site.deleteFolder().then(() => {
+                    this.filePoolProvider.clearAllPackagesStatus(site.id);
+                    this.filePoolProvider.clearFilepool(site.id);
+                    this.updateSiteUsage(siteData, 0);
+                }).catch((error) => {
+                    if (error && error.code === FileError.NOT_FOUND_ERR) {
+                        // Not found, set size 0.
+                        this.filePoolProvider.clearAllPackagesStatus(site.id);
+                        this.updateSiteUsage(siteData, 0);
+                    } else {
+                        // Error, recalculate the site usage.
+                        this.domUtils.showErrorModal('core.settings.errordeletesitefiles', true);
+                        site.getSpaceUsage().then((size) => {
+                            this.updateSiteUsage(siteData, size);
+                        });
+                    }
+                });
+            }).catch(() => {
+                // Ignore cancelled confirmation modal.
+            });
+        });
+    }
 }

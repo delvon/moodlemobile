@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreSitesProvider } from '@providers/sites';
-import { CoreFilterProvider } from '@core/filter/providers/filter';
+import { CoreTextUtilsProvider } from '@providers/utils/text';
 
 /**
  * Component to display a site selector. It will display a select with the list of sites. If the selected site changes,
@@ -35,9 +35,8 @@ export class CoreSitePickerComponent implements OnInit {
     selectedSite: string;
     sites: any[];
 
-    constructor(private translate: TranslateService,
-            private sitesProvider: CoreSitesProvider,
-            private filterProvider: CoreFilterProvider) {
+    constructor(private translate: TranslateService, private sitesProvider: CoreSitesProvider,
+        private textUtils: CoreTextUtilsProvider) {
         this.siteSelected = new EventEmitter();
     }
 
@@ -50,20 +49,13 @@ export class CoreSitePickerComponent implements OnInit {
 
             sites.forEach((site: any) => {
                 // Format the site name.
-                promises.push(this.filterProvider.formatText(site.siteName, {clean: true, singleLine: true, filter: false}, [],
-                        site.id).catch(() => {
+                promises.push(this.textUtils.formatText(site.siteName, true, true).catch(() => {
                     return site.siteName;
-                }).then((siteName) => {
+                }).then((formatted) => {
                     site.fullNameAndSiteName = this.translate.instant('core.fullnameandsitename',
-                        { fullname: site.fullName, sitename: siteName });
+                        { fullname: site.fullName, sitename: formatted });
                 }));
             });
-
-            if (!this.selectedSite && sites.length) {
-                // There is no current site, select the first one.
-                this.selectedSite = sites[0].id;
-                this.siteSelected.emit(this.selectedSite);
-            }
 
             return Promise.all(promises).then(() => {
                 this.sites = sites;

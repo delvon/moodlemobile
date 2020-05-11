@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import { CoreDirectivesModule } from '@directives/directives.module';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreCommentsComponentsModule } from '@core/comments/components/components.module';
 import { CoreCompileHtmlComponentModule } from '@core/compile/components/compile-html/compile-html.module';
-import { CoreRatingComponentsModule } from '@core/rating/components/components.module';
 import { AddonModDataComponentsModule } from '../../components/components.module';
 import { AddonModDataEntryPage } from './entry';
 
@@ -34,8 +33,7 @@ import { AddonModDataEntryPage } from './entry';
         CoreCompileHtmlComponentModule,
         CoreCommentsComponentsModule,
         IonicPageModule.forChild(AddonModDataEntryPage),
-        TranslateModule.forChild(),
-        CoreRatingComponentsModule
+        TranslateModule.forChild()
     ],
 })
 export class AddonModDataEntryPageModule {}

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ import { CoreSitesProvider } from '@providers/sites';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreMainMenuHandler, CoreMainMenuHandlerData } from '@core/mainmenu/providers/delegate';
 import { AddonNotificationsProvider } from './notifications';
-import { CorePushNotificationsProvider } from '@core/pushnotifications/providers/pushnotifications';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
+import { AddonPushNotificationsProvider } from '@addon/pushnotifications/providers/pushnotifications';
+import { AddonPushNotificationsDelegate } from '@addon/pushnotifications/providers/delegate';
 
 /**
  * Handler to inject an option into main menu.
@@ -41,8 +41,8 @@ export class AddonNotificationsMainMenuHandler implements CoreMainMenuHandler {
 
     constructor(eventsProvider: CoreEventsProvider, private sitesProvider: CoreSitesProvider,
             utils: CoreUtilsProvider, private notificationsProvider: AddonNotificationsProvider,
-            private pushNotificationsProvider: CorePushNotificationsProvider,
-            pushNotificationsDelegate: CorePushNotificationsDelegate) {
+            private pushNotificationsProvider: AddonPushNotificationsProvider,
+            pushNotificationsDelegate: AddonPushNotificationsDelegate) {
 
         eventsProvider.on(AddonNotificationsProvider.READ_CHANGED_EVENT, (data) => {
             this.updateBadge(data.siteId);
@@ -73,7 +73,7 @@ export class AddonNotificationsMainMenuHandler implements CoreMainMenuHandler {
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -82,7 +82,7 @@ export class AddonNotificationsMainMenuHandler implements CoreMainMenuHandler {
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreMainMenuHandlerData} Data needed to render the handler.
      */
     getDisplayData(): CoreMainMenuHandlerData {
         if (this.handler.loading) {
@@ -95,7 +95,7 @@ export class AddonNotificationsMainMenuHandler implements CoreMainMenuHandler {
     /**
      * Triggers an update for the badge number and loading status. Mandatory if showBadge is enabled.
      *
-     * @param siteId Site ID or current Site if undefined.
+     * @param {string} [siteId] Site ID or current Site if undefined.
      */
     updateBadge(siteId?: string): void {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 import { Pipe, PipeTransform } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import * as moment from 'moment';
 
 /**
@@ -37,15 +36,15 @@ import * as moment from 'moment';
 export class CoreDateDayOrTimePipe implements PipeTransform {
     protected logger;
 
-    constructor(logger: CoreLoggerProvider, private translate: TranslateService, private timeUtils: CoreTimeUtilsProvider) {
+    constructor(logger: CoreLoggerProvider, private translate: TranslateService) {
         this.logger = logger.getInstance('CoreDateDayOrTimePipe');
     }
 
     /**
      * Format a timestamp.
      *
-     * @param timestamp The UNIX timestamp (without milliseconds).
-     * @return Formatted time.
+     * @param {number|string} timestamp The UNIX timestamp (without milliseconds).
+     * @return {string} Formatted time.
      */
     transform(timestamp: string | number): string {
         if (typeof timestamp == 'string') {
@@ -60,10 +59,10 @@ export class CoreDateDayOrTimePipe implements PipeTransform {
         }
 
         return moment(timestamp * 1000).calendar(null, {
-            sameDay: this.timeUtils.convertPHPToMoment(this.translate.instant('core.strftimetime')),
+            sameDay: 'LT',
             lastDay: this.translate.instant('core.dflastweekdate'),
             lastWeek: this.translate.instant('core.dflastweekdate'),
-            sameElse: this.timeUtils.convertPHPToMoment(this.translate.instant('core.strftimedatefullshort'))
+            sameElse: 'L'
         });
     }
 }

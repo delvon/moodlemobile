@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { IonicPageModule } from 'ionic-angular';
 import { TranslateModule } from '@ngx-translate/core';
 import { CoreLoginSitesPage } from './sites';
 import { CoreDirectivesModule } from '@directives/directives.module';
-import { CoreComponentsModule } from '@components/components.module';
 
 @NgModule({
     declarations: [
@@ -25,12 +24,8 @@ import { CoreComponentsModule } from '@components/components.module';
     ],
     imports: [
         CoreDirectivesModule,
-        CoreComponentsModule,
         IonicPageModule.forChild(CoreLoginSitesPage),
         TranslateModule.forChild()
     ],
-    entryComponents: [
-        CoreLoginSitesPage
-    ]
 })
 export class CoreLoginSitesPageModule {}

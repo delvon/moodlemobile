@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { Component, OnInit, Input } from '@angular/core';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreSitePluginsCompileInitComponent } from '../../classes/compile-init-component';
-import { AddonModAssignFeedbackDelegate } from '@addon/mod/assign/providers/feedback-delegate';
 
 /**
  * Component that displays an assign feedback plugin created using a site plugin.
@@ -34,8 +33,7 @@ export class CoreSitePluginsAssignFeedbackComponent extends CoreSitePluginsCompi
     @Input() canEdit: boolean; // Whether the user can edit.
     @Input() edit: boolean; // Whether the user is editing.
 
-    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider,
-            protected assignFeedbackDelegate: AddonModAssignFeedbackDelegate) {
+    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider) {
         super(sitePluginsProvider, utils);
     }
 
@@ -53,14 +51,14 @@ export class CoreSitePluginsAssignFeedbackComponent extends CoreSitePluginsCompi
         this.jsData.canEdit = this.canEdit;
 
         if (this.plugin) {
-            this.getHandlerData(this.assignFeedbackDelegate.getHandlerName(this.plugin.type));
+            this.getHandlerData('assignfeedback_' + this.plugin.type);
         }
     }
 
     /**
      * Invalidate the data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidate(): Promise<any> {
         return Promise.resolve();

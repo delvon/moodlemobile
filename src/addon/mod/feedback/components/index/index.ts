@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 import { Component, Input, Optional, Injector, ViewChild } from '@angular/core';
 import { Content, NavController } from 'ionic-angular';
 import { CoreGroupInfo, CoreGroupsProvider } from '@providers/groups';
-import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreCourseModuleMainActivityComponent } from '@core/course/classes/main-activity-component';
 import { AddonModFeedbackProvider } from '../../providers/feedback';
 import { AddonModFeedbackHelperProvider } from '../../providers/helper';
 import { AddonModFeedbackOfflineProvider } from '../../providers/offline';
 import { AddonModFeedbackSyncProvider } from '../../providers/sync';
+import * as moment from 'moment';
 import { CoreTabsComponent } from '@components/tabs/tabs';
 
 /**
@@ -36,7 +36,6 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     @Input() tab = 'overview';
     @Input() group = 0;
 
-    component = AddonModFeedbackProvider.COMPONENT;
     moduleName = 'feedback';
 
     access = {
@@ -68,40 +67,25 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     firstSelectedTab: number;
 
     protected submitObserver: any;
-    protected syncEventName = AddonModFeedbackSyncProvider.AUTO_SYNCED;
 
     constructor(injector: Injector, private feedbackProvider: AddonModFeedbackProvider, @Optional() content: Content,
             private feedbackOffline: AddonModFeedbackOfflineProvider, private groupsProvider: CoreGroupsProvider,
-            private feedbackSync: AddonModFeedbackSyncProvider, protected navCtrl: NavController,
-            private feedbackHelper: AddonModFeedbackHelperProvider, private timeUtils: CoreTimeUtilsProvider) {
+            private feedbackSync: AddonModFeedbackSyncProvider, private navCtrl: NavController,
+            private feedbackHelper: AddonModFeedbackHelperProvider) {
         super(injector, content);
 
         // Listen for form submit events.
         this.submitObserver = this.eventsProvider.on(AddonModFeedbackProvider.FORM_SUBMITTED, (data) => {
             if (this.feedback && data.feedbackId == this.feedback.id) {
+                // Go to review attempt if an attempt in this quiz was finished and synced.
                 this.tabsLoaded['analysis'] = false;
                 this.tabsLoaded['overview'] = false;
                 this.loaded = false;
-
-                let promise;
-
-                // Prefetch data if needed.
-                if (!data.offline && this.isPrefetched()) {
-                    promise = this.feedbackSync.prefetchAfterUpdate(this.module, this.courseId).catch(() => {
-                        // Ignore errors.
-                    });
+                if (data.tab != this.tab) {
+                    this.tabChanged(data.tab);
                 } else {
-                    promise = Promise.resolve();
+                    this.loadContent(true);
                 }
-
-                promise.then(() => {
-                    // Load the right tab.
-                    if (data.tab != this.tab) {
-                        this.tabChanged(data.tab);
-                    } else {
-                        this.loadContent(true);
-                    }
-                });
             }
         }, this.siteId);
     }
@@ -113,11 +97,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
         super.ngOnInit();
 
         this.loadContent(false, true).then(() => {
-            if (this.feedback) {
-                this.feedbackProvider.logView(this.feedback.id, this.feedback.name).catch(() => {
-                    // Ignore errors.
-                });
-            }
+            this.feedbackProvider.logView(this.feedback.id);
         }).finally(() => {
             this.tabsReady = true;
         });
@@ -126,7 +106,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -149,8 +129,8 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Compares sync event data with current data to check if refresh content is needed.
      *
-     * @param syncEventData Data receiven on sync observer.
-     * @return True if refresh is needed, false otherwise.
+     * @param {any} syncEventData Data receiven on sync observer.
+     * @return {boolean}          True if refresh is needed, false otherwise.
      */
     protected isRefreshSyncNeeded(syncEventData: any): boolean {
         if (this.feedback && syncEventData.feedbackId == this.feedback.id) {
@@ -166,10 +146,10 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Download feedback contents.
      *
-     * @param refresh If it's refreshing content.
-     * @param sync If it should try to sync.
-     * @param showErrors If show errors to the user of hide them.
-     * @return Promise resolved when done.
+     * @param  {boolean}      [refresh=false]    If it's refreshing content.
+     * @param  {boolean}      [sync=false]       If the refresh is needs syncing.
+     * @param  {boolean}      [showErrors=false] If show errors to the user of hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
         return this.feedbackProvider.getFeedback(this.courseId, this.module.id).then((feedback) => {
@@ -197,24 +177,22 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
             }
 
             return this.fetchFeedbackOverviewData(this.access);
-        }).finally(() => {
-            // Now fill the context menu.
+        }).then(() => {
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
 
-            if (this.feedback) {
-                // Check if there are responses stored in offline.
-                return this.feedbackOffline.hasFeedbackOfflineData(this.feedback.id).then((hasOffline) => {
-                    this.hasOffline = hasOffline;
-                });
-            }
+            // Check if there are responses stored in offline.
+            return this.feedbackOffline.hasFeedbackOfflineData(this.feedback.id);
+        }).then((hasOffline) => {
+            this.hasOffline = hasOffline;
         });
     }
 
     /**
      * Convenience function to get feedback overview data.
      *
-     * @param accessData Retrieved access data.
-     * @return Resolved when done.
+     * @param {any} accessData Retrieved access data.
+     * @return {Promise<any>}  Resolved when done.
      */
     protected fetchFeedbackOverviewData(accessData: any): Promise<any> {
         const promises = [];
@@ -227,11 +205,12 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
 
         if (accessData.canedititems) {
             this.overview.timeopen = parseInt(this.feedback.timeopen) * 1000 || 0;
-            this.overview.openTimeReadable = this.overview.timeopen ? this.timeUtils.userDate(this.overview.timeopen) : '';
+            this.overview.openTimeReadable = this.overview.timeopen ?
+                moment(this.overview.timeopen).format('LLL') : '';
             this.overview.timeclose = parseInt(this.feedback.timeclose) * 1000 || 0;
-            this.overview.closeTimeReadable = this.overview.timeclose ? this.timeUtils.userDate(this.overview.timeclose) : '';
-        }
-        if (accessData.canviewanalysis) {
+            this.overview.closeTimeReadable = this.overview.timeclose ?
+                moment(this.overview.timeclose).format('LLL') : '';
+
             // Get groups (only for teachers).
             promises.push(this.fetchGroupInfo(this.feedback.coursemodule));
         }
@@ -244,8 +223,8 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Convenience function to get feedback analysis data.
      *
-     * @param accessData Retrieved access data.
-     * @return Resolved when done.
+     * @param {any} accessData Retrieved access data.
+     * @return {Promise<any>}  Resolved when done.
      */
     protected fetchFeedbackAnalysisData(accessData: any): Promise<any> {
         let promise;
@@ -266,22 +245,22 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Fetch Group info data.
      *
-     * @param cmId Course module ID.
-     * @return Resolved when done.
+     * @param  {number}       cmId Course module ID.
+     * @return {Promise<any>}      Resolved when done.
      */
     protected fetchGroupInfo(cmId: number): Promise<any> {
         return this.groupsProvider.getActivityGroupInfo(cmId).then((groupInfo) => {
             this.groupInfo = groupInfo;
 
-            return this.setGroup(this.groupsProvider.validateGroupId(this.group, groupInfo));
+            return this.setGroup(this.group);
         });
     }
 
     /**
      * Parse the analysis info to show the info correctly formatted.
      *
-     * @param item Item to parse.
-     * @return Parsed item.
+     * @param  {any} item Item to parse.
+     * @return {any}      Parsed item.
      */
     protected parseAnalysisInfo(item: any): any {
         switch (item.typ) {
@@ -360,7 +339,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Function to go to the questions form.
      *
-     * @param preview Preview or edit the form.
+     * @param {boolean} preview Preview or edit the form.
      */
     gotoAnswerQuestions(preview: boolean = false): void {
         const stateParams = {
@@ -393,7 +372,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Function to link implemented features.
      *
-     * @param feature Feature to navigate.
+     * @param {string} feature Feature to navigate.
      */
     openFeature(feature: string): void {
         this.feedbackHelper.openFeature(feature, this.navCtrl, this.module, this.courseId, this.group);
@@ -402,7 +381,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Tab changed, fetch content again.
      *
-     * @param tabName New tab name.
+     * @param {string} tabName New tab name.
      */
     tabChanged(tabName: string): void {
         this.tab = tabName;
@@ -415,8 +394,8 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Set group to see the analysis.
      *
-     * @param groupId Group ID.
-     * @return Resolved when done.
+     * @param  {number}       groupId Group ID.
+     * @return {Promise<any>}         Resolved when done.
      */
     setGroup(groupId: number): Promise<any> {
         this.group = groupId;
@@ -456,7 +435,7 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Performs the sync of the activity.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sync(): Promise<any> {
         return this.feedbackSync.syncFeedback(this.feedback.id);
@@ -465,8 +444,8 @@ export class AddonModFeedbackIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Checks if sync has succeed from result sync data.
      *
-     * @param result Data returned on the sync function.
-     * @return If suceed or not.
+     * @param  {any}     result Data returned on the sync function.
+     * @return {boolean}        If suceed or not.
      */
     protected hasSyncSucceed(result: any): boolean {
         return result.updated;

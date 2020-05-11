@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ export class AddonModDataFieldPictureComponent extends AddonModDataFieldPluginCo
     /**
      * Get the files from the input value.
      *
-     * @param value Input value.
-     * @return List of files.
+     * @param  {any} value Input value.
+     * @return {any}     List of files.
      */
     protected getFiles(value: any): any {
         let files = (value && value.files) || [];
@@ -64,9 +64,9 @@ export class AddonModDataFieldPictureComponent extends AddonModDataFieldPluginCo
     /**
      * Find file in a list.
      *
-     * @param files File list where to search.
-     * @param filenameSeek Filename to search.
-     * @return File found or false.
+     * @param {any[]} files         File list where to search.
+     * @param {string} filenameSeek Filename to search.
+     * @return {any} File found or false.
      */
     protected findFile(files: any[], filenameSeek: string): any {
         return files.find((file) => file.filename == filenameSeek) || false;
@@ -97,7 +97,7 @@ export class AddonModDataFieldPictureComponent extends AddonModDataFieldPluginCo
     /**
      * Update value being shown.
      *
-     * @param value New value to be set.
+     * @param {any} value New value to be set.
      */
     protected updateValue(value: any): void {
         this.value = value;
@@ -124,12 +124,13 @@ export class AddonModDataFieldPictureComponent extends AddonModDataFieldPluginCo
             this.entryId = (value && value.recordid) || null;
             this.title = (value && value.content1) || '';
             this.imageUrl = null;
-            setTimeout(() => {
-                if (this.image) {
-                    this.imageUrl = this.image.offline ? this.image.toURL() : this.image.fileurl;
+            if (this.image) {
+                if (this.image.offline) {
+                    this.imageUrl = (this.image && this.image.toURL()) || null;
+                } else {
+                    this.imageUrl = (this.image && this.image.fileurl) || null;
                 }
-            }, 1);
-
+            }
             this.width  = this.domUtils.formatPixelsSize(this.field.param1);
             this.height = this.domUtils.formatPixelsSize(this.field.param2);
         }

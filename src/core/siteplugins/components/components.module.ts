@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,15 +29,11 @@ import { CoreSitePluginsQuizAccessRuleComponent } from './quiz-access-rule/quiz-
 import { CoreSitePluginsAssignFeedbackComponent } from './assign-feedback/assign-feedback';
 import { CoreSitePluginsAssignSubmissionComponent } from './assign-submission/assign-submission';
 import { CoreSitePluginsWorkshopAssessmentStrategyComponent } from './workshop-assessment-strategy/workshop-assessment-strategy';
-import { CoreSitePluginsBlockComponent } from '@core/siteplugins/components/block/block';
-import { CoreSitePluginsOnlyTitleBlockComponent } from '@core/siteplugins/components/only-title-block/only-title-block';
 
 @NgModule({
     declarations: [
         CoreSitePluginsPluginContentComponent,
         CoreSitePluginsModuleIndexComponent,
-        CoreSitePluginsBlockComponent,
-        CoreSitePluginsOnlyTitleBlockComponent,
         CoreSitePluginsCourseOptionComponent,
         CoreSitePluginsCourseFormatComponent,
         CoreSitePluginsUserProfileFieldComponent,
@@ -60,8 +56,6 @@ import { CoreSitePluginsOnlyTitleBlockComponent } from '@core/siteplugins/compon
     exports: [
         CoreSitePluginsPluginContentComponent,
         CoreSitePluginsModuleIndexComponent,
-        CoreSitePluginsBlockComponent,
-        CoreSitePluginsOnlyTitleBlockComponent,
         CoreSitePluginsCourseOptionComponent,
         CoreSitePluginsCourseFormatComponent,
         CoreSitePluginsUserProfileFieldComponent,
@@ -74,8 +68,6 @@ import { CoreSitePluginsOnlyTitleBlockComponent } from '@core/siteplugins/compon
     ],
     entryComponents: [
         CoreSitePluginsModuleIndexComponent,
-        CoreSitePluginsBlockComponent,
-        CoreSitePluginsOnlyTitleBlockComponent,
         CoreSitePluginsCourseOptionComponent,
         CoreSitePluginsCourseFormatComponent,
         CoreSitePluginsUserProfileFieldComponent,

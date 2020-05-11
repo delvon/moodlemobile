@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import { AddonModGlossaryProvider } from './glossary';
 export class AddonModGlossaryEntryLinkHandler extends CoreContentLinksHandlerBase {
     name = 'AddonModGlossaryEntryLinkHandler';
     featureName = 'CoreCourseModuleDelegate_AddonModGlossary';
-    pattern = /\/mod\/glossary\/(showentry|view)\.php.*([\&\?](eid|g|mode|hook)=\d+)/;
+    pattern = /\/mod\/glossary\/showentry\.php.*([\&\?]eid=\d+)/;
 
     constructor(
             private domUtils: CoreDomUtilsProvider,
@@ -40,24 +40,18 @@ export class AddonModGlossaryEntryLinkHandler extends CoreContentLinksHandlerBas
     /**
      * Get the list of actions for a link (url).
      *
-     * @param siteIds List of sites the URL belongs to.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return List of (or promise resolved with list of) actions.
+     * @param {string[]} siteIds List of sites the URL belongs to.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {CoreContentLinksAction[]|Promise<CoreContentLinksAction[]>} List of (or promise resolved with list of) actions.
      */
     getActions(siteIds: string[], url: string, params: any, courseId?: number):
             CoreContentLinksAction[] | Promise<CoreContentLinksAction[]> {
         return [{
             action: (siteId, navCtrl?): void => {
                 const modal = this.domUtils.showModalLoading();
-                let entryId;
-                if (params.mode == 'entry') {
-                    entryId = parseInt(params.hook, 10);
-                } else {
-                    entryId = parseInt(params.eid, 10);
-                }
-
+                const entryId = parseInt(params.eid, 10);
                 let promise;
 
                 if (courseId) {
@@ -67,8 +61,8 @@ export class AddonModGlossaryEntryLinkHandler extends CoreContentLinksHandlerBas
                         this.domUtils.showErrorModalDefault(error, 'addon.mod_glossary.errorloadingentry', true);
 
                         return Promise.reject(null);
-                    }).then((response) => {
-                        return this.courseHelper.getModuleCourseIdByInstance(response.entry.glossaryid, 'glossary', siteId);
+                    }).then((entry) => {
+                        return this.courseHelper.getModuleCourseIdByInstance(entry.glossaryid, 'glossary', siteId);
                     });
                 }
 

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ export class AddonCourseCompletionCourseOptionHandler implements CoreCourseOptio
 
     /**
      * Whether or not the handler is enabled on a site level.
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean|Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.courseCompletionProvider.isPluginViewEnabled();
@@ -39,11 +39,11 @@ export class AddonCourseCompletionCourseOptionHandler implements CoreCourseOptio
     /**
      * Whether or not the handler is enabled for a certain course.
      *
-     * @param courseId The course ID.
-     * @param accessData Access type and data. Default, guest, ...
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return True or promise resolved with true if enabled.
+     * @param {number} courseId The course ID.
+     * @param {any} accessData Access type and data. Default, guest, ...
+     * @param {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
      isEnabledForCourse(courseId: number, accessData: any, navOptions?: any, admOptions?: any): boolean | Promise<boolean> {
         if (accessData && accessData.type == CoreCourseProvider.ACCESS_GUEST) {
@@ -64,8 +64,8 @@ export class AddonCourseCompletionCourseOptionHandler implements CoreCourseOptio
     /**
      * Returns the data needed to render the handler.
      *
-     * @param courseId The course ID.
-     * @return Data.
+     * @param {number} courseId The course ID.
+     * @return {CoreCourseOptionsHandlerData} Data.
      */
     getDisplayData?(injector: Injector, courseId: number): CoreCourseOptionsHandlerData {
         return {
@@ -78,31 +78,12 @@ export class AddonCourseCompletionCourseOptionHandler implements CoreCourseOptio
     /**
      * Should invalidate the data to determine if the handler is enabled for a certain course.
      *
-     * @param courseId The course ID.
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return Promise resolved when done.
+     * @param {number} courseId The course ID.
+     * @param {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidateEnabledForCourse(courseId: number, navOptions?: any, admOptions?: any): Promise<any> {
         return this.courseCompletionProvider.invalidateCourseCompletion(courseId);
-    }
-
-    /**
-     * Called when a course is downloaded. It should prefetch all the data to be able to see the addon in offline.
-     *
-     * @param course The course.
-     * @return Promise resolved when done.
-     */
-    prefetch(course: any): Promise<any> {
-        return this.courseCompletionProvider.getCompletion(course.id, undefined, {
-            getFromCache: false,
-            emergencyCache: false
-        }).catch((error) => {
-            if (error && error.errorcode == 'notenroled') {
-                // Not enrolled error, probably a teacher. Ignore error.
-            } else {
-                return Promise.reject(error);
-            }
-        });
     }
 }

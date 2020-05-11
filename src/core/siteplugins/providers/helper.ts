@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
+import { Http } from '@angular/http';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreAppProvider } from '@providers/app';
 import { CoreEventsProvider } from '@providers/events';
@@ -29,10 +30,6 @@ import { CoreSitePluginsProvider } from './siteplugins';
 import { CoreCompileProvider } from '@core/compile/providers/compile';
 import { CoreQuestionProvider } from '@core/question/providers/question';
 import { CoreCourseProvider } from '@core/course/providers/course';
-import { CoreCoursesProvider } from '@core/courses/providers/courses';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
-import { CorePluginFileDelegate } from '@providers/plugin-file-delegate';
-import { CoreWSProvider } from '@providers/ws';
 
 // Delegates
 import { CoreMainMenuDelegate } from '@core/mainmenu/providers/delegate';
@@ -67,8 +64,6 @@ import { CoreSitePluginsQuizAccessRuleHandler } from '../classes/handlers/quiz-a
 import { CoreSitePluginsAssignFeedbackHandler } from '../classes/handlers/assign-feedback-handler';
 import { CoreSitePluginsAssignSubmissionHandler } from '../classes/handlers/assign-submission-handler';
 import { CoreSitePluginsWorkshopAssessmentStrategyHandler } from '../classes/handlers/workshop-assessment-strategy-handler';
-import { CoreBlockDelegate } from '@core/block/providers/delegate';
-import { CoreSitePluginsBlockHandler } from '@core/siteplugins/classes/handlers/block-handler';
 
 /**
  * Helper service to provide functionalities regarding site plugins. It basically has the features to load and register site
@@ -81,64 +76,38 @@ import { CoreSitePluginsBlockHandler } from '@core/siteplugins/classes/handlers/
  */
 @Injectable()
 export class CoreSitePluginsHelperProvider {
-    protected HANDLER_DISABLED = 'core_site_plugins_helper_handler_disabled';
-
     protected logger;
-    protected courseRestrictHandlers = {};
 
-    constructor(protected loggerProvider: CoreLoggerProvider,
-            private sitesProvider: CoreSitesProvider,
-            private domUtils: CoreDomUtilsProvider,
-            private mainMenuDelegate: CoreMainMenuDelegate,
-            private moduleDelegate: CoreCourseModuleDelegate,
-            private userDelegate: CoreUserDelegate,
-            private langProvider: CoreLangProvider,
-            private wsProvider: CoreWSProvider,
-            private sitePluginsProvider: CoreSitePluginsProvider,
-            private prefetchDelegate: CoreCourseModulePrefetchDelegate,
-            private compileProvider: CoreCompileProvider,
-            private utils: CoreUtilsProvider,
-            private urlUtils: CoreUrlUtilsProvider,
-            private courseOptionsDelegate: CoreCourseOptionsDelegate,
-            private eventsProvider: CoreEventsProvider,
-            private courseFormatDelegate: CoreCourseFormatDelegate,
-            private profileFieldDelegate: CoreUserProfileFieldDelegate,
-            private textUtils: CoreTextUtilsProvider,
-            private filepoolProvider: CoreFilepoolProvider,
-            private settingsDelegate: CoreSettingsDelegate,
-            private questionDelegate: CoreQuestionDelegate,
-            private questionBehaviourDelegate: CoreQuestionBehaviourDelegate,
-            private questionProvider: CoreQuestionProvider,
-            private messageOutputDelegate: AddonMessageOutputDelegate,
-            private accessRulesDelegate: AddonModQuizAccessRuleDelegate,
-            private assignSubmissionDelegate: AddonModAssignSubmissionDelegate,
-            private translate: TranslateService,
-            private assignFeedbackDelegate: AddonModAssignFeedbackDelegate,
-            private appProvider: CoreAppProvider,
+    constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private domUtils: CoreDomUtilsProvider,
+            private mainMenuDelegate: CoreMainMenuDelegate, private moduleDelegate: CoreCourseModuleDelegate,
+            private userDelegate: CoreUserDelegate, private langProvider: CoreLangProvider, private http: Http,
+            private sitePluginsProvider: CoreSitePluginsProvider, private prefetchDelegate: CoreCourseModulePrefetchDelegate,
+            private compileProvider: CoreCompileProvider, private utils: CoreUtilsProvider, private urlUtils: CoreUrlUtilsProvider,
+            private courseOptionsDelegate: CoreCourseOptionsDelegate, eventsProvider: CoreEventsProvider,
+            private courseFormatDelegate: CoreCourseFormatDelegate, private profileFieldDelegate: CoreUserProfileFieldDelegate,
+            private textUtils: CoreTextUtilsProvider, private filepoolProvider: CoreFilepoolProvider,
+            private settingsDelegate: CoreSettingsDelegate, private questionDelegate: CoreQuestionDelegate,
+            private questionBehaviourDelegate: CoreQuestionBehaviourDelegate, private questionProvider: CoreQuestionProvider,
+            private messageOutputDelegate: AddonMessageOutputDelegate, private accessRulesDelegate: AddonModQuizAccessRuleDelegate,
+            private assignSubmissionDelegate: AddonModAssignSubmissionDelegate, private translate: TranslateService,
+            private assignFeedbackDelegate: AddonModAssignFeedbackDelegate, private appProvider: CoreAppProvider,
             private workshopAssessmentStrategyDelegate: AddonWorkshopAssessmentStrategyDelegate,
-            private courseProvider: CoreCourseProvider,
-            private blockDelegate: CoreBlockDelegate,
-            private filterHelper: CoreFilterHelperProvider,
-            private pluginFileDelegate: CorePluginFileDelegate) {
+            private courseProvider: CoreCourseProvider) {
 
-        this.logger = loggerProvider.getInstance('CoreSitePluginsHelperProvider');
+        this.logger = logger.getInstance('CoreSitePluginsHelperProvider');
 
         // Fetch the plugins on login.
-        eventsProvider.on(CoreEventsProvider.LOGIN, (data) => {
-            this.fetchSitePlugins(data.siteId).then((plugins) => {
+        eventsProvider.on(CoreEventsProvider.LOGIN, () => {
+            const siteId = this.sitesProvider.getCurrentSiteId();
+            this.fetchSitePlugins(siteId).then((plugins) => {
                 // Plugins fetched, check that site hasn't changed.
-                if (data.siteId == this.sitesProvider.getCurrentSiteId() && plugins.length) {
+                if (siteId == this.sitesProvider.getCurrentSiteId() && plugins.length) {
                     // Site is still the same. Load the plugins and trigger the event.
-                    this.loadSitePlugins(plugins).catch((error) => {
-                        this.logger.error(error);
-                    }).finally(() => {
-                        eventsProvider.trigger(CoreEventsProvider.SITE_PLUGINS_LOADED, {}, data.siteId);
+                    this.loadSitePlugins(plugins).then(() => {
+                        eventsProvider.trigger(CoreEventsProvider.SITE_PLUGINS_LOADED, {}, siteId);
                     });
+
                 }
-            }).catch((e) => {
-                // Ignore errors here.
-            }).finally(() => {
-                this.sitePluginsProvider.setPluginsFetched();
             });
         });
 
@@ -149,23 +118,16 @@ export class CoreSitePluginsHelperProvider {
                 window.location.reload();
             }
         });
-
-        // Re-load plugins restricted for courses when the list of user courses changes.
-        eventsProvider.on(CoreCoursesProvider.EVENT_MY_COURSES_CHANGED, (data) => {
-            if (data && data.siteId && data.siteId == this.sitesProvider.getCurrentSiteId() && data.added && data.added.length) {
-                this.reloadCourseRestrictHandlers();
-            }
-        });
     }
 
     /**
      * Download the styles for a handler (if any).
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param siteId Site ID. If not provided, current site.
-     * @return Promise resolved with the CSS code.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {string} [siteId] Site ID. If not provided, current site.
+     * @return {Promise<string>} Promise resolved with the CSS code.
      */
     downloadStyles(plugin: any, handlerName: string, handlerSchema: any, siteId?: string): Promise<string> {
 
@@ -174,11 +136,6 @@ export class CoreSitePluginsHelperProvider {
             let url = handlerSchema.styles && handlerSchema.styles.url;
             if (url && !this.urlUtils.isAbsoluteURL(url)) {
                 url = this.textUtils.concatenatePaths(site.getURL(), url);
-            }
-
-            if (url && handlerSchema.styles.version) {
-                // Add the version to the URL to prevent getting a cached file.
-                url += (url.indexOf('?') != -1 ? '&' : '?') + 'version=' + handlerSchema.styles.version;
             }
 
             const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
@@ -208,7 +165,15 @@ export class CoreSitePluginsHelperProvider {
                    undefined, undefined, undefined, handlerSchema.styles.version).then((url) => {
 
                 // File is downloaded, get the contents.
-                return this.wsProvider.getText(url);
+                return this.http.get(url).toPromise();
+            }).then((response): any => {
+                const text = response && response.text();
+
+                if (typeof text == 'string') {
+                    return text;
+                } else {
+                    return Promise.reject(null);
+                }
             });
         });
     }
@@ -216,10 +181,10 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Execute a handler's init method if it has any.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return Promise resolved when done. It returns the results of the getContent call and the data returned by
-     *         the init JS (if any).
+     * @param {any} plugin Data of the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {Promise<any>} Promise resolved when done. It returns the results of the getContent call and the data returned by
+     *                        the init JS (if any).
      */
     protected executeHandlerInit(plugin: any, handlerSchema: any): Promise<any> {
         if (!handlerSchema.init) {
@@ -232,11 +197,11 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Execute a get_content method and run its javascript (if any).
      *
-     * @param plugin Data of the plugin.
-     * @param method The method to call.
-     * @param isInit Whether it's the init method.
-     * @return Promise resolved when done. It returns the results of the getContent call and the data returned by
-     *         the JS (if any).
+     * @param {any} plugin Data of the plugin.
+     * @param {string} method The method to call.
+     * @param {boolean} [isInit] Whether it's the init method.
+     * @return {Promise<any>} Promise resolved when done. It returns the results of the getContent call and the data returned by
+     *                        the JS (if any).
      */
     protected executeMethodAndJS(plugin: any, method: string, isInit?: boolean): Promise<any> {
         const siteId = this.sitesProvider.getCurrentSiteId(),
@@ -252,9 +217,7 @@ export class CoreSitePluginsHelperProvider {
             }
 
             // Create a "fake" instance to hold all the libraries.
-            const instance = {
-                HANDLER_DISABLED: this.HANDLER_DISABLED
-            };
+            const instance = {};
             this.compileProvider.injectLibraries(instance);
 
             // Add some data of the WS call result.
@@ -266,11 +229,6 @@ export class CoreSitePluginsHelperProvider {
             // Now execute the javascript using this instance.
             result.jsResult = this.compileProvider.executeJavascript(instance, result.javascript);
 
-            if (result.jsResult == this.HANDLER_DISABLED) {
-                // The "disabled" field was added in 3.8, this is a workaround for previous versions.
-                result.disabled = true;
-            }
-
             return result;
         });
     }
@@ -278,8 +236,8 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Fetch site plugins.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done. Returns the list of plugins to load.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved when done. Returns the list of plugins to load.
      */
     fetchSitePlugins(siteId?: string): Promise<any[]> {
         const plugins = [];
@@ -307,8 +265,8 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given an addon name, return the prefix to add to its string keys.
      *
-     * @param addon Name of the addon (plugin.addon).
-     * @return Prefix.
+     * @param {string} addon Name of the addon (plugin.addon).
+     * @return {string} Prefix.
      */
     protected getPrefixForStrings(addon: string): string {
         if (addon) {
@@ -321,9 +279,9 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given an addon name and the key of a string, return the full string key (prefixed).
      *
-     * @param addon Name of the addon (plugin.addon).
-     * @param key The key of the string.
-     * @return Full string key.
+     * @param {string} addon Name of the addon (plugin.addon).
+     * @param {string} key The key of the string.
+     * @return {string} Full string key.
      */
     protected getPrefixedString(addon: string, key: string): string {
         return this.getPrefixForStrings(addon) + key;
@@ -332,9 +290,9 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Check if a certain plugin is a site plugin and it's enabled in a certain site.
      *
-     * @param plugin Data of the plugin.
-     * @param site Site affected.
-     * @return Whether it's a site plugin and it's enabled.
+     * @param {any} plugin Data of the plugin.
+     * @param {CoreSite} site Site affected.
+     * @return {boolean} Whether it's a site plugin and it's enabled.
      */
     isSitePluginEnabled(plugin: any, site: CoreSite): boolean {
         if (!site.isFeatureDisabled('sitePlugin_' + plugin.component + '_' + plugin.addon) && plugin.handlers) {
@@ -353,7 +311,7 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Load the lang strings for a plugin.
      *
-     * @param plugin Data of the plugin.
+     * @param {any} plugin Data of the plugin.
      */
     loadLangStrings(plugin: any): void {
         if (!plugin.parsedLang) {
@@ -370,8 +328,8 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Load a site plugin.
      *
-     * @param plugin Data of the plugin.
-     * @return Promise resolved when loaded.
+     * @param {any} plugin Data of the plugin.
+     * @return {Promise<any>} Promise resolved when loaded.
      */
     loadSitePlugin(plugin: any): Promise<any> {
         const promises = [];
@@ -403,17 +361,14 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Load site plugins.
      *
-     * @param plugins The plugins to load.
-     * @return Promise resolved when loaded.
+     * @param {any[]} plugins The plugins to load.
+     * @return {Promise<any>} Promise resolved when loaded.
      */
     loadSitePlugins(plugins: any[]): Promise<any> {
         const promises = [];
-        this.courseRestrictHandlers = {};
 
         plugins.forEach((plugin) => {
-            const pluginPromise = this.loadSitePlugin(plugin);
-            promises.push(pluginPromise);
-            this.sitePluginsProvider.registerSitePluginPromise(plugin.component, pluginPromise);
+            promises.push(this.loadSitePlugin(plugin));
         });
 
         return this.utils.allPromises(promises);
@@ -422,12 +377,12 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Load the styles for a handler.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param fileUrl CSS file URL.
-     * @param cssCode CSS code.
-     * @param version Styles version.
-     * @param siteId Site ID. If not provided, current site.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {string} fileUrl CSS file URL.
+     * @param {string} cssCode CSS code.
+     * @param {number} [version] Styles version.
+     * @param {string} [siteId] Site ID. If not provided, current site.
      */
     loadStyles(plugin: any, handlerName: string, fileUrl: string, cssCode: string, version?: number, siteId?: string): void {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -451,10 +406,10 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Register a site plugin handler in the right delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return Promise resolved when done.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {Promise<any>} Promise resolved when done.
      */
     registerHandler(plugin: any, handlerName: string, handlerSchema: any): Promise<any> {
 
@@ -475,13 +430,6 @@ export class CoreSitePluginsHelperProvider {
         }));
 
         return Promise.all(promises).then(() => {
-            if (result && result.disabled) {
-                // This handler is disabled for the current user, stop.
-                this.logger.warn('Handler disabled by init function', plugin, handlerSchema);
-
-                return;
-            }
-
             if (cssCode) {
                 // Load the styles.
                 this.loadStyles(plugin, handlerName, handlerSchema.styles.url, cssCode, handlerSchema.styles.version, siteId);
@@ -495,7 +443,7 @@ export class CoreSitePluginsHelperProvider {
                     break;
 
                 case 'CoreCourseModuleDelegate':
-                    promise = Promise.resolve(this.registerModuleHandler(plugin, handlerName, handlerSchema, result));
+                    promise = Promise.resolve(this.registerModuleHandler(plugin, handlerName, handlerSchema));
                     break;
 
                 case 'CoreUserDelegate':
@@ -524,10 +472,6 @@ export class CoreSitePluginsHelperProvider {
 
                 case 'CoreQuestionBehaviourDelegate':
                     promise = Promise.resolve(this.registerQuestionBehaviourHandler(plugin, handlerName, handlerSchema));
-                    break;
-
-                case 'CoreBlockDelegate':
-                    promise = Promise.resolve(this.registerBlockHandler(plugin, handlerName, handlerSchema, result));
                     break;
 
                 case 'AddonMessageOutputDelegate':
@@ -567,7 +511,7 @@ export class CoreSitePluginsHelperProvider {
                 }
             });
         }).catch((err) => {
-            return Promise.reject('Error executing init method ' + handlerSchema.init + ': ' + err.message);
+            this.logger.error('Error executing init method', handlerSchema.init, err);
         });
     }
 
@@ -576,10 +520,10 @@ export class CoreSitePluginsHelperProvider {
      * These type of handlers will return a generic template and its JS in the main method, so it will be called
      * before registering the handler.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerComponentInitHandler(plugin: any, handlerName: string, handlerSchema: any, delegate: any,
             createHandlerFn: (uniqueName: string, result: any) => any): string | Promise<string> {
@@ -594,7 +538,7 @@ export class CoreSitePluginsHelperProvider {
         this.logger.debug('Register site plugin', plugin, handlerSchema);
 
         // Execute the main method and its JS. The template returned will be used in the right component.
-        return this.executeMethodAndJS(plugin, handlerSchema.method).then((result): any => {
+        return this.executeMethodAndJS(plugin, handlerSchema.method).then((result) => {
 
             // Create and register the handler.
             const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
@@ -617,7 +561,7 @@ export class CoreSitePluginsHelperProvider {
 
             delegate.registerHandler(handler);
 
-            return uniqueName;
+            return plugin.component;
         }).catch((err) => {
             this.logger.error('Error executing main method', plugin.component, handlerSchema.method, err);
         });
@@ -626,17 +570,17 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the assign feedback delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerAssignFeedbackHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.assignFeedbackDelegate,
                     (uniqueName: string, result: any) => {
 
-            const type = (handlerSchema.moodlecomponent || plugin.component).replace('assignfeedback_', ''),
+            const type = plugin.component.replace('assignfeedback_', ''),
                 prefix = this.getPrefixForStrings(plugin.addon);
 
             return new CoreSitePluginsAssignFeedbackHandler(this.translate, uniqueName, type, prefix);
@@ -646,17 +590,17 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the assign submission delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerAssignSubmissionHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.assignSubmissionDelegate,
                     (uniqueName: string, result: any) => {
 
-            const type = (handlerSchema.moodlecomponent || plugin.component).replace('assignsubmission_', ''),
+            const type = plugin.component.replace('assignsubmission_', ''),
                 prefix = this.getPrefixForStrings(plugin.addon);
 
             return new CoreSitePluginsAssignSubmissionHandler(this.translate, uniqueName, type, prefix);
@@ -664,56 +608,32 @@ export class CoreSitePluginsHelperProvider {
     }
 
     /**
-     * Given a handler in a plugin, register it in the block delegate.
-     *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of init function.
-     * @return A string (or a promise resolved with a string) to identify the handler.
-     */
-    protected registerBlockHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any):
-            string | Promise<string> {
-
-        const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            blockName = (handlerSchema.moodlecomponent || plugin.component).replace('block_', ''),
-            titleString = (handlerSchema.displaydata && handlerSchema.displaydata.title) ?
-                handlerSchema.displaydata.title : 'pluginname',
-            prefixedTitle = this.getPrefixedString(plugin.addon, titleString);
-
-        this.blockDelegate.registerHandler(
-            new CoreSitePluginsBlockHandler(uniqueName, prefixedTitle, blockName, handlerSchema, initResult));
-
-        return uniqueName;
-    }
-
-    /**
      * Given a handler in a plugin, register it in the course format delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string} A string to identify the handler.
      */
     protected registerCourseFormatHandler(plugin: any, handlerName: string, handlerSchema: any): string {
         this.logger.debug('Register site plugin in course format delegate:', plugin, handlerSchema);
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            formatName = (handlerSchema.moodlecomponent || plugin.component).replace('format_', '');
+            formatName = plugin.component.replace('format_', '');
         this.courseFormatDelegate.registerHandler(new CoreSitePluginsCourseFormatHandler(uniqueName, formatName, handlerSchema));
 
-        return uniqueName;
+        return formatName;
     }
 
     /**
      * Given a handler in a plugin, register it in the course options delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {any} initResult Result of the init WS call.
+     * @return {string} A string to identify the handler.
      */
     protected registerCourseOptionHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
         if (!handlerSchema.displaydata) {
@@ -727,21 +647,10 @@ export class CoreSitePluginsHelperProvider {
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title || 'pluginname'),
-            handler = new CoreSitePluginsCourseOptionHandler(uniqueName, prefixedTitle, plugin,
-                    handlerSchema, initResult, this.sitePluginsProvider, this.utils);
+            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title);
 
-        this.courseOptionsDelegate.registerHandler(handler);
-
-        if (initResult && initResult.restrict && initResult.restrict.courses) {
-            // This handler is restricted to certan courses, store it in the list.
-            this.courseRestrictHandlers[uniqueName] = {
-                plugin: plugin,
-                handlerName: handlerName,
-                handlerSchema: handlerSchema,
-                handler: handler
-            };
-        }
+        this.courseOptionsDelegate.registerHandler(new CoreSitePluginsCourseOptionHandler(uniqueName, prefixedTitle, plugin,
+                handlerSchema, initResult, this.sitePluginsProvider));
 
         return uniqueName;
     }
@@ -749,11 +658,11 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the main menu delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {any} initResult Result of the init WS call.
+     * @return {string} A string to identify the handler.
      */
     protected registerMainMenuHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
         if (!handlerSchema.displaydata) {
@@ -767,7 +676,7 @@ export class CoreSitePluginsHelperProvider {
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title || 'pluginname');
+            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title);
 
         this.mainMenuDelegate.registerHandler(
                 new CoreSitePluginsMainMenuHandler(uniqueName, prefixedTitle, plugin, handlerSchema, initResult));
@@ -778,11 +687,11 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the message output delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {any} initResult Result of the init WS call.
+     * @return {string} A string to identify the handler.
      */
     protected registerMessageOutputHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
         if (!handlerSchema.displaydata) {
@@ -796,8 +705,8 @@ export class CoreSitePluginsHelperProvider {
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title || 'pluginname'),
-            processorName = (handlerSchema.moodlecomponent || plugin.component).replace('message_', '');
+            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title),
+            processorName = plugin.component.replace('message_', '');
 
         this.messageOutputDelegate.registerHandler(new CoreSitePluginsMessageOutputHandler(uniqueName, processorName,
                 prefixedTitle, plugin, handlerSchema, initResult));
@@ -808,13 +717,12 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the module delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string} A string to identify the handler.
      */
-    protected registerModuleHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
+    protected registerModuleHandler(plugin: any, handlerName: string, handlerSchema: any): string {
         if (!handlerSchema.displaydata) {
             // Required data not provided, stop.
             this.logger.warn('Ignore site plugin because it doesn\'t provide displaydata', plugin, handlerSchema);
@@ -822,56 +730,55 @@ export class CoreSitePluginsHelperProvider {
             return;
         }
 
-        this.logger.debug('Register site plugin in module delegate:', plugin, handlerSchema, initResult);
+        this.logger.debug('Register site plugin in module delegate:', plugin, handlerSchema);
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            modName = (handlerSchema.moodlecomponent || plugin.component).replace('mod_', '');
+            modName = plugin.component.replace('mod_', '');
 
-        this.moduleDelegate.registerHandler(new CoreSitePluginsModuleHandler(uniqueName, modName, plugin, handlerSchema,
-                initResult, this.sitePluginsProvider, this.loggerProvider));
+        this.moduleDelegate.registerHandler(new CoreSitePluginsModuleHandler(uniqueName, modName, handlerSchema));
 
         if (handlerSchema.offlinefunctions && Object.keys(handlerSchema.offlinefunctions).length) {
             // Register the prefetch handler.
             this.prefetchDelegate.registerHandler(new CoreSitePluginsModulePrefetchHandler(this.translate, this.appProvider,
-                this.utils, this.courseProvider, this.filepoolProvider, this.sitesProvider, this.domUtils, this.filterHelper,
-                this.pluginFileDelegate, this.sitePluginsProvider, plugin.component, uniqueName, modName, handlerSchema));
+                this.utils, this.courseProvider, this.filepoolProvider, this.sitesProvider, this.domUtils,
+                this.sitePluginsProvider, plugin.component, uniqueName, modName, handlerSchema));
         }
 
-        return uniqueName;
+        return modName;
     }
 
     /**
      * Given a handler in a plugin, register it in the question delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerQuestionHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.questionDelegate,
                     (uniqueName: string, result: any) => {
 
-            return new CoreSitePluginsQuestionHandler(uniqueName, handlerSchema.moodlecomponent || plugin.component);
+            return new CoreSitePluginsQuestionHandler(uniqueName, plugin.component);
         });
     }
 
     /**
      * Given a handler in a plugin, register it in the question behaviour delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerQuestionBehaviourHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.questionBehaviourDelegate,
                     (uniqueName: string, result: any) => {
 
-            const type = (handlerSchema.moodlecomponent || plugin.component).replace('qbehaviour_', '');
+            const type = plugin.component.replace('qbehaviour_', '');
 
             return new CoreSitePluginsQuestionBehaviourHandler(this.questionProvider, uniqueName, type, result.templates.length);
         });
@@ -880,29 +787,28 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the quiz access rule delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerQuizAccessRuleHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.accessRulesDelegate,
                     (uniqueName: string, result: any) => {
 
-            return new CoreSitePluginsQuizAccessRuleHandler(uniqueName, handlerSchema.moodlecomponent || plugin.component,
-                    result.templates.length);
+            return new CoreSitePluginsQuizAccessRuleHandler(uniqueName, plugin.component, result.templates.length);
         });
     }
 
     /**
      * Given a handler in a plugin, register it in the settings delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {any} initResult Result of the init WS call.
+     * @return {string} A string to identify the handler.
      */
     protected registerSettingsHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
         if (!handlerSchema.displaydata) {
@@ -916,7 +822,7 @@ export class CoreSitePluginsHelperProvider {
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title || 'pluginname');
+            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title);
 
         this.settingsDelegate.registerHandler(
                 new CoreSitePluginsSettingsHandler(uniqueName, prefixedTitle, plugin, handlerSchema, initResult));
@@ -927,11 +833,11 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the user profile delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @param initResult Result of the init WS call.
-     * @return A string to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @param {any} initResult Result of the init WS call.
+     * @return {string} A string to identify the handler.
      */
     protected registerUserProfileHandler(plugin: any, handlerName: string, handlerSchema: any, initResult: any): string {
         if (!handlerSchema.displaydata) {
@@ -945,21 +851,10 @@ export class CoreSitePluginsHelperProvider {
 
         // Create and register the handler.
         const uniqueName = this.sitePluginsProvider.getHandlerUniqueName(plugin, handlerName),
-            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title || 'pluginname'),
-            handler = new CoreSitePluginsUserProfileHandler(uniqueName, prefixedTitle, plugin, handlerSchema,
-                    initResult, this.sitePluginsProvider, this.utils);
+            prefixedTitle = this.getPrefixedString(plugin.addon, handlerSchema.displaydata.title);
 
-        this.userDelegate.registerHandler(handler);
-
-        if (initResult && initResult.restrict && initResult.restrict.courses) {
-            // This handler is restricted to certan courses, store it in the list.
-            this.courseRestrictHandlers[uniqueName] = {
-                plugin: plugin,
-                handlerName: handlerName,
-                handlerSchema: handlerSchema,
-                handler: handler
-            };
-        }
+        this.userDelegate.registerHandler(new CoreSitePluginsUserProfileHandler(uniqueName, prefixedTitle, plugin, handlerSchema,
+                initResult, this.sitePluginsProvider));
 
         return uniqueName;
     }
@@ -967,17 +862,17 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the user profile field delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerUserProfileFieldHandler(plugin: any, handlerName: string, handlerSchema: any): string | Promise<string> {
 
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.profileFieldDelegate,
                     (uniqueName: string, result: any) => {
 
-            const fieldType = (handlerSchema.moodlecomponent || plugin.component).replace('profilefield_', '');
+            const fieldType = plugin.component.replace('profilefield_', '');
 
             return new CoreSitePluginsUserProfileFieldHandler(uniqueName, fieldType);
         });
@@ -986,10 +881,10 @@ export class CoreSitePluginsHelperProvider {
     /**
      * Given a handler in a plugin, register it in the workshop assessment strategy delegate.
      *
-     * @param plugin Data of the plugin.
-     * @param handlerName Name of the handler in the plugin.
-     * @param handlerSchema Data about the handler.
-     * @return A string (or a promise resolved with a string) to identify the handler.
+     * @param {any} plugin Data of the plugin.
+     * @param {string} handlerName Name of the handler in the plugin.
+     * @param {any} handlerSchema Data about the handler.
+     * @return {string|Promise<string>} A string (or a promise resolved with a string) to identify the handler.
      */
     protected registerWorkshopAssessmentStrategyHandler(plugin: any, handlerName: string, handlerSchema: any)
             : string | Promise<string> {
@@ -997,45 +892,9 @@ export class CoreSitePluginsHelperProvider {
         return this.registerComponentInitHandler(plugin, handlerName, handlerSchema, this.workshopAssessmentStrategyDelegate,
                     (uniqueName: string, result: any) => {
 
-            const strategyName = (handlerSchema.moodlecomponent || plugin.component).replace('workshopform_', '');
+            const strategyName = plugin.component.replace('workshopform_', '');
 
             return new CoreSitePluginsWorkshopAssessmentStrategyHandler(uniqueName, strategyName);
-        });
-    }
-
-    /**
-     * Reload the handlers that are restricted to certain courses.
-     *
-     * @return Promise resolved when done.
-     */
-    protected reloadCourseRestrictHandlers(): Promise<any> {
-        if (!Object.keys(this.courseRestrictHandlers).length) {
-            // No course restrict handlers, nothing to do.
-            return Promise.resolve();
-        }
-
-        const promises = [];
-
-        for (const name in this.courseRestrictHandlers) {
-            const data = this.courseRestrictHandlers[name];
-
-            if (!data.handler || !data.handler.setInitResult) {
-                // No handler or it doesn't implement a required function, ignore it.
-                continue;
-            }
-
-            // Mark the handler as being updated.
-            data.handler.updatingInit && data.handler.updatingInit();
-
-            promises.push(this.executeHandlerInit(data.plugin, data.handlerSchema).then((initResult) => {
-                data.handler.setInitResult(initResult);
-            }).catch((error) => {
-                this.logger.error('Error reloading course restrict handler', error, data.plugin);
-            }));
-        }
-
-        return Promise.all(promises).then(() => {
-            this.eventsProvider.trigger(CoreEventsProvider.SITE_PLUGINS_COURSE_RESTRICT_UPDATED, {});
         });
     }
 }

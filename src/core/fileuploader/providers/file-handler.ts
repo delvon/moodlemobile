@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ export class CoreFileUploaderFileHandler implements CoreFileUploaderHandler {
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.platform.is('android') || !this.appProvider.isMobile() ||
@@ -45,8 +45,8 @@ export class CoreFileUploaderFileHandler implements CoreFileUploaderHandler {
     /**
      * Given a list of mimetypes, return the ones that are supported by the handler.
      *
-     * @param mimetypes List of mimetypes.
-     * @return Supported mimetypes.
+     * @param {string[]} [mimetypes] List of mimetypes.
+     * @return {string[]} Supported mimetypes.
      */
     getSupportedMimetypes(mimetypes: string[]): string[] {
         return mimetypes;
@@ -55,7 +55,7 @@ export class CoreFileUploaderFileHandler implements CoreFileUploaderHandler {
     /**
      * Get the data to display the handler.
      *
-     * @return Data.
+     * @return {CoreFileUploaderHandlerData} Data.
      */
     getData(): CoreFileUploaderHandlerData {
         const isIOS = this.platform.is('ios');
@@ -71,7 +71,6 @@ export class CoreFileUploaderFileHandler implements CoreFileUploaderHandler {
                 if (element) {
                     const input = document.createElement('input');
                     input.setAttribute('type', 'file');
-                    input.classList.add('core-fileuploader-file-handler-input');
                     if (mimetypes && mimetypes.length && (!this.platform.is('android') || mimetypes.length == 1)) {
                         // Don't use accept attribute in Android with several mimetypes, it's not supported.
                         input.setAttribute('accept', mimetypes.join(', '));
@@ -113,22 +112,7 @@ export class CoreFileUploaderFileHandler implements CoreFileUploaderHandler {
                         });
                     });
 
-                    if (this.platform.is('ios')) {
-                        // In iOS, the click on the input stopped working for some reason. We need to put it 1 level higher.
-                        element.parentElement.appendChild(input);
-
-                        // Animate the button when the input is clicked.
-                        input.addEventListener('mousedown', () => {
-                            element.classList.add('activated');
-                        });
-                        input.addEventListener('mouseup', () => {
-                            this.platform.timeout(() => {
-                                element.classList.remove('activated');
-                            }, 80);
-                        });
-                    } else {
-                        element.appendChild(input);
-                    }
+                    element.appendChild(input);
                 }
             }
         };

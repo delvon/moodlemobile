@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ export class AddonModQuizAttemptPage implements OnInit {
     /**
      * Refresh the data.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     doRefresh(refresher: any): void {
         this.refreshData().finally(() => {
@@ -68,7 +68,7 @@ export class AddonModQuizAttemptPage implements OnInit {
     /**
      * Get quiz data and attempt data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected fetchQuizData(): Promise<void> {
         return this.quizProvider.getQuizById(this.courseId, this.quizId).then((quizData) => {
@@ -84,7 +84,7 @@ export class AddonModQuizAttemptPage implements OnInit {
     /**
      * Get the attempt data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected fetchAttempt(): Promise<void> {
         const promises = [];
@@ -119,12 +119,7 @@ export class AddonModQuizAttemptPage implements OnInit {
             accessInfo = quizAccessInfo;
 
             if (accessInfo.canreviewmyattempts) {
-                // Check if the user can review the attempt.
-                return this.quizProvider.invalidateAttemptReviewForPage(this.attemptId, -1).catch(() => {
-                    // Ignore errors.
-                }).then(() => {
-                    return this.quizProvider.getAttemptReview(this.attemptId, -1);
-                }).catch(() => {
+                return this.quizProvider.getAttemptReview(this.attemptId, -1).catch(() => {
                     // Error getting the review, assume the user cannot review the attempt.
                     accessInfo.canreviewmyattempts = false;
                 });
@@ -158,7 +153,7 @@ export class AddonModQuizAttemptPage implements OnInit {
     /**
      * Refresh the data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected refreshData(): Promise<void> {
         const promises = [];

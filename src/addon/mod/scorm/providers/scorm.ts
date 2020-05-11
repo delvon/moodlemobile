@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreEventsProvider } from '@providers/events';
 import { CoreFilepoolProvider } from '@providers/filepool';
 import { CoreLoggerProvider } from '@providers/logger';
 import { CoreSitesProvider } from '@providers/sites';
@@ -24,9 +23,8 @@ import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { AddonModScormOfflineProvider } from './scorm-offline';
-import { CoreSite, CoreSiteWSPreSets } from '@classes/site';
+import { CoreSiteWSPreSets } from '@classes/site';
 import { CoreConstants } from '@core/constants';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
 
 /**
  * Result of getAttemptCount.
@@ -34,21 +32,25 @@ import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
 export interface AddonModScormAttemptCountResult {
     /**
      * List of online attempts numbers.
+     * @type {number[]}
      */
     online?: number[];
 
     /**
      * List of offline attempts numbers.
+     * @type {number[]}
      */
     offline?: number[];
 
     /**
      * Total of unique attempts.
+     * @type {number}
      */
     total?: number;
 
     /**
      * Last attempt in the SCORM: the number and whether it's offline.
+     * @type {{number: number, offline: boolean}}
      */
     lastAttempt?: {number: number, offline: boolean};
 }
@@ -75,20 +77,11 @@ export class AddonModScormProvider {
     static MODENORMAL = 'normal';
     static MODEREVIEW = 'review';
 
-    static SCORM_FORCEATTEMPT_NO         = 0;
-    static SCORM_FORCEATTEMPT_ONCOMPLETE = 1;
-    static SCORM_FORCEATTEMPT_ALWAYS     = 2;
-
-    static SKIPVIEW_NEVER = 0;
-    static SKIPVIEW_FIRST = 1;
-    static SKIPVIEW_ALWAYS = 2;
-
     // Events.
     static LAUNCH_NEXT_SCO_EVENT = 'addon_mod_scorm_launch_next_sco';
     static LAUNCH_PREV_SCO_EVENT = 'addon_mod_scorm_launch_prev_sco';
     static UPDATE_TOC_EVENT = 'addon_mod_scorm_update_toc';
     static GO_OFFLINE_EVENT = 'addon_mod_scorm_go_offline';
-    static DATA_SENT_EVENT = 'addon_mod_scorm_data_sent';
 
     // Protected constants.
     protected VALID_STATUSES = ['notattempted', 'passed', 'completed', 'failed', 'incomplete', 'browsed', 'suspend'];
@@ -106,22 +99,6 @@ export class AddonModScormProvider {
         'b': 'browsed',
         'n': 'notattempted'
     };
-    protected static STATUS_TO_ICON = {
-        assetc: 'fa-file-archive-o',
-        asset: 'fa-file-archive-o',
-        browsed: 'fa-book',
-        completed: 'fa-check-square-o',
-        failed: 'fa-times',
-        incomplete: 'fa-pencil-square-o',
-        minus: 'fa-minus',
-        notattempted: 'fa-square-o',
-        passed: 'fa-check',
-        plus: 'fa-plus',
-        popdown: 'fa-window-close-o',
-        popup: 'fa-window-restore',
-        suspend: 'fa-pause',
-        wait: 'fa-clock-o',
-    };
 
     protected ROOT_CACHE_KEY = 'mmaModScorm:';
     protected logger;
@@ -129,8 +106,7 @@ export class AddonModScormProvider {
     constructor(logger: CoreLoggerProvider, private translate: TranslateService, private sitesProvider: CoreSitesProvider,
             private wsProvider: CoreWSProvider, private textUtils: CoreTextUtilsProvider, private utils: CoreUtilsProvider,
             private filepoolProvider: CoreFilepoolProvider, private scormOfflineProvider: AddonModScormOfflineProvider,
-            private timeUtils: CoreTimeUtilsProvider, private syncProvider: CoreSyncProvider,
-            private eventsProvider: CoreEventsProvider, private logHelper: CoreCourseLogHelperProvider) {
+            private timeUtils: CoreTimeUtilsProvider, private syncProvider: CoreSyncProvider) {
         this.logger = logger.getInstance('AddonModScormProvider');
     }
 
@@ -138,9 +114,9 @@ export class AddonModScormProvider {
      * Calculates the SCORM grade based on the grading method and the list of attempts scores.
      * We only treat online attempts to calculate a SCORM grade.
      *
-     * @param scorm SCORM.
-     * @param onlineAttempts Object with the online attempts. Each attempt must have a property called "grade".
-     * @return Grade. -1 if no grade.
+     * @param {any} scorm SCORM.
+     * @param {any} onlineAttempts Object with the online attempts. Each attempt must have a property called "grade".
+     * @return {number} Grade. -1 if no grade.
      */
     calculateScormGrade(scorm: any, onlineAttempts: any): number {
         if (!onlineAttempts || !Object.keys(onlineAttempts).length) {
@@ -193,8 +169,8 @@ export class AddonModScormProvider {
     /**
      * Calculates the size of a SCORM.
      *
-     * @param scorm SCORM.
-     * @return Promise resolved with the SCORM size.
+     * @param {any} scorm SCORM.
+     * @return {Promise<number>} Promise resolved with the SCORM size.
      */
     calculateScormSize(scorm: any): Promise<number> {
         if (scorm.packagesize) {
@@ -207,9 +183,9 @@ export class AddonModScormProvider {
     /**
      * Count the attempts left for the given scorm.
      *
-     * @param scorm SCORM.
-     * @param attemptsCount Number of attempts performed.
-     * @return Number of attempts left.
+     * @param {any} scorm SCORM.
+     * @param {number} attemptsCount Number of attempts performed.
+     * @return {number} Number of attempts left.
      */
     countAttemptsLeft(scorm: any, attemptsCount: number): number {
         if (scorm.maxattempt == 0) {
@@ -228,12 +204,12 @@ export class AddonModScormProvider {
      * Returns the mode and attempt number to use based on mode selected and SCORM data.
      * This function is based on Moodle's scorm_check_mode.
      *
-     * @param scorm SCORM.
-     * @param mode Selected mode.
-     * @param attempt Current attempt.
-     * @param newAttempt Whether it should start a new attempt.
-     * @param incomplete Whether current attempt is incomplete.
-     * @return Mode, attempt number and whether to start a new attempt.
+     * @param {any} scorm SCORM.
+     * @param {string} mode Selected mode.
+     * @param {number} attempt Current attempt.
+     * @param {boolean} [newAttempt] Whether it should start a new attempt.
+     * @param {boolean} [incomplete] Whether current attempt is incomplete.
+     * @return {{mode: string, attempt: number, newAttempt: boolean}} Mode, attempt number and whether to start a new attempt.
      */
     determineAttemptAndMode(scorm: any, mode: string, attempt: number, newAttempt?: boolean, incomplete?: boolean)
             : {mode: string, attempt: number, newAttempt: boolean} {
@@ -255,15 +231,6 @@ export class AddonModScormProvider {
                     newAttempt: newAttempt
                 };
             }
-        }
-
-        if (scorm.forcenewattempt == AddonModScormProvider.SCORM_FORCEATTEMPT_ALWAYS) {
-            // This SCORM is configured to force a new attempt on every re-entry.
-            return {
-                mode: AddonModScormProvider.MODENORMAL,
-                attempt: attempt + 1,
-                newAttempt: true
-            };
         }
 
         // Validate user request to start a new attempt.
@@ -301,8 +268,8 @@ export class AddonModScormProvider {
     /**
      * Check if TOC should be displayed in the player.
      *
-     * @param scorm SCORM.
-     * @return Whether it should display TOC.
+     * @param {any} scorm SCORM.
+     * @return {boolean} Whether it should display TOC.
      */
     displayTocInPlayer(scorm: any): boolean {
         return scorm.hidetoc !== 3;
@@ -313,9 +280,9 @@ export class AddonModScormProvider {
      * Evaluates the expression and returns a boolean answer.
      * See 2.3.2.5.1. Sequencing/Navigation Today - from the SCORM 1.2 spec (CAM).
      *
-     * @param prerequisites The AICC_SCRIPT prerequisites expression.
-     * @param trackData The tracked user data of each SCO.
-     * @return Whether the prerequisites are fulfilled.
+     * @param {string} prerequisites The AICC_SCRIPT prerequisites expression.
+     * @param {any} trackData The tracked user data of each SCO.
+     * @return {boolean} Whether the prerequisites are fulfilled.
      */
     evalPrerequisites(prerequisites: string, trackData: any): boolean {
 
@@ -416,9 +383,9 @@ export class AddonModScormProvider {
     /**
      * Formats a grade to be displayed.
      *
-     * @param scorm SCORM.
-     * @param grade Grade.
-     * @return Grade to display.
+     * @param {any} scorm SCORM.
+     * @param {number} grade Grade.
+     * @return {string} Grade to display.
      */
     formatGrade(scorm: any, grade: number): string {
         if (typeof grade == 'undefined' || grade == -1) {
@@ -437,9 +404,9 @@ export class AddonModScormProvider {
     /**
      * Formats a tree-like TOC into an array.
      *
-     * @param toc SCORM's TOC (tree format).
-     * @param level The level of the TOC we're right now. 0 by default.
-     * @return SCORM's TOC (array format).
+     * @param {any[]} toc SCORM's TOC (tree format).
+     * @param {number} [level=0] The level of the TOC we're right now. 0 by default.
+     * @return {any[]} SCORM's TOC (array format).
      */
     formatTocToArray(toc: any[], level: number = 0): any[] {
         if (!toc || !toc.length) {
@@ -459,52 +426,14 @@ export class AddonModScormProvider {
     }
 
     /**
-     * Get access information for a given SCORM.
-     *
-     * @param scormId SCORM ID.
-     * @param forceCache True to always get the value from cache. false otherwise.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Object with access information.
-     * @since 3.7
-     */
-    getAccessInformation(scormId: number, forceCache?: boolean, siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            if (!site.wsAvailable('mod_scorm_get_scorm_access_information')) {
-                // Access information not available for 3.6 or older sites.
-                return Promise.resolve({});
-            }
-
-            const params = {
-                scormid: scormId
-            };
-            const preSets = {
-                cacheKey: this.getAccessInformationCacheKey(scormId),
-                omitExpires: forceCache
-            };
-
-            return site.read('mod_scorm_get_scorm_access_information', params, preSets);
-        });
-    }
-
-    /**
-     * Get cache key for access information WS calls.
-     *
-     * @param scormId SCORM ID.
-     * @return Cache key.
-     */
-    protected getAccessInformationCacheKey(scormId: number): string {
-        return this.ROOT_CACHE_KEY + 'accessInfo:' + scormId;
-    }
-
-    /**
      * Get the number of attempts done by a user in the given SCORM.
      *
-     * @param scormId SCORM ID.
-     * @param ignoreMissing Whether it should ignore attempts without grade/completion. Only for online attempts.
-     * @param ignoreCache Whether it should ignore cached data for online attempts.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when done.
+     * @param {number} scormId SCORM ID.
+     * @param {boolean} [ignoreMissing] Whether it should ignore attempts without grade/completion. Only for online attempts.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data for online attempts.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<AddonModScormAttemptCountResult>} Promise resolved when done.
      */
     getAttemptCount(scormId: number, ignoreMissing?: boolean, ignoreCache?: boolean, siteId?: string, userId?: number)
             : Promise<AddonModScormAttemptCountResult> {
@@ -571,9 +500,9 @@ export class AddonModScormProvider {
     /**
      * Get cache key for SCORM attempt count WS calls.
      *
-     * @param scormId SCORM ID.
-     * @param userId User ID. If not defined, current user.
-     * @return Cache key.
+     * @param {number} scormId SCORM ID.
+     * @param {number} [userId] User ID. If not defined, current user.
+     * @return {string} Cache key.
      */
     protected getAttemptCountCacheKey(scormId: number, userId: number): string {
         return this.ROOT_CACHE_KEY + 'attemptcount:' + scormId + ':' + userId;
@@ -582,12 +511,12 @@ export class AddonModScormProvider {
     /**
      * Get the number of attempts done by a user in the given SCORM in online.
      *
-     * @param scormId SCORM ID.
-     * @param ignoreMissing Whether it should ignore attempts that haven't reported a grade/completion.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the attempt count is retrieved.
+     * @param {number} scormId SCORM ID.
+     * @param {boolean} [ignoreMissing] Whether it should ignore attempts that haven't reported a grade/completion.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<number>} Promise resolved when the attempt count is retrieved.
      */
     getAttemptCountOnline(scormId: number, ignoreMissing?: boolean, ignoreCache?: boolean, siteId?: string, userId?: number)
             : Promise<number> {
@@ -601,8 +530,7 @@ export class AddonModScormProvider {
                     ignoremissingcompletion: ignoreMissing ? 1 : 0
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getAttemptCountCacheKey(scormId, userId),
-                    updateFrequency: CoreSite.FREQUENCY_SOMETIMES
+                    cacheKey: this.getAttemptCountCacheKey(scormId, userId)
                 };
 
             if (ignoreCache) {
@@ -624,11 +552,11 @@ export class AddonModScormProvider {
      * Get the grade for a certain SCORM and attempt.
      * Based on Moodle's scorm_grade_user_attempt.
      *
-     * @param scorm SCORM.
-     * @param attempt Attempt number.
-     * @param offline Whether the attempt is offline.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the grade. If the attempt hasn't reported grade/completion, it will be -1.
+     * @param {any} scorm SCORM.
+     * @param {number} attempt Attempt number.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<number>} Promise resolved with the grade. If the attempt hasn't reported grade/completion, it will be -1.
      */
     getAttemptGrade(scorm: any, attempt: number, offline?: boolean, siteId?: string): Promise<number> {
         const attemptScore = {
@@ -692,9 +620,9 @@ export class AddonModScormProvider {
     /**
      * Get the list of a organizations defined in a SCORM package.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the list of organizations.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the list of organizations.
      */
     getOrganizations(scormId: number, siteId?: string): Promise<any[]> {
         return this.getScos(scormId, undefined, false, siteId).then((scos) => {
@@ -718,12 +646,12 @@ export class AddonModScormProvider {
     /**
      * Get the organization Toc any
      *
-     * @param scormId SCORM ID.
-     * @param attempt The attempt number (to populate SCO track data).
-     * @param organization Organization identifier.
-     * @param offline Whether the attempt is offline.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the toc object.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt The attempt number (to populate SCO track data).
+     * @param {string} [organization] Organization identifier.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the toc object.
      */
     getOrganizationToc(scormId: number, attempt: number, organization?: string, offline?: boolean, siteId?: string)
             : Promise<any[]> {
@@ -754,8 +682,8 @@ export class AddonModScormProvider {
     /**
      * Get the package URL of a given SCORM.
      *
-     * @param scorm SCORM.
-     * @return Package URL.
+     * @param {any} scorm SCORM.
+     * @return {string} Package URL.
      */
     getPackageUrl(scorm: any): string {
         if (scorm.packageurl) {
@@ -771,13 +699,13 @@ export class AddonModScormProvider {
     /**
      * Get the user data for a certain SCORM and attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param scos SCOs returned by getScos. Recommended if offline=true.
-     * @param offline Whether the attempt is offline.
-     * @param ignoreCache Whether it should ignore cached data for online attempts.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the user data is retrieved.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} [scos] SCOs returned by getScos. Recommended if offline=true.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data for online attempts.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the user data is retrieved.
      */
     getScormUserData(scormId: number, attempt: number, scos?: any[], offline?: boolean, ignoreCache?: boolean, siteId?: string)
             : Promise<any> {
@@ -799,9 +727,9 @@ export class AddonModScormProvider {
     /**
      * Get cache key for SCORM user data WS calls.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @return Cache key.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @return {string} Cache key.
      */
     protected getScormUserDataCacheKey(scormId: number, attempt: number): string {
         return this.getScormUserDataCommonCacheKey(scormId) + ':' + attempt;
@@ -810,8 +738,8 @@ export class AddonModScormProvider {
     /**
      * Get common cache key for SCORM user data WS calls.
      *
-     * @param scormId SCORM ID.
-     * @return Cache key.
+     * @param {number} scormId SCORM ID.
+     * @return {string} Cache key.
      */
     protected getScormUserDataCommonCacheKey(scormId: number): string {
         return this.ROOT_CACHE_KEY + 'userdata:' + scormId;
@@ -820,11 +748,11 @@ export class AddonModScormProvider {
     /**
      * Get the user data for a certain SCORM and attempt in online.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the user data is retrieved.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the user data is retrieved.
      */
     getScormUserDataOnline(scormId: number, attempt: number, ignoreCache?: boolean, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -864,8 +792,8 @@ export class AddonModScormProvider {
     /**
      * Get cache key for get SCORM scos WS calls.
      *
-     * @param scormId SCORM ID.
-     * @return Cache key.
+     * @param {number} scormId SCORM ID.
+     * @return {string} Cache key.
      */
     protected getScosCacheKey(scormId: number): string {
         return this.ROOT_CACHE_KEY + 'scos:' + scormId;
@@ -874,11 +802,11 @@ export class AddonModScormProvider {
     /**
      * Retrieves the list of SCO objects for a given SCORM and organization.
      *
-     * @param scormId SCORM ID.
-     * @param organization Organization.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail if offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with a list of SCO.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [organization] Organization.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail if offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]} Promise resolved with a list of SCO.
      */
     getScos(scormId: number, organization?: string, ignoreCache?: boolean, siteId?: string): Promise<any[]> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -890,8 +818,7 @@ export class AddonModScormProvider {
                     scormid: scormId
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getScosCacheKey(scormId),
-                    updateFrequency: CoreSite.FREQUENCY_SOMETIMES
+                    cacheKey: this.getScosCacheKey(scormId)
                 };
 
             if (ignoreCache) {
@@ -921,13 +848,13 @@ export class AddonModScormProvider {
      * Retrieves the list of SCO objects for a given SCORM and organization, including data about
      * a certain attempt (status, isvisible, ...).
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param organization Organization ID.
-     * @param offline Whether the attempt is offline.
-     * @param ignoreCache Whether it should ignore cached data for online attempts.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with a list of SCO objects.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {string} [organization] Organization ID.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data for online attempts.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with a list of SCO objects.
      */
     getScosWithData(scormId: number, attempt: number, organization?: string, offline?: boolean, ignoreCache?: boolean,
             siteId?: string): Promise<any[]> {
@@ -965,9 +892,6 @@ export class AddonModScormProvider {
                     // Exit var.
                     sco.exitvar = typeof scoData.exitvar == 'undefined' ? 'cmi.core.exit' : scoData.exitvar;
                     sco.exitvalue = scoData[sco.exitvar];
-
-                    // Copy score.
-                    sco.score_raw = scoData.score_raw;
                 });
 
                 return scos;
@@ -978,10 +902,10 @@ export class AddonModScormProvider {
     /**
      * Given a SCORM and a SCO, returns the full launch URL for the SCO.
      *
-     * @param scorm SCORM.
-     * @param sco SCO.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the URL.
+     * @param {any} scorm SCORM.
+     * @param {any} sco SCO.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with the URL.
      */
     getScoSrc(scorm: any, sco: any, siteId?: string): Promise<string> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -1023,9 +947,9 @@ export class AddonModScormProvider {
     /**
      * Get the path to the folder where a SCORM is downloaded.
      *
-     * @param moduleUrl Module URL (returned by get_course_contents).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the folder path.
+     * @param {string} moduleUrl Module URL (returned by get_course_contents).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with the folder path.
      */
     getScormFolder(moduleUrl: string, siteId?: string): Promise<string> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -1037,8 +961,8 @@ export class AddonModScormProvider {
      * Gets a list of files to downlaod for a SCORM, using a format similar to module.contents from get_course_contents.
      * It will only return one file: the ZIP package.
      *
-     * @param scorm SCORM.
-     * @return File list.
+     * @param {any} scorm SCORM.
+     * @return {any[]} File list.
      */
     getScormFileList(scorm: any): any[] {
         const files = [];
@@ -1060,68 +984,51 @@ export class AddonModScormProvider {
     /**
      * Get the URL and description of the status icon.
      *
-     * @param sco SCO.
-     * @param incomplete Whether the SCORM is incomplete.
-     * @return Image URL and description.
+     * @param {any} sco SCO.
+     * @param {boolean} [incomplete] Whether the SCORM is incomplete.
+     * @return {{url: string, description: string}} Image URL and description.
      */
-    getScoStatusIcon(sco: any, incomplete?: boolean): {icon: string, description: string} {
+    getScoStatusIcon(sco: any, incomplete?: boolean): {url: string, description: string} {
         let imageName = '',
             descName = '',
-            suspendedStr = '';
+            status;
 
-        const status = sco.status;
-
-        if (sco.isvisible) {
-            if (this.VALID_STATUSES.indexOf(status) >= 0) {
-                if (sco.scormtype == 'sco') {
-                    imageName = status;
-                    descName = status;
-                } else {
-                    imageName = 'asset';
-                    descName = 'assetlaunched';
-                }
-
-                if (!incomplete) {
-                    // Check if SCO is completed or not. If SCORM is incomplete there's no need to check SCO.
-                    incomplete = this.isStatusIncomplete(status);
-                }
-
-                if (incomplete && sco.exitvalue == 'suspend') {
-                    imageName = 'suspend';
-                    suspendedStr = ' - ' + this.translate.instant('addon.mod_scorm.suspended');
-                }
-            } else {
-                incomplete = true;
-
-                if (sco.scormtype == 'sco') {
-                    // Status empty or not valid, use 'notattempted'.
-                    imageName = 'notattempted';
-                } else {
-                    imageName = 'asset';
-                }
-                descName = imageName;
+        if (sco.scormtype == 'sco') {
+            // Not an asset, calculate image using status.
+            status = sco.status;
+            if (this.VALID_STATUSES.indexOf(status) < 0) {
+                // Status empty or not valid, use 'notattempted'.
+                status = 'notattempted';
             }
-        }
 
-        if (imageName == '') {
-            imageName = 'notattempted';
-            descName = 'notattempted';
-            suspendedStr = '';
-        }
+            if (!incomplete) {
+                // Check if SCO is completed or not. If SCORM is incomplete there's no need to check SCO.
+                incomplete = this.isStatusIncomplete(status);
+            }
 
-        sco.incomplete = incomplete;
+            if (incomplete && sco.exitvalue == 'suspend') {
+                imageName = 'suspend';
+                descName = 'suspended';
+            } else {
+                imageName = sco.status;
+                descName = sco.status;
+            }
+        } else {
+            imageName = 'asset';
+            descName = (!sco.status || sco.status == 'notattempted') ? 'asset' : 'assetlaunched';
+        }
 
         return {
-            icon: AddonModScormProvider.STATUS_TO_ICON[imageName],
-            description: this.translate.instant('addon.mod_scorm.' + descName) + suspendedStr
+            url: 'assets/img/scorm/' + imageName + '.gif',
+            description: this.translate.instant('addon.mod_scorm.' + descName)
         };
     }
 
     /**
      * Get cache key for SCORM data WS calls.
      *
-     * @param courseId Course ID.
-     * @return Cache key.
+     * @param {number} courseId Course ID.
+     * @return {string} Cache key.
      */
     protected getScormDataCacheKey(courseId: number): string {
         return this.ROOT_CACHE_KEY + 'scorm:' + courseId;
@@ -1130,13 +1037,13 @@ export class AddonModScormProvider {
     /**
      * Get a SCORM with key=value. If more than one is found, only the first will be returned.
      *
-     * @param courseId Course ID.
-     * @param key Name of the property to check.
-     * @param value Value to search.
-     * @param moduleUrl Module URL.
-     * @param forceCache Whether it should always return cached data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the SCORM is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {string} key Name of the property to check.
+     * @param {any} value Value to search.
+     * @param {string} [moduleUrl] Module URL.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the SCORM is retrieved.
      */
     protected getScormByField(courseId: number, key: string, value: any, moduleUrl?: string, forceCache?: boolean, siteId?: string)
             : Promise<any> {
@@ -1146,8 +1053,7 @@ export class AddonModScormProvider {
                     courseids: [courseId]
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getScormDataCacheKey(courseId),
-                    updateFrequency: CoreSite.FREQUENCY_RARELY
+                    cacheKey: this.getScormDataCacheKey(courseId)
                 };
 
             if (forceCache) {
@@ -1186,12 +1092,12 @@ export class AddonModScormProvider {
     /**
      * Get a SCORM by module ID.
      *
-     * @param courseId Course ID.
-     * @param cmId Course module ID.
-     * @param moduleUrl Module URL.
-     * @param forceCache Whether it should always return cached data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the SCORM is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} cmId Course module ID.
+     * @param {string} [moduleUrl] Module URL.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the SCORM is retrieved.
      */
     getScorm(courseId: number, cmId: number, moduleUrl?: string, forceCache?: boolean, siteId?: string): Promise<any> {
         return this.getScormByField(courseId, 'coursemodule', cmId, moduleUrl, forceCache, siteId);
@@ -1200,12 +1106,12 @@ export class AddonModScormProvider {
     /**
      * Get a SCORM by SCORM ID.
      *
-     * @param courseId Course ID.
-     * @param id SCORM ID.
-     * @param moduleUrl Module URL.
-     * @param forceCache Whether it should always return cached data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the SCORM is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} id SCORM ID.
+     * @param {string} [moduleUrl] Module URL.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the SCORM is retrieved.
      */
     getScormById(courseId: number, id: number, moduleUrl?: string, forceCache?: boolean, siteId?: string): Promise<any> {
         return this.getScormByField(courseId, 'id', id, moduleUrl, forceCache, siteId);
@@ -1214,8 +1120,8 @@ export class AddonModScormProvider {
     /**
      * Get a readable SCORM grade method.
      *
-     * @param scorm SCORM.
-     * @return Grading method.
+     * @param {any} scorm SCORM.
+     * @return {string} Grading method.
      */
     getScormGradeMethod(scorm: any): string {
         if (scorm.maxattempt == 1) {
@@ -1254,25 +1160,12 @@ export class AddonModScormProvider {
     }
 
     /**
-     * Invalidates access information.
-     *
-     * @param forumId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
-     */
-    invalidateAccessInformation(scormId: number, siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            return site.invalidateWsCacheForKey(this.getAccessInformationCacheKey(scormId));
-        });
-    }
-
-    /**
      * Invalidates all the data related to a certain SCORM.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateAllScormData(scormId: number, siteId?: string, userId?: number): Promise<any> {
         const promises = [];
@@ -1280,7 +1173,6 @@ export class AddonModScormProvider {
         promises.push(this.invalidateAttemptCount(scormId, siteId, userId));
         promises.push(this.invalidateScos(scormId, siteId));
         promises.push(this.invalidateScormUserData(scormId, siteId));
-        promises.push(this.invalidateAccessInformation(scormId, siteId));
 
         return Promise.all(promises);
     }
@@ -1288,10 +1180,10 @@ export class AddonModScormProvider {
     /**
      * Invalidates attempt count.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateAttemptCount(scormId: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1304,11 +1196,11 @@ export class AddonModScormProvider {
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId Course ID of the module.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined use site's current user.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} moduleId The module ID.
+     * @param {number} courseId Course ID of the module.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined use site's current user.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number, siteId?: string, userId?: number): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -1327,9 +1219,9 @@ export class AddonModScormProvider {
     /**
      * Invalidates SCORM data.
      *
-     * @param courseId Course ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} courseId Course ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateScormData(courseId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1340,9 +1232,9 @@ export class AddonModScormProvider {
     /**
      * Invalidates SCORM user data for all attempts.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateScormUserData(scormId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1353,9 +1245,9 @@ export class AddonModScormProvider {
     /**
      * Invalidates SCORM scos for all organizations.
      *
-     * @param scormId SCORM ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} scormId SCORM ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateScos(scormId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1366,12 +1258,12 @@ export class AddonModScormProvider {
     /**
      * Check if a SCORM's attempt is incomplete.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt.
-     * @param offline Whether the attempt is offline.
-     * @param ignoreCache Whether it should ignore cached data for online attempts.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with a boolean: true if incomplete, false otherwise.
+     * @param {any} scormId SCORM ID.
+     * @param {number} attempt Attempt.
+     * @param {boolean} offline Whether the attempt is offline.
+     * @param {boolean} ignoreCache Whether it should ignore cached data for online attempts.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with a boolean: true if incomplete, false otherwise.
      */
     isAttemptIncomplete(scormId: number, attempt: number, offline?: boolean, ignoreCache?: boolean, siteId?: string)
             : Promise<boolean> {
@@ -1397,8 +1289,8 @@ export class AddonModScormProvider {
      * Given a launch URL, check if it's a external link.
      * Based on Moodle's scorm_external_link.
      *
-     * @param link Link to check.
-     * @return Whether it's an external link.
+     * @param {string} link Link to check.
+     * @return {boolean} Whether it's an external link.
      */
     protected isExternalLink(link: string): boolean {
         link = link.toLowerCase();
@@ -1415,8 +1307,8 @@ export class AddonModScormProvider {
     /**
      * Check if the given SCORM is closed.
      *
-     * @param scorm SCORM to check.
-     * @return Whether the SCORM is closed.
+     * @param {any} scorm SCORM to check.
+     * @return {boolean} Whether the SCORM is closed.
      */
     isScormClosed(scorm: any): boolean {
         const timeNow = this.timeUtils.timestamp();
@@ -1431,8 +1323,8 @@ export class AddonModScormProvider {
     /**
      * Check if the given SCORM is downloadable.
      *
-     * @param scorm SCORM to check.
-     * @return Whether the SCORM is downloadable.
+     * @param {any} scorm SCORM to check.
+     * @return {boolean} Whether the SCORM is downloadable.
      */
     isScormDownloadable(scorm: any): boolean {
         return typeof scorm.protectpackagedownloads != 'undefined' && scorm.protectpackagedownloads === false;
@@ -1441,8 +1333,8 @@ export class AddonModScormProvider {
     /**
      * Check if the given SCORM is open.
      *
-     * @param scorm SCORM to check.
-     * @return Whether the SCORM is open.
+     * @param {any} scorm SCORM to check.
+     * @return {boolean} Whether the SCORM is open.
      */
     isScormOpen(scorm: any): boolean {
         const timeNow = this.timeUtils.timestamp();
@@ -1457,8 +1349,8 @@ export class AddonModScormProvider {
     /**
      * Check if a SCORM is unsupported in the app. If it's not, returns the error code to show.
      *
-     * @param scorm SCORM to check.
-     * @return String with error code if unsupported, undefined if supported.
+     * @param {any} scorm SCORM to check.
+     * @return {string} String with error code if unsupported, undefined if supported.
      */
     isScormUnsupported(scorm: any): string {
         if (!this.isScormValidVersion(scorm)) {
@@ -1473,8 +1365,8 @@ export class AddonModScormProvider {
     /**
      * Check if it's a valid SCORM 1.2.
      *
-     * @param scorm SCORM to check.
-     * @return Whether the SCORM is valid.
+     * @param {any} scorm SCORM to check.
+     * @return {boolean} Whether the SCORM is valid.
      */
     isScormValidVersion(scorm: any): boolean {
         return scorm.version == 'SCORM_1.2';
@@ -1483,8 +1375,8 @@ export class AddonModScormProvider {
     /**
      * Check if a SCO status is incomplete.
      *
-     * @param status SCO status.
-     * @return Whether it's incomplete.
+     * @param {string} status SCO status.
+     * @return {boolean} Whether it's incomplete.
      */
     isStatusIncomplete(status: any): boolean {
         return !status || status == 'notattempted' || status == 'incomplete' || status == 'browsed';
@@ -1493,8 +1385,8 @@ export class AddonModScormProvider {
     /**
      * Check if a package URL is valid.
      *
-     * @param packageUrl Package URL.
-     * @return Whether it's valid.
+     * @param {string} packageUrl Package URL.
+     * @return {boolean} Whether it's valid.
      */
     isValidPackageUrl(packageUrl: string): boolean {
         if (!packageUrl) {
@@ -1510,51 +1402,57 @@ export class AddonModScormProvider {
     /**
      * Report a SCO as being launched.
      *
-     * @param scormId SCORM ID.
-     * @param scoId SCO ID.
-     * @param name Name of the SCORM.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {number} scormId SCORM ID.
+     * @param {number} scoId SCO ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the WS call is successful.
      */
-    logLaunchSco(scormId: number, scoId: number, name?: string, siteId?: string): Promise<any> {
+    logLaunchSco(scormId: number, scoId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                 scormid: scormId,
                 scoid: scoId
             };
 
-            return this.logHelper.logSingle('mod_scorm_launch_sco', params, AddonModScormProvider.COMPONENT, scormId, name,
-                    'scorm', {scoid: scoId}, siteId);
+            return site.write('mod_scorm_launch_sco', params).then((response) => {
+                if (!response || !response.status) {
+                    return Promise.reject(null);
+                }
+            });
         });
     }
 
     /**
      * Report a SCORM as being viewed.
      *
-     * @param id Module ID.
-     * @param name Name of the SCORM.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {string} id Module ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the WS call is successful.
      */
-    logView(id: number, name?: string, siteId?: string): Promise<any> {
-        const params = {
-            scormid: id
-        };
+    logView(id: number, siteId?: string): Promise<any> {
+        return this.sitesProvider.getSite(siteId).then((site) => {
+            const params = {
+                scormid: id
+            };
 
-        return this.logHelper.logSingle('mod_scorm_view_scorm', params, AddonModScormProvider.COMPONENT, id, name, 'scorm', {},
-                siteId);
-}
+            return site.write('mod_scorm_view_scorm', params).then((response) => {
+                if (!response || !response.status) {
+                    return Promise.reject(null);
+                }
+            });
+        });
+    }
 
     /**
      * Saves a SCORM tracking record.
      *
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data to store.
-     * @param scorm SCORM.
-     * @param offline Whether the attempt is offline.
-     * @param userData User data for this attempt and SCO. If not defined, it will be retrieved from DB. Recommended.
-     * @return Promise resolved when data is saved.
+     * @param {number} scoId Sco ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data to store.
+     * @param {any} scorm SCORM.
+     * @param {boolean} offline Whether the attempt is offline.
+     * @param {any} [userData] User data for this attempt and SCO. If not defined, it will be retrieved from DB. Recommended.
+     * @return {Promise<any>} Promise resolved when data is saved.
      */
     saveTracks(scoId: number, attempt: number, tracks: any[], scorm: any, offline?: boolean, userData?: any, siteId?: string)
             : Promise<any> {
@@ -1572,12 +1470,6 @@ export class AddonModScormProvider {
             return this.saveTracksOnline(scorm.id, scoId, attempt, tracks, siteId).then(() => {
                 // Tracks have been saved, update cached user data.
                 this.updateUserDataAfterSave(scorm.id, attempt, tracks, siteId);
-
-                this.eventsProvider.trigger(AddonModScormProvider.DATA_SENT_EVENT, {
-                    scormId: scorm.id,
-                    scoId: scoId,
-                    attempt: attempt
-                }, this.sitesProvider.getCurrentSiteId());
             });
         }
     }
@@ -1585,12 +1477,12 @@ export class AddonModScormProvider {
     /**
      * Saves a SCORM tracking record.
      *
-     * @param scormId SCORM ID.
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when data is saved.
+     * @param {number} scormId SCORM ID.
+     * @param {number} scoId Sco ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when data is saved.
      */
     saveTracksOnline(scormId: number, scoId: number, attempt: number, tracks: any[], siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1622,15 +1514,15 @@ export class AddonModScormProvider {
      * Saves a SCORM tracking record using a synchronous call.
      * Please use this function only if synchronous is a must. It's recommended to use saveTracks.
      *
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data to store.
-     * @param scorm SCORM.
-     * @param offline Whether the attempt is offline.
-     * @param userData User data for this attempt and SCO. Required if offline=true.
-     * @return In online returns true if data is inserted, false otherwise.
-     *         In offline returns true if data to insert is valid, false otherwise. True doesn't mean that the
-     *         data has been stored, this function can return true but the insertion can still fail somehow.
+     * @param {number} scoId Sco ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data to store.
+     * @param {any} scorm SCORM.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {any} [userData] User data for this attempt and SCO. Required if offline=true.
+     * @return {boolean} In online returns true if data is inserted, false otherwise.
+     *                   In offline returns true if data to insert is valid, false otherwise. True doesn't mean that the
+     *                   data has been stored, this function can return true but the insertion can still fail somehow.
      */
     saveTracksSync(scoId: number, attempt: number, tracks: any[], scorm: any, offline?: boolean, userData?: any): boolean {
         if (offline) {
@@ -1641,12 +1533,6 @@ export class AddonModScormProvider {
             if (success) {
                 // Tracks have been saved, update cached user data.
                 this.updateUserDataAfterSave(scorm.id, attempt, tracks);
-
-                this.eventsProvider.trigger(AddonModScormProvider.DATA_SENT_EVENT, {
-                    scormId: scorm.id,
-                    scoId: scoId,
-                    attempt: attempt
-                }, this.sitesProvider.getCurrentSiteId());
             }
 
             return success;
@@ -1657,10 +1543,10 @@ export class AddonModScormProvider {
      * Saves a SCORM tracking record using a synchronous call.
      * Please use this function only if synchronous is a must. It's recommended to use saveTracksOnline.
      *
-     * @param scoId Sco ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data.
-     * @return True if success, false otherwise.
+     * @param {number} scoId Sco ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data.
+     * @return {boolean} True if success, false otherwise.
      */
     saveTracksSyncOnline(scoId: number, attempt: number, tracks: any[]): boolean {
         const params = {
@@ -1703,10 +1589,10 @@ export class AddonModScormProvider {
      * Check if the SCORM main file should be downloaded.
      * This function should only be called if the SCORM can be downloaded (not downloaded or outdated).
      *
-     * @param scorm SCORM to check.
-     * @param isOutdated True if package outdated, false if not downloaded, undefined to calculate it.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with true if it should be downloaded, false otherwise.
+     * @param {any} scorm SCORM to check.
+     * @param {boolean} [isOutdated] True if package outdated, false if not downloaded, undefined to calculate it.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>}  Promise resolved with true if it should be downloaded, false otherwise.
      */
     shouldDownloadMainFile(scorm: any, isOutdated?: boolean, siteId?: string): Promise<boolean> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -1744,11 +1630,11 @@ export class AddonModScormProvider {
     /**
      * If needed, updates cached user data after saving tracks in online.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Attempt number.
-     * @param tracks Tracking data saved.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when updated.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} tracks Tracking data saved.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when updated.
      */
     protected updateUserDataAfterSave(scormId: number, attempt: number, tracks: any[], siteId?: string): Promise<any> {
         if (!tracks || !tracks.length) {

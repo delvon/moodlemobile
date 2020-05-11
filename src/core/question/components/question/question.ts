@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Input, Output, OnInit, Injector, EventEmitter, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, Output, OnInit, Injector, EventEmitter } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreLoggerProvider } from '@providers/logger';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
@@ -34,11 +34,7 @@ export class CoreQuestionComponent implements OnInit {
     @Input() component: string; // The component the question belongs to.
     @Input() componentId: number; // ID of the component the question belongs to.
     @Input() attemptId: number; // Attempt ID.
-    @Input() usageId: number; // Usage ID.
     @Input() offlineEnabled?: boolean | string; // Whether the question can be answered in offline.
-    @Input() contextLevel?: string; // The context level.
-    @Input() contextInstanceId?: number; // The instance ID related to the context.
-    @Input() courseId?: number; // Course ID the question belongs to (if any). It can be used to improve performance with filters.
     @Output() buttonClicked: EventEmitter<any>; // Will emit an event when a behaviour button is clicked.
     @Output() onAbort: EventEmitter<void>; // Will emit an event if the question should be aborted.
 
@@ -53,8 +49,7 @@ export class CoreQuestionComponent implements OnInit {
     constructor(logger: CoreLoggerProvider, protected injector: Injector, protected questionDelegate: CoreQuestionDelegate,
             protected utils: CoreUtilsProvider, protected behaviourDelegate: CoreQuestionBehaviourDelegate,
             protected questionHelper: CoreQuestionHelperProvider, protected translate: TranslateService,
-            protected questionProvider: CoreQuestionProvider, protected domUtils: CoreDomUtilsProvider,
-            protected cdr: ChangeDetectorRef) {
+            protected questionProvider: CoreQuestionProvider, protected domUtils: CoreDomUtilsProvider) {
         logger = logger.getInstance('CoreQuestionComponent');
 
         this.buttonClicked = new EventEmitter();
@@ -67,7 +62,7 @@ export class CoreQuestionComponent implements OnInit {
     ngOnInit(): void {
         this.offlineEnabled = this.utils.isTrueOrOne(this.offlineEnabled);
 
-        if (!this.question || (this.question.type != 'random' && !this.questionDelegate.isQuestionSupported(this.question.type))) {
+        if (!this.question) {
             this.loaded = true;
 
             return;
@@ -85,15 +80,12 @@ export class CoreQuestionComponent implements OnInit {
                     componentId: this.componentId,
                     attemptId: this.attemptId,
                     offlineEnabled: this.offlineEnabled,
-                    contextLevel: this.contextLevel,
-                    contextInstanceId: this.contextInstanceId,
-                    courseId: this.courseId,
                     buttonClicked: this.buttonClicked,
                     onAbort: this.onAbort
                 };
 
                 // Treat the question.
-                this.questionHelper.extractQuestionScripts(this.question, this.usageId);
+                this.questionHelper.extractQuestionScripts(this.question);
 
                 // Handle question behaviour.
                 const behaviour = this.questionDelegate.getBehaviourForQuestion(this.question, this.question.preferredBehaviour);
@@ -151,23 +143,9 @@ export class CoreQuestionComponent implements OnInit {
                     this.questionHelper.extractQuestionFeedback(this.question);
                     this.questionHelper.extractQuestionComment(this.question);
                 });
-            } else {
-                this.loaded = true;
             }
         }).catch(() => {
             // Ignore errors.
         });
-    }
-
-    /**
-     * Update the sequence check of the question.
-     *
-     * @param sequenceChecks Object with sequence checks. The keys are the question slot.
-     */
-    updateSequenceCheck(sequenceChecks: any): void {
-        if (sequenceChecks[this.question.slot]) {
-            this.seqCheck = sequenceChecks[this.question.slot];
-            this.cdr.detectChanges();
-        }
     }
 }

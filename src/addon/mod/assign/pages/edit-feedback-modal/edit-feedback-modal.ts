@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Input, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { IonicPage, ViewController, NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { AddonModAssignFeedbackDelegate } from '../../providers/feedback-delegate';
-import {
-    AddonModAssignAssign, AddonModAssignSubmission, AddonModAssignPlugin
-} from '../../providers/assign';
 
 /**
  * Modal that allows editing a feedback plugin.
@@ -33,22 +28,15 @@ import {
 })
 export class AddonModAssignEditFeedbackModalPage {
 
-    @Input() assign: AddonModAssignAssign; // The assignment.
-    @Input() submission: AddonModAssignSubmission; // The submission.
-    @Input() plugin: AddonModAssignPlugin; // The plugin object.
+    @Input() assign: any; // The assignment.
+    @Input() submission: any; // The submission.
+    @Input() plugin: any; // The plugin object.
     @Input() userId: number; // The user ID of the submission.
-
-    @ViewChild('editFeedbackForm') formElement: ElementRef;
 
     protected forceLeave = false; // To allow leaving the page without checking for changes.
 
-    constructor(params: NavParams,
-            protected viewCtrl: ViewController,
-            protected domUtils: CoreDomUtilsProvider,
-            protected translate: TranslateService,
-            protected feedbackDelegate: AddonModAssignFeedbackDelegate,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider) {
+    constructor(params: NavParams, protected viewCtrl: ViewController, protected domUtils: CoreDomUtilsProvider,
+            protected translate: TranslateService, protected feedbackDelegate: AddonModAssignFeedbackDelegate) {
 
         this.assign = params.get('assign');
         this.submission = params.get('submission');
@@ -59,25 +47,24 @@ export class AddonModAssignEditFeedbackModalPage {
     /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved if we can leave it, rejected if not.
+     * @return {boolean|Promise<void>} Resolved if we can leave it, rejected if not.
      */
-    async ionViewCanLeave(): Promise<void> {
+    ionViewCanLeave(): boolean | Promise<void> {
         if (this.forceLeave) {
-            return;
+            return true;
         }
 
-        const changed = await this.hasDataChanged();
-        if (changed) {
-            await this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
-        }
-
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
+        return this.hasDataChanged().then((changed) => {
+            if (changed) {
+                return this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
+            }
+        });
     }
 
     /**
      * Close modal.
      *
-     * @param data Data to return to the page.
+     * @param {any} data Data to return to the page.
      */
     closeModal(data: any): void {
         this.viewCtrl.dismiss(data);
@@ -85,15 +72,8 @@ export class AddonModAssignEditFeedbackModalPage {
 
     /**
      * Done editing.
-     *
-     * @param e Click event.
      */
-    done(e: Event): void {
-        e.preventDefault();
-        e.stopPropagation();
-
-        this.domUtils.triggerFormSubmittedEvent(this.formElement, false, this.sitesProvider.getCurrentSiteId());
-
+    done(): void {
         // Close the modal, sending the input data.
         this.forceLeave = true;
         this.closeModal(this.getInputData());
@@ -102,7 +82,7 @@ export class AddonModAssignEditFeedbackModalPage {
     /**
      * Get the input data.
      *
-     * @return Object with the data.
+     * @return {any} Object with the data.
      */
     protected getInputData(): any {
         return this.domUtils.getDataFromForm(document.forms['addon-mod_assign-edit-feedback-form']);
@@ -111,11 +91,11 @@ export class AddonModAssignEditFeedbackModalPage {
     /**
      * Check if data has changed.
      *
-     * @return Promise resolved with boolean: whether the data has changed.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether the data has changed.
      */
     protected hasDataChanged(): Promise<boolean> {
-        return this.feedbackDelegate.hasPluginDataChanged(this.assign, this.submission, this.plugin, this.getInputData(),
-                this.userId).catch(() => {
+        return this.feedbackDelegate.hasPluginDataChanged(this.assign, this.userId, this.plugin, this.getInputData(), this.userId)
+                .catch(() => {
             // Ignore errors.
             return true;
         });

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,8 @@ import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreEventsProvider, CoreEventObserver } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreUtilsProvider } from '@providers/utils/utils';
-import { AddonNotificationsProvider, AddonNotificationsAnyNotification } from '../../providers/notifications';
-import { AddonNotificationsHelperProvider } from '../../providers/helper';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
+import { AddonNotificationsProvider } from '../../providers/notifications';
+import { AddonPushNotificationsDelegate } from '@addon/pushnotifications/providers/delegate';
 
 /**
  * Page that displays the list of notifications.
@@ -34,47 +33,38 @@ import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers
 })
 export class AddonNotificationsListPage {
 
-    notifications: AddonNotificationsAnyNotification[] = [];
+    notifications = [];
     notificationsLoaded = false;
     canLoadMore = false;
-    loadMoreError = false;
     canMarkAllNotificationsAsRead = false;
     loadingMarkAllNotificationsAsRead = false;
 
-    protected isCurrentView: boolean;
+    protected readCount = 0;
+    protected unreadCount = 0;
     protected cronObserver: CoreEventObserver;
     protected pushObserver: Subscription;
-    protected pendingRefresh = false;
 
     constructor(navParams: NavParams, private domUtils: CoreDomUtilsProvider, private eventsProvider: CoreEventsProvider,
             private sitesProvider: CoreSitesProvider, private textUtils: CoreTextUtilsProvider,
             private utils: CoreUtilsProvider, private notificationsProvider: AddonNotificationsProvider,
-            private pushNotificationsDelegate: CorePushNotificationsDelegate,
-            private notificationsHelper: AddonNotificationsHelperProvider) {
+            private pushNotificationsDelegate: AddonPushNotificationsDelegate) {
     }
 
     /**
      * View loaded.
      */
     ionViewDidLoad(): void {
-        this.fetchNotifications();
+        this.fetchNotifications().finally(() => {
+            this.notificationsLoaded = true;
+        });
 
-        this.cronObserver = this.eventsProvider.on(AddonNotificationsProvider.READ_CRON_EVENT, () => {
-            if (this.isCurrentView) {
-                this.notificationsLoaded = false;
-                this.refreshNotifications();
-            }
-        }, this.sitesProvider.getCurrentSiteId());
+        this.cronObserver = this.eventsProvider.on(AddonNotificationsProvider.READ_CRON_EVENT, () => this.refreshNotifications(),
+                this.sitesProvider.getCurrentSiteId());
 
         this.pushObserver = this.pushNotificationsDelegate.on('receive').subscribe((notification) => {
             // New notification received. If it's from current site, refresh the data.
-            if (this.isCurrentView && this.utils.isTrueOrOne(notification.notif) &&
-                    this.sitesProvider.isCurrentSite(notification.site)) {
-
-                this.notificationsLoaded = false;
+            if (this.utils.isTrueOrOne(notification.notif) && this.sitesProvider.isCurrentSite(notification.site)) {
                 this.refreshNotifications();
-            } else if (!this.isCurrentView) {
-                this.pendingRefresh = true;
             }
         });
     }
@@ -82,28 +72,60 @@ export class AddonNotificationsListPage {
     /**
      * Convenience function to get notifications. Gets unread notifications first.
      *
-     * @param refreh Whether we're refreshing data.
-     * @return Resolved when done.
+     * @param {boolean} refreh Whether we're refreshing data.
+     * @return {Promise<any>} Resolved when done.
      */
     protected fetchNotifications(refresh?: boolean): Promise<any> {
-        this.loadMoreError = false;
+        if (refresh) {
+            this.readCount = 0;
+            this.unreadCount = 0;
+        }
 
-        return this.notificationsHelper.getNotifications(refresh ? [] : this.notifications).then((result) => {
-            result.notifications.forEach(this.formatText.bind(this));
+        const limit = AddonNotificationsProvider.LIST_LIMIT;
 
-            if (refresh) {
-                this.notifications = result.notifications;
+        return this.notificationsProvider.getUnreadNotifications(this.unreadCount, limit).then((unread) => {
+            const promises = [];
+
+            unread.forEach(this.formatText.bind(this));
+
+            /* Don't add the unread notifications to this.notifications yet. If there are no unread notifications
+               that causes that the "There are no notifications" message is shown in pull to refresh. */
+            this.unreadCount += unread.length;
+
+            if (unread.length < limit) {
+                // Limit not reached. Get read notifications until reach the limit.
+                const readLimit = limit - unread.length;
+                promises.push(this.notificationsProvider.getReadNotifications(this.readCount, readLimit).then((read) => {
+                    read.forEach(this.formatText.bind(this));
+                    this.readCount += read.length;
+                    if (refresh) {
+                        this.notifications = unread.concat(read);
+                    } else {
+                        this.notifications = this.notifications.concat(unread, read);
+                    }
+                    this.canLoadMore = read.length >= readLimit;
+                }).catch((error) => {
+                    if (unread.length == 0) {
+                        this.domUtils.showErrorModalDefault(error, 'addon.notifications.errorgetnotifications', true);
+                        this.canLoadMore = false; // Set to false to prevent infinite calls with infinite-loading.
+                    }
+                }));
             } else {
-                this.notifications = this.notifications.concat(result.notifications);
+                if (refresh) {
+                    this.notifications = unread;
+                } else {
+                    this.notifications = this.notifications.concat(unread);
+                }
+                this.canLoadMore = true;
             }
-            this.canLoadMore = result.canLoadMore;
 
-            this.markNotificationsAsRead(result.notifications);
+            return Promise.all(promises).then(() => {
+                // Mark retrieved notifications as read if they are not.
+                this.markNotificationsAsRead(unread);
+            });
         }).catch((error) => {
             this.domUtils.showErrorModalDefault(error, 'addon.notifications.errorgetnotifications', true);
-            this.loadMoreError = true; // Set to prevent infinite calls with infinite-loading.
-        }).finally(() => {
-            this.notificationsLoaded = true;
+            this.canLoadMore = false; // Set to false to prevent infinite calls with infinite-loading.
         });
     }
 
@@ -114,33 +136,27 @@ export class AddonNotificationsListPage {
         this.loadingMarkAllNotificationsAsRead = true;
         this.notificationsProvider.markAllNotificationsAsRead().catch(() => {
             // Omit failure.
-        }).then(() => {
+        }).finally(() => {
             const siteId = this.sitesProvider.getCurrentSiteId();
             this.eventsProvider.trigger(AddonNotificationsProvider.READ_CHANGED_EVENT, null, siteId);
 
-            // All marked as read, refresh the list.
-            this.notificationsLoaded = false;
-
-            return this.refreshNotifications();
+            this.notificationsProvider.getUnreadNotificationsCount().then((unread) => {
+                this.canMarkAllNotificationsAsRead = unread > 0;
+                this.loadingMarkAllNotificationsAsRead = false;
+            });
         });
     }
 
     /**
      * Mark notifications as read.
      *
-     * @param notifications Array of notification objects.
+     * @param {any[]} notifications Array of notification objects.
      */
-    protected markNotificationsAsRead(notifications: AddonNotificationsAnyNotification[]): void {
-
+    protected markNotificationsAsRead(notifications: any[]): void {
         let promise;
 
         if (notifications.length > 0) {
-            const promises: Promise<any>[] = notifications.map((notification) => {
-                if (notification.read) {
-                    // Already read, don't mark it.
-                    return Promise.resolve();
-                }
-
+            const promises = notifications.map((notification) => {
                 return this.notificationsProvider.markNotificationRead(notification.id);
             });
 
@@ -163,7 +179,6 @@ export class AddonNotificationsListPage {
 
                 return this.notificationsProvider.getUnreadNotificationsCount().then((unread) => {
                     this.canMarkAllNotificationsAsRead = unread > 0;
-                }).finally(() => {
                     this.loadingMarkAllNotificationsAsRead = false;
                 });
             }
@@ -174,11 +189,10 @@ export class AddonNotificationsListPage {
     /**
      * Refresh notifications.
      *
-     * @param refresher Refresher.
-     * @return Promise<any> Promise resolved when done.
+     * @param {any} [refresher] Refresher.
      */
-    refreshNotifications(refresher?: any): Promise<any> {
-        return this.notificationsProvider.invalidateNotificationsList().finally(() => {
+    refreshNotifications(refresher?: any): void {
+        this.notificationsProvider.invalidateNotificationsList().finally(() => {
             return this.fetchNotifications(true).finally(() => {
                 if (refresher) {
                     refresher.complete();
@@ -190,43 +204,22 @@ export class AddonNotificationsListPage {
     /**
      * Load more results.
      *
-     * @param infiniteComplete Infinite scroll complete function. Only used from core-infinite-loading.
+     * @param {any} infiniteScroll The infinit scroll instance.
      */
-    loadMoreNotifications(infiniteComplete?: any): void {
+    loadMoreNotifications(infiniteScroll: any): void {
         this.fetchNotifications().finally(() => {
-            infiniteComplete && infiniteComplete();
+            infiniteScroll.complete();
         });
     }
 
     /**
      * Formats the text of a notification.
      *
-     * @param notification The notification object.
+     * @param {any} notification The notification object.
      */
-    protected formatText(notification: AddonNotificationsAnyNotification): void {
+    protected formatText(notification: any): void {
         const text = notification.mobiletext.replace(/-{4,}/ig, '');
         notification.mobiletext = this.textUtils.replaceNewLines(text, '<br>');
-    }
-
-    /**
-     * User entered the page.
-     */
-    ionViewDidEnter(): void {
-        this.isCurrentView = true;
-
-        if (this.pendingRefresh) {
-            this.pendingRefresh = false;
-            this.notificationsLoaded = false;
-
-            this.refreshNotifications();
-        }
-    }
-
-    /**
-     * User left the page.
-     */
-    ionViewDidLeave(): void {
-        this.isCurrentView = false;
     }
 
     /**

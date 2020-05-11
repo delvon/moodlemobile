@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import { AddonModAssignFeedbackCommentsComponent } from './component/comments';
 import { AddonModAssignFeedbackDelegate } from '../../providers/feedback-delegate';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
-import { CoreEditorComponentsModule } from '@core/editor/components/components.module';
 
 @NgModule({
     declarations: [
@@ -32,8 +31,7 @@ import { CoreEditorComponentsModule } from '@core/editor/components/components.m
         IonicModule,
         TranslateModule.forChild(),
         CoreComponentsModule,
-        CoreDirectivesModule,
-        CoreEditorComponentsModule,
+        CoreDirectivesModule
     ],
     providers: [
         AddonModAssignFeedbackCommentsHandler

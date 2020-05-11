@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Input, Output, EventEmitter, OnInit, ViewChild, ElementRef } from '@angular/core';
-import { CoreAppProvider } from '@providers/app';
-import { CoreConfigProvider } from '@providers/config';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
-import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CoreConstants } from '@core/constants';
 
 /**
  * Component to display a "send message form".
@@ -40,32 +34,12 @@ export class CoreSendMessageFormComponent implements OnInit {
     @Input() message: string; // Input text.
     @Input() placeholder = ''; // Placeholder for the input area.
     @Input() showKeyboard = false; // If keyboard is shown or not.
-    @Input() sendDisabled = false; // If send is disabled.
     @Output() onSubmit: EventEmitter<string>; // Send data when submitting the message form.
     @Output() onResize: EventEmitter<void>; // Emit when resizing the textarea.
 
-    @ViewChild('messageForm') formElement: ElementRef;
-
-    protected sendOnEnter: boolean;
-
-    constructor(protected utils: CoreUtilsProvider,
-            protected textUtils: CoreTextUtilsProvider,
-            configProvider: CoreConfigProvider,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected appProvider: CoreAppProvider,
-            protected domUtils: CoreDomUtilsProvider) {
-
+    constructor(private utils: CoreUtilsProvider, private textUtils: CoreTextUtilsProvider) {
         this.onSubmit = new EventEmitter();
         this.onResize = new EventEmitter();
-
-        configProvider.get(CoreConstants.SETTINGS_SEND_ON_ENTER, !this.appProvider.isMobile()).then((sendOnEnter) => {
-            this.sendOnEnter = !!sendOnEnter;
-        });
-
-        eventsProvider.on(CoreEventsProvider.SEND_ON_ENTER_CHANGED, (newValue) => {
-            this.sendOnEnter = newValue;
-        }, sitesProvider.getCurrentSiteId());
     }
 
     ngOnInit(): void {
@@ -75,7 +49,7 @@ export class CoreSendMessageFormComponent implements OnInit {
     /**
      * Form submitted.
      *
-     * @param $event Mouse event.
+     * @param {Event} $event Mouse event.
      */
     submitForm($event: Event): void {
         $event.preventDefault();
@@ -90,8 +64,6 @@ export class CoreSendMessageFormComponent implements OnInit {
 
         this.message = ''; // Reset the form.
 
-        this.domUtils.triggerFormSubmittedEvent(this.formElement, false, this.sitesProvider.getCurrentSiteId());
-
         value = this.textUtils.replaceNewLines(value, '<br>');
         this.onSubmit.emit(value);
     }
@@ -101,27 +73,5 @@ export class CoreSendMessageFormComponent implements OnInit {
      */
     textareaResized(): void {
         this.onResize.emit();
-    }
-
-    /**
-     * Enter key clicked.
-     *
-     * @param e Event.
-     * @param other The name of the other key that was clicked, undefined if no other key.
-     */
-    enterClicked(e: Event, other: string): void {
-        if (this.sendDisabled) {
-            return;
-        }
-
-        if (this.sendOnEnter && !other) {
-            // Enter clicked, send the message.
-            this.submitForm(e);
-        } else if (!this.sendOnEnter && !this.appProvider.isMobile()) {
-            if ((this.appProvider.isMac() && other == 'meta') || (!this.appProvider.isMac() && other == 'control')) {
-                // Cmd+Enter or Ctrl+Enter, send message.
-                this.submitForm(e);
-            }
-        }
     }
 }

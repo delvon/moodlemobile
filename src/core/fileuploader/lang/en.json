@@ -20,7 +20,6 @@
     "more": "More",
     "photoalbums": "Photo albums",
     "readingfile": "Reading file",
-    "readingfileperc": "Reading file: {{$a}}%",
     "selectafile": "Select a file",
     "uploadafile": "Upload a file",
     "uploading": "Uploading",

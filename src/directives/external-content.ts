@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Directive, Input, AfterViewInit, ElementRef, OnChanges, SimpleChange, Output, EventEmitter } from '@angular/core';
+import { Directive, Input, AfterViewInit, ElementRef } from '@angular/core';
 import { Platform } from 'ionic-angular';
 import { CoreAppProvider } from '@providers/app';
 import { CoreLoggerProvider } from '@providers/logger';
@@ -35,22 +35,13 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 @Directive({
     selector: '[core-external-content]'
 })
-export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
+export class CoreExternalContentDirective implements AfterViewInit {
     @Input() siteId?: string; // Site ID to use.
     @Input() component?: string; // Component to link the file to.
     @Input() componentId?: string | number; // Component ID to use in conjunction with the component.
-    @Input() src?: string;
-    @Input() href?: string;
-    @Input('target-src') targetSrc?: string;
-    @Input() poster?: string;
-    @Output() onLoad = new EventEmitter(); // Emitted when content is loaded. Only for images.
 
-    loaded = false;
     protected element: HTMLElement;
     protected logger;
-    protected initialized = false;
-
-    invalid = false;
 
     constructor(element: ElementRef, logger: CoreLoggerProvider, private filepoolProvider: CoreFilepoolProvider,
             private platform: Platform, private sitesProvider: CoreSitesProvider, private domUtils: CoreDomUtilsProvider,
@@ -64,27 +55,53 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
      * View has been initialized
      */
     ngAfterViewInit(): void {
-        this.checkAndHandleExternalContent();
+        const currentSite = this.sitesProvider.getCurrentSite(),
+            siteId = this.siteId || (currentSite && currentSite.getId()),
+            tagName = this.element.tagName;
+        let targetAttr,
+            sourceAttr;
 
-        this.initialized = true;
-    }
+        // Always handle inline styles (if any).
+        this.handleInlineStyles(siteId).catch((error) => {
+            this.logger.error('Error treating inline styles.', this.element);
+        });
 
-    /**
-     * Listen to changes.
-     *
-     * * @param {{[name: string]: SimpleChange}} changes Changes.
-     */
-    ngOnChanges(changes: { [name: string]: SimpleChange }): void {
-        if (changes && this.initialized) {
-            // If any of the inputs changes, handle the content again.
-            this.checkAndHandleExternalContent();
+        if (tagName === 'A') {
+            targetAttr = 'href';
+            sourceAttr = 'href';
+
+        } else if (tagName === 'IMG') {
+            targetAttr = 'src';
+            sourceAttr = 'src';
+
+        } else if (tagName === 'AUDIO' || tagName === 'VIDEO' || tagName === 'SOURCE' || tagName === 'TRACK') {
+            targetAttr = 'src';
+            sourceAttr = 'target-src';
+
+            if (tagName === 'VIDEO') {
+                const poster = (<HTMLVideoElement> this.element).poster;
+                if (poster) {
+                    // Handle poster.
+                    this.handleExternalContent('poster', poster, siteId).catch(() => {
+                        // Ignore errors.
+                    });
+                }
+            }
+
+        } else {
+            return;
         }
+
+        const url = this.element.getAttribute(sourceAttr) || this.element.getAttribute(targetAttr);
+        this.handleExternalContent(targetAttr, url, siteId).catch(() => {
+            // Ignore errors.
+        });
     }
 
     /**
      * Add a new source with a certain URL as a sibling of the current element.
      *
-     * @param url URL to use in the source.
+     * @param {string} url URL to use in the source.
      */
     protected addSource(url: string): void {
         if (this.element.tagName !== 'SOURCE') {
@@ -108,76 +125,12 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
     }
 
     /**
-     * Get the URL that should be handled and, if valid, handle it.
-     */
-    protected checkAndHandleExternalContent(): void {
-        const currentSite = this.sitesProvider.getCurrentSite(),
-            siteId = this.siteId || (currentSite && currentSite.getId()),
-            tagName = this.element.tagName;
-        let targetAttr,
-            url;
-
-        // Always handle inline styles (if any).
-        this.handleInlineStyles(siteId).catch((error) => {
-            this.logger.error('Error treating inline styles.', this.element);
-        });
-
-        if (tagName === 'A') {
-            targetAttr = 'href';
-            url = this.href;
-
-        } else if (tagName === 'IMG') {
-            targetAttr = 'src';
-            url = this.src;
-
-        } else if (tagName === 'AUDIO' || tagName === 'VIDEO' || tagName === 'SOURCE' || tagName === 'TRACK') {
-            targetAttr = 'src';
-            url = this.targetSrc || this.src;
-
-            if (tagName === 'VIDEO') {
-                if (this.poster) {
-                    // Handle poster.
-                    this.handleExternalContent('poster', this.poster, siteId).catch(() => {
-                        // Ignore errors.
-                    });
-                }
-            }
-
-        } else {
-            this.invalid = true;
-
-            return;
-        }
-
-        // Avoid handling data url's.
-        if (url && url.indexOf('data:') === 0) {
-            this.invalid = true;
-            this.onLoad.emit();
-            this.loaded = true;
-
-            return;
-        }
-
-        this.handleExternalContent(targetAttr, url, siteId).catch(() => {
-            // Error handling content. Make sure the loaded event is triggered for images.
-            if (tagName === 'IMG') {
-                if (url) {
-                    this.waitForLoad();
-                } else {
-                    this.onLoad.emit();
-                    this.loaded = true;
-                }
-            }
-        });
-    }
-
-    /**
      * Handle external content, setting the right URL.
      *
-     * @param targetAttr Attribute to modify.
-     * @param url Original URL to treat.
-     * @param siteId Site ID.
-     * @return Promise resolved if the element is successfully treated.
+     * @param {string} targetAttr Attribute to modify.
+     * @param {string} url Original URL to treat.
+     * @param {string} [siteId] Site ID.
+     * @return {Promise<any>} Promise resolved if the element is successfully treated.
      */
     protected handleExternalContent(targetAttr: string, url: string, siteId?: string): Promise<any> {
 
@@ -229,8 +182,7 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
             const dwnUnknown = tagName == 'IMG' || tagName == 'TRACK' || targetAttr == 'poster';
             let promise;
 
-            if (targetAttr === 'src' && tagName !== 'SOURCE' && tagName !== 'TRACK' && tagName !== 'VIDEO' &&
-                    tagName !== 'AUDIO') {
+            if (targetAttr === 'src' && tagName !== 'SOURCE' && tagName !== 'TRACK') {
                 promise = this.filepoolProvider.getSrcByUrl(siteId, url, this.component, this.componentId, 0, true, dwnUnknown);
             } else {
                 promise = this.filepoolProvider.getUrlByUrl(siteId, url, this.component, this.componentId, 0, true, dwnUnknown);
@@ -248,12 +200,7 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
                     // The browser does not catch changes in SRC, we need to add a new source.
                     this.addSource(finalUrl);
                 } else {
-                    if (tagName === 'IMG') {
-                        this.loaded = false;
-                        this.waitForLoad();
-                    }
                     this.element.setAttribute(targetAttr, finalUrl);
-                    this.element.setAttribute('data-original-' + targetAttr, url);
                 }
 
                 // Set events to download big files (not downloaded automatically).
@@ -272,7 +219,7 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
                     clickableEl.addEventListener(eventName, () => {
                         // User played media or opened a downloadable link.
                         // Download the file if in wifi and it hasn't been downloaded already (for big files).
-                        if (this.appProvider.isWifi()) {
+                        if (!this.appProvider.isNetworkAccessLimited()) {
                             // We aren't using the result, so it doesn't matter which of the 2 functions we call.
                             this.filepoolProvider.getUrlByUrl(siteId, url, this.component, this.componentId, 0, false);
                         }
@@ -285,8 +232,8 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
     /**
      * Handle inline styles, trying to download referenced files.
      *
-     * @param siteId Site ID.
-     * @return Promise resolved if the element is successfully treated.
+     * @param {string} siteId Site ID.
+     * @return {Promise<any>} Promise resolved if the element is successfully treated.
      */
     protected handleInlineStyles(siteId: string): Promise<any> {
         let inlineStyles = this.element.getAttribute('style');
@@ -315,20 +262,5 @@ export class CoreExternalContentDirective implements AfterViewInit, OnChanges {
         return this.utils.allPromises(promises).then(() => {
             this.element.setAttribute('style', inlineStyles);
         });
-    }
-
-    /**
-     * Wait for the image to be loaded or error, and emit an event when it happens.
-     */
-    protected waitForLoad(): void {
-        const listener = (): void => {
-            this.element.removeEventListener('load', listener);
-            this.element.removeEventListener('error', listener);
-            this.onLoad.emit();
-            this.loaded = true;
-        };
-
-        this.element.addEventListener('load', listener);
-        this.element.addEventListener('error', listener);
     }
 }

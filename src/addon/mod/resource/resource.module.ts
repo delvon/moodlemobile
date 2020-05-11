@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { AddonModResourceModuleHandler } from './providers/module-handler';
 import { AddonModResourceProvider } from './providers/resource';
 import { AddonModResourcePrefetchHandler } from './providers/prefetch-handler';
 import { AddonModResourceLinkHandler } from './providers/link-handler';
-import { AddonModResourceListLinkHandler } from './providers/list-link-handler';
 import { AddonModResourcePluginFileHandler } from './providers/pluginfile-handler';
 import { AddonModResourceHelperProvider } from './providers/helper';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
@@ -43,7 +42,6 @@ export const ADDON_MOD_RESOURCE_PROVIDERS: any[] = [
         AddonModResourceHelperProvider,
         AddonModResourcePrefetchHandler,
         AddonModResourceLinkHandler,
-        AddonModResourceListLinkHandler,
         AddonModResourcePluginFileHandler
     ]
 })
@@ -51,13 +49,10 @@ export class AddonModResourceModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModResourceModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModResourcePrefetchHandler,
             contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModResourceLinkHandler,
-            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModResourcePluginFileHandler,
-            listLinkHandler: AddonModResourceListLinkHandler) {
-
+            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModResourcePluginFileHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
         pluginfileDelegate.registerHandler(pluginfileHandler);
     }
 }

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import { Component, Input, OnInit } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
-import { TranslateService } from '@ngx-translate/core';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 
@@ -30,11 +29,8 @@ export class AddonUserProfileFieldDatetimeComponent implements OnInit {
     @Input() edit = false; // True if editing the field. Defaults to false.
     @Input() disabled = false; // True if disabled. Defaults to false.
     @Input() form?: FormGroup; // Form where to add the form control.
-    @Input() contextLevel?: string; // The context level.
-    @Input() contextInstanceId?: number; // The instance ID related to the context.
 
-    constructor(private fb: FormBuilder, private timeUtils: CoreTimeUtilsProvider, protected utils: CoreUtilsProvider,
-            private translate: TranslateService) { }
+    constructor(private fb: FormBuilder, private timeUtils: CoreTimeUtilsProvider, protected utils: CoreUtilsProvider) { }
 
     /**
      * Component being initialized.
@@ -48,10 +44,7 @@ export class AddonUserProfileFieldDatetimeComponent implements OnInit {
 
             // Check if it's only date or it has time too.
             const hasTime = this.utils.isTrueOrOne(field.param3);
-
-            // Calculate format to use.
-            field.format = this.timeUtils.fixFormatForDatetime(this.timeUtils.convertPHPToMoment(
-                    this.translate.instant('core.' + (hasTime ? 'strftimedatetime' : 'strftimedate'))));
+            field.format = hasTime ? this.timeUtils.getLocalizedDateFormat('LLL') : this.timeUtils.getLocalizedDateFormat('LL');
 
             // Check min value.
             if (field.param1) {

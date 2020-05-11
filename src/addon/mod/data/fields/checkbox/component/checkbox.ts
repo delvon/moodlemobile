@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ export class AddonModDataFieldCheckboxComponent extends AddonModDataFieldPluginC
             return;
         }
 
-        this.options = this.field.param1.split(/\r?\n/).map((option) => {
+        this.options = this.field.param1.split('\n').map((option) => {
             return { key: option, value: option };
         });
 
@@ -64,10 +64,10 @@ export class AddonModDataFieldCheckboxComponent extends AddonModDataFieldPluginC
     /**
      * Update value being shown.
      *
-     * @param value New value to be set.
+     * @param {any} value New value to be set.
      */
     protected updateValue(value: any): void {
-        this.value = value || {};
+        this.value = value;
         this.value.content = value && value.content && value.content.split('##').join('<br>');
     }
 }

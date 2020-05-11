@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ export class CoreCoursesSearchPage {
     total = 0;
     courses: any[];
     canLoadMore: boolean;
-    loadMoreError = false;
 
     protected page = 0;
     protected currentSearch = '';
@@ -39,7 +38,7 @@ export class CoreCoursesSearchPage {
     /**
      * Search a new text.
      *
-     * @param text The text to search.
+     * @param {string} text The text to search.
      */
     search(text: string): void {
         this.currentSearch = text;
@@ -53,36 +52,22 @@ export class CoreCoursesSearchPage {
     }
 
     /**
-     * Clear search box.
-     *
-     * @param e The event object.
-     */
-    clearSearch(e: Event): void {
-        this.currentSearch = '';
-        this.courses = undefined;
-        this.page = 0;
-        this.total = 0;
-    }
-
-    /**
      * Load more results.
      *
-     * @param infiniteComplete Infinite scroll complete function. Only used from core-infinite-loading.
+     * @param {any} infiniteScroll The infinit scroll instance.
      */
-    loadMoreResults(infiniteComplete?: any): void {
+    loadMoreResults(infiniteScroll: any): void {
         this.searchCourses().finally(() => {
-            infiniteComplete && infiniteComplete();
+            infiniteScroll.complete();
         });
     }
 
     /**
      * Search courses or load the next page of current search.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected searchCourses(): Promise<any> {
-        this.loadMoreError = false;
-
         return this.coursesProvider.search(this.currentSearch, this.page).then((response) => {
             if (this.page === 0) {
                 this.courses = response.courses;
@@ -94,7 +79,7 @@ export class CoreCoursesSearchPage {
             this.page++;
             this.canLoadMore = this.courses.length < this.total;
         }).catch((error) => {
-            this.loadMoreError = true; // Set to prevent infinite calls with infinite-loading.
+            this.canLoadMore = false;
             this.domUtils.showErrorModalDefault(error, 'core.courses.errorsearching', true);
         });
     }

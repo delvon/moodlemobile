@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { IonicPage, ViewController } from 'ionic-angular';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
-import { CoreDomUtilsProvider } from '@providers/utils/dom';
 
 /**
  * Modal that asks the password for a lesson.
@@ -27,25 +24,13 @@ import { CoreDomUtilsProvider } from '@providers/utils/dom';
     templateUrl: 'password-modal.html',
 })
 export class AddonModLessonPasswordModalPage {
-    @ViewChild('passwordForm') formElement: ElementRef;
 
-    constructor(protected viewCtrl: ViewController,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected domUtils: CoreDomUtilsProvider) { }
+    constructor(protected viewCtrl: ViewController) { }
 
     /**
      * Send the password back.
-     *
-     * @param e Event.
-     * @param password The input element.
      */
-    submitPassword(e: Event, password: HTMLInputElement): void {
-        e.preventDefault();
-        e.stopPropagation();
-
-        this.domUtils.triggerFormSubmittedEvent(this.formElement, false, this.sitesProvider.getCurrentSiteId());
-
+    submitPassword(password: HTMLInputElement): void {
         this.viewCtrl.dismiss(password.value);
     }
 
@@ -53,8 +38,6 @@ export class AddonModLessonPasswordModalPage {
      * Close modal.
      */
     closeModal(): void {
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
-
         this.viewCtrl.dismiss();
     }
 }

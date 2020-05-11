@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { Component, OnChanges, Input, ViewChild, Output, EventEmitter } from '@a
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreSitePluginsPluginContentComponent } from '../plugin-content/plugin-content';
 import { CoreCourseFormatComponent } from '@core/course/components/format/format';
-import { CoreCourseFormatDelegate } from '@core/course/providers/format-delegate';
 
 /**
  * Component that displays the index of a course format site plugin.
@@ -47,8 +46,7 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
     initResult: any;
     data: any;
 
-    constructor(protected sitePluginsProvider: CoreSitePluginsProvider,
-            protected courseFormatDelegate: CoreCourseFormatDelegate) { }
+    constructor(protected sitePluginsProvider: CoreSitePluginsProvider) { }
 
     /**
      * Detect changes on input properties.
@@ -57,9 +55,7 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
         if (this.course && this.course.format) {
             if (!this.component) {
                 // Initialize the data.
-                const handlerName = this.courseFormatDelegate.getHandlerName(this.course.format),
-                    handler = this.sitePluginsProvider.getSitePluginHandler(handlerName);
-
+                const handler = this.sitePluginsProvider.getSitePluginHandler(this.course.format);
                 if (handler) {
                     this.component = handler.plugin.component;
                     this.method = handler.handlerSchema.method;
@@ -88,10 +84,10 @@ export class CoreSitePluginsCourseFormatComponent implements OnChanges {
     /**
      * Refresh the data.
      *
-     * @param refresher Refresher.
-     * @param done Function to call when done.
-     * @param afterCompletionChange Whether the refresh is due to a completion change.
-     * @return Promise resolved when done.
+     * @param {any} [refresher] Refresher.
+     * @param {Function} [done] Function to call when done.
+     * @param {boolean} [afterCompletionChange] Whether the refresh is due to a completion change.
+     * @return {Promise<any>} Promise resolved when done.
      */
     doRefresh(refresher?: any, done?: () => void, afterCompletionChange?: boolean): Promise<any> {
         return Promise.resolve(this.content.refreshContent(afterCompletionChange));

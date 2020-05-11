@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,10 @@
 // limitations under the License.
 
 import { NgModule } from '@angular/core';
-import { AddonModLabelProvider } from './providers/label';
 import { AddonModLabelModuleHandler } from './providers/module-handler';
 import { AddonModLabelLinkHandler } from './providers/link-handler';
-import { AddonModLabelPrefetchHandler } from './providers/prefetch-handler';
 import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
-import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
 
 @NgModule({
     declarations: [
@@ -27,18 +24,14 @@ import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-
     imports: [
     ],
     providers: [
-        AddonModLabelProvider,
         AddonModLabelModuleHandler,
-        AddonModLabelLinkHandler,
-        AddonModLabelPrefetchHandler
+        AddonModLabelLinkHandler
     ]
 })
 export class AddonModLabelModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModLabelModuleHandler,
-            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModLabelLinkHandler,
-            prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModLabelPrefetchHandler) {
+            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModLabelLinkHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        prefetchDelegate.registerHandler(prefetchHandler);
     }
 }

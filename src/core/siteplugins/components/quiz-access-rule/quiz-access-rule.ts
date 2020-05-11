@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreSitePluginsCompileInitComponent } from '../../classes/compile-init-component';
 import { FormGroup } from '@angular/forms';
-import { AddonModQuizAccessRuleDelegate } from '@addon/mod/quiz/providers/access-rules-delegate';
 
 /**
  * Component that displays a quiz access rule created using a site plugin.
@@ -34,8 +33,7 @@ export class CoreSitePluginsQuizAccessRuleComponent extends CoreSitePluginsCompi
     @Input() siteId: string; // Site ID.
     @Input() form: FormGroup; // Form where to add the form control.
 
-    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider,
-            protected accessRulesDelegate: AddonModQuizAccessRuleDelegate) {
+    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider) {
         super(sitePluginsProvider, utils);
     }
 
@@ -52,7 +50,7 @@ export class CoreSitePluginsQuizAccessRuleComponent extends CoreSitePluginsCompi
         this.jsData.form = this.form;
 
         if (this.rule) {
-            this.getHandlerData(this.accessRulesDelegate.getHandlerName(this.rule));
+            this.getHandlerData(this.rule);
         }
     }
 }

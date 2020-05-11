@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@ export class AddonModDataFieldNumberHandler extends AddonModDataFieldTextHandler
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector, plugin: any): any | Promise<any> {
         return AddonModDataFieldNumberComponent;
@@ -43,15 +43,18 @@ export class AddonModDataFieldNumberHandler extends AddonModDataFieldTextHandler
     /**
      * Get field data in changed.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @param originalFieldData Original field entered data.
-     * @return If the field has changes.
+     * @param  {any} field                  Defines the field to be rendered.
+     * @param  {any} inputData              Data entered in the edit form.
+     * @param  {any} originalFieldData      Original field entered data.
+     * @return {Promise<boolean> | boolean} If the field has changes.
      */
     hasFieldDataChanged(field: any, inputData: any, originalFieldData: any): Promise<boolean> | boolean {
-        const fieldName = 'f_' + field.id;
-        const input = inputData[fieldName] || '';
-        originalFieldData = originalFieldData && originalFieldData.content || '';
+        const fieldName = 'f_' + field.id,
+            input = typeof inputData[fieldName] != 'undefined' && inputData[fieldName] !== null ?
+                parseFloat(inputData[fieldName]) : '';
+
+        originalFieldData = (originalFieldData && typeof originalFieldData.content != 'undefined' && originalFieldData !== null) ?
+            parseFloat(originalFieldData.content) : '';
 
         return input != originalFieldData;
     }
@@ -59,9 +62,9 @@ export class AddonModDataFieldNumberHandler extends AddonModDataFieldTextHandler
     /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the edit form.
+     * @return {string | false}                  String with the notification or false.
      */
     getFieldsNotifications(field: any, inputData: any): string | false {
         if (field.required && (!inputData || !inputData.length || inputData[0].value == '')) {

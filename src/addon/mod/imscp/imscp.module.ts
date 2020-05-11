@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { AddonModImscpModuleHandler } from './providers/module-handler';
 import { AddonModImscpProvider } from './providers/imscp';
 import { AddonModImscpPrefetchHandler } from './providers/prefetch-handler';
 import { AddonModImscpLinkHandler } from './providers/link-handler';
-import { AddonModImscpListLinkHandler } from './providers/list-link-handler';
 import { AddonModImscpPluginFileHandler } from './providers/pluginfile-handler';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
 import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate';
@@ -41,7 +40,6 @@ export const ADDON_MOD_IMSCP_PROVIDERS: any[] = [
         AddonModImscpModuleHandler,
         AddonModImscpPrefetchHandler,
         AddonModImscpLinkHandler,
-        AddonModImscpListLinkHandler,
         AddonModImscpPluginFileHandler
     ]
 })
@@ -49,13 +47,10 @@ export class AddonModImscpModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModImscpModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModImscpPrefetchHandler,
             contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModImscpLinkHandler,
-            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModImscpPluginFileHandler,
-            listLinkHandler: AddonModImscpListLinkHandler) {
-
+            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModImscpPluginFileHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
         pluginfileDelegate.registerHandler(pluginfileHandler);
     }
 }

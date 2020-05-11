@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreSitePluginsCompileInitComponent } from '../../classes/compile-init-component';
 import { FormGroup } from '@angular/forms';
-import { CoreUserProfileFieldDelegate } from '@core/user/providers/user-profile-field-delegate';
 
 /**
  * Component that displays a user profile field created using a site plugin.
@@ -34,8 +33,7 @@ export class CoreSitePluginsUserProfileFieldComponent extends CoreSitePluginsCom
     @Input() signup = false; // True if editing the field in signup. Defaults to false.
     @Input() registerAuth?: string; // Register auth method. E.g. 'email'.
 
-    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider,
-            protected profileFieldDelegate: CoreUserProfileFieldDelegate) {
+    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider) {
         super(sitePluginsProvider, utils);
     }
 
@@ -53,7 +51,7 @@ export class CoreSitePluginsUserProfileFieldComponent extends CoreSitePluginsCom
         this.jsData.registerAuth = this.registerAuth;
 
         if (this.field) {
-            this.getHandlerData(this.profileFieldDelegate.getHandlerName(this.field.type || this.field.datatype));
+            this.getHandlerData('profilefield_' + (this.field.type || this.field.datatype));
         }
     }
 }

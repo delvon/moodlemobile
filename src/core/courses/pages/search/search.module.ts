@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { TranslateModule } from '@ngx-translate/core';
 import { CoreCoursesSearchPage } from './search';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
-import { CoreSearchComponentsModule } from '@core/search/components/components.module';
 import { CoreCoursesComponentsModule } from '../../components/components.module';
 
 @NgModule({
@@ -29,9 +28,8 @@ import { CoreCoursesComponentsModule } from '../../components/components.module'
         CoreComponentsModule,
         CoreDirectivesModule,
         CoreCoursesComponentsModule,
-        CoreSearchComponentsModule,
         IonicPageModule.forChild(CoreCoursesSearchPage),
-        TranslateModule.forChild(),
+        TranslateModule.forChild()
     ],
 })
 export class CoreCoursesSearchPageModule {}

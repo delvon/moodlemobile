@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { NgModule } from '@angular/core';
 import { IonicPageModule } from 'ionic-angular';
 import { AddonModQuizNavigationModalPage } from './navigation-modal';
 import { TranslateModule } from '@ngx-translate/core';
-import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
 
 @NgModule({
@@ -25,7 +24,6 @@ import { CoreDirectivesModule } from '@directives/directives.module';
     ],
     imports: [
         CoreDirectivesModule,
-        CoreComponentsModule,
         IonicPageModule.forChild(AddonModQuizNavigationModalPage),
         TranslateModule.forChild()
     ]

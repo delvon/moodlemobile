@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import { AddonModScormPrefetchHandler } from './providers/prefetch-handler';
 import { AddonModScormSyncCronHandler } from './providers/sync-cron-handler';
 import { AddonModScormIndexLinkHandler } from './providers/index-link-handler';
 import { AddonModScormGradeLinkHandler } from './providers/grade-link-handler';
-import { AddonModScormListLinkHandler } from './providers/list-link-handler';
 import { AddonModScormSyncProvider } from './providers/scorm-sync';
 import { AddonModScormComponentsModule } from './components/components.module';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // List of providers (without handlers).
 export const ADDON_MOD_SCORM_PROVIDERS: any[] = [
@@ -52,8 +52,7 @@ export const ADDON_MOD_SCORM_PROVIDERS: any[] = [
         AddonModScormPrefetchHandler,
         AddonModScormSyncCronHandler,
         AddonModScormIndexLinkHandler,
-        AddonModScormGradeLinkHandler,
-        AddonModScormListLinkHandler
+        AddonModScormGradeLinkHandler
     ]
 })
 export class AddonModScormModule {
@@ -61,13 +60,48 @@ export class AddonModScormModule {
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModScormPrefetchHandler,
             cronDelegate: CoreCronDelegate, syncHandler: AddonModScormSyncCronHandler, linksDelegate: CoreContentLinksDelegate,
             indexHandler: AddonModScormIndexLinkHandler, gradeHandler: AddonModScormGradeLinkHandler,
-            listLinkHandler: AddonModScormListLinkHandler) {
+            updateManager: CoreUpdateManagerProvider) {
 
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         cronDelegate.register(syncHandler);
         linksDelegate.registerHandler(indexHandler);
         linksDelegate.registerHandler(gradeHandler);
-        linksDelegate.registerHandler(listLinkHandler);
+
+        // Allow migrating the tables from the old app to the new schema.
+        updateManager.registerSiteTablesMigration([
+            {
+                name: 'mod_scorm_offline_attempts',
+                newName: AddonModScormOfflineProvider.ATTEMPTS_TABLE,
+                fields: [
+                    {
+                        name: 'snapshot',
+                        type: 'object'
+                    },
+                    {
+                        name: 'scormAndUser',
+                        delete: true
+                    }
+                ]
+            },
+            {
+                name: 'mod_scorm_offline_scos_tracks',
+                newName: AddonModScormOfflineProvider.TRACKS_TABLE,
+                fields: [
+                    {
+                        name: 'value',
+                        type: 'object'
+                    },
+                    {
+                        name: 'scormUserAttempt',
+                        delete: true
+                    },
+                    {
+                        name: 'scormUserAttemptSynced',
+                        delete: true
+                    }
+                ]
+            }
+        ]);
     }
 }

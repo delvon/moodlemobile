@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,11 +29,11 @@ export class AddonModUrlHelperProvider {
     /**
      * Opens a URL.
      *
-     * @param url The URL to go to.
+     * @param {string} url The URL to go to.
      */
     open(url: string): void {
         const modal = this.domUtils.showModalLoading();
-        this.contentLinksHelper.handleLink(url, undefined, undefined, true, true).then((treated) => {
+        this.contentLinksHelper.handleLink(url).then((treated) => {
             if (!treated) {
                 return this.sitesProvider.getCurrentSite().openInBrowserWithAutoLoginIfSameSite(url);
             }

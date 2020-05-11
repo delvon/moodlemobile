@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ export class PushMock implements Push {
     /**
      * Init push notifications
      *
-     * @param options
+     * @param {PushOptions} options
+     * @return {PushObject}
      */
     init(options: PushOptions): PushObject {
         return new PushObjectMock(this.appProvider);
@@ -38,8 +39,8 @@ export class PushMock implements Push {
     /**
      * Check whether the push notification permission has been granted.
      *
-     * @return Returns a Promise that resolves with an object with one property: isEnabled, a
-     *         boolean that indicates if permission has been granted.
+     * @return {Promise<{isEnabled: boolean}>} Returns a Promise that resolves with an object with one property: isEnabled, a
+     *                                         boolean that indicates if permission has been granted.
      */
     hasPermission(): Promise<{isEnabled: boolean}> {
         return Promise.reject('hasPermission is only supported in mobile devices');
@@ -48,7 +49,7 @@ export class PushMock implements Push {
     /**
      * Create a new notification channel for Android O and above.
      *
-     * @param channel
+     * @param {Channel} channel
      */
     createChannel(channel?: Channel): Promise<any> {
         return Promise.reject('createChannel is only supported in mobile devices');
@@ -57,7 +58,7 @@ export class PushMock implements Push {
     /**
      * Delete a notification channel for Android O and above.
      *
-     * @param id
+     * @param {string} id
      */
     deleteChannel(id?: string): Promise<any> {
         return Promise.reject('deleteChannel is only supported in mobile devices');
@@ -65,6 +66,8 @@ export class PushMock implements Push {
 
     /**
      * Returns a list of currently configured channels.
+     *
+     * @return {Promise<Channel[]>}
      */
     listChannels(): Promise<Channel[]> {
         return Promise.reject('listChannels is only supported in mobile devices');
@@ -82,7 +85,8 @@ export class PushObjectMock extends PushObject {
 
     /**
      * Adds an event listener
-     * @param event
+     * @param event {string}
+     * @return {Observable<EventResponse>}
      */
     on(event: PushEvent): Observable<EventResponse> {
         return Observable.empty();
@@ -160,7 +164,8 @@ export class PushObjectMock extends PushObject {
 
     /**
      * The subscribe method is used when the application wants to subscribe a new topic to receive push notifications.
-     * @param topic Topic to subscribe to.
+     * @param topic {string} Topic to subscribe to.
+     * @return {Promise<any>}
      */
     subscribe(topic: string): Promise<any> {
         return Promise.reject('subscribe is only supported in mobile devices');
@@ -170,7 +175,8 @@ export class PushObjectMock extends PushObject {
      * The unsubscribe method is used when the application no longer wants to receive push notifications from a specific topic but
      * continue to receive other push messages.
      *
-     * @param topic Topic to unsubscribe from.
+     * @param topic {string} Topic to unsubscribe from.
+     * @return {Promise<any>}
      */
     unsubscribe(topic: string): Promise<any> {
         return Promise.reject('unsubscribe is only supported in mobile devices');

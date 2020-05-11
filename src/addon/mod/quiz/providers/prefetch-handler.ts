@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ import { AddonModQuizHelperProvider } from './helper';
 import { AddonModQuizAccessRuleDelegate } from './access-rules-delegate';
 import { AddonModQuizSyncProvider } from './quiz-sync';
 import { CoreConstants } from '@core/constants';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
-import { CorePluginFileDelegate } from '@providers/plugin-file-delegate';
 
 /**
  * Handler to prefetch quizzes.
@@ -43,111 +41,41 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
 
     protected syncProvider: AddonModQuizSyncProvider; // It will be injected later to prevent circular dependencies.
 
-    constructor(translate: TranslateService,
-            appProvider: CoreAppProvider,
-            utils: CoreUtilsProvider,
-            courseProvider: CoreCourseProvider,
-            filepoolProvider: CoreFilepoolProvider,
-            sitesProvider: CoreSitesProvider,
-            domUtils: CoreDomUtilsProvider,
-            filterHelper: CoreFilterHelperProvider,
-            pluginFileDelegate: CorePluginFileDelegate,
-            protected injector: Injector,
-            protected quizProvider: AddonModQuizProvider,
-            protected textUtils: CoreTextUtilsProvider,
-            protected quizHelper: AddonModQuizHelperProvider,
-            protected accessRuleDelegate: AddonModQuizAccessRuleDelegate,
-            protected questionHelper: CoreQuestionHelperProvider) {
+    constructor(translate: TranslateService, appProvider: CoreAppProvider, utils: CoreUtilsProvider,
+            courseProvider: CoreCourseProvider, filepoolProvider: CoreFilepoolProvider, sitesProvider: CoreSitesProvider,
+            domUtils: CoreDomUtilsProvider, protected injector: Injector, protected quizProvider: AddonModQuizProvider,
+            protected textUtils: CoreTextUtilsProvider, protected quizHelper: AddonModQuizHelperProvider,
+            protected accessRuleDelegate: AddonModQuizAccessRuleDelegate, protected questionHelper: CoreQuestionHelperProvider) {
 
-        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils, filterHelper,
-                pluginFileDelegate);
+        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils);
     }
 
     /**
-     * Download the module.
+     * Get the download size of a module.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param canStart If true, start a new attempt if needed.
-     * @return Promise resolved when all content is downloaded.
+     * @param {any} module Module.
+     * @param {Number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<{size: number, total: boolean}>} Promise resolved with the size and a boolean indicating if it was able
+     *                                                   to calculate the total size.
      */
-    download(module: any, courseId: number, dirPath?: string, single?: boolean, canStart: boolean = true): Promise<any> {
-        // Same implementation for download and prefetch.
-        return this.prefetch(module, courseId, single, dirPath, canStart);
-    }
-
-    /**
-     * Get list of files. If not defined, we'll assume they're in module.contents.
-     *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved with the list of files.
-     */
-    getFiles(module: any, courseId: number, single?: boolean): Promise<any[]> {
-        return this.quizProvider.getQuiz(courseId, module.id).then((quiz) => {
-            const files = this.getIntroFilesFromInstance(module, quiz);
-
-            return this.quizProvider.getUserAttempts(quiz.id, 'all', true, false, true).then((attempts) => {
-                return this.getAttemptsFeedbackFiles(quiz, attempts).then((attemptFiles) => {
-                    return files.concat(attemptFiles);
-                });
-            });
-        }).catch(() => {
-            // Quiz not found, return empty list.
-            return [];
-        });
-    }
-
-    /**
-     * Get the list of downloadable files on feedback attemptss.
-     *
-     * @param quiz Quiz.
-     * @param attempts Quiz user attempts.
-     * @return List of Files.
-     */
-    protected getAttemptsFeedbackFiles(quiz: any, attempts: any[]): Promise<any[]> {
-        // We have quiz data, now we'll get specific data for each attempt.
-        const promises = [],
-            getInlineFiles = this.sitesProvider.getCurrentSite().isVersionGreaterEqualThan('3.2');
-        let files = [];
-
-        attempts.forEach((attempt) => {
-            if (this.quizProvider.isAttemptFinished(attempt.state)) {
-                // Attempt is finished, get feedback and review data.
-
-                const attemptGrade = this.quizProvider.rescaleGrade(attempt.sumgrades, quiz, false);
-                if (typeof attemptGrade != 'undefined') {
-                    promises.push(this.quizProvider.getFeedbackForGrade(quiz.id, Number(attemptGrade), true)
-                        .then((feedback) => {
-                            if (getInlineFiles && feedback.feedbackinlinefiles && feedback.feedbackinlinefiles.length) {
-                                files = files.concat(feedback.feedbackinlinefiles);
-                            } else if (feedback.feedbacktext && !getInlineFiles) {
-                                files = files.concat(
-                                    this.filepoolProvider.extractDownloadableFilesFromHtmlAsFakeFileObjects(feedback.feedbacktext));
-                            }
-                    }));
-                }
-            }
-        });
-
-        return Promise.all(promises).then(() => {
-            return files;
+    getDownloadSize(module: any, courseId: any, single?: boolean): Promise<{ size: number, total: boolean }> {
+        return Promise.resolve({
+            size: -1,
+            total: false
         });
     }
 
     /**
      * Gather some preflight data for an attempt. This function will start a new attempt if needed.
      *
-     * @param quiz Quiz.
-     * @param accessInfo Quiz access info returned by AddonModQuizProvider.getQuizAccessInformation.
-     * @param attempt Attempt to continue. Don't pass any value if the user needs to start a new attempt.
-     * @param askPreflight Whether it should ask for preflight data if needed.
-     * @param modalTitle Lang key of the title to set to preflight modal (e.g. 'addon.mod_quiz.startattempt').
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the preflight data.
+     * @param {any} quiz Quiz.
+     * @param {any} accessInfo Quiz access info returned by AddonModQuizProvider.getQuizAccessInformation.
+     * @param {any} [attempt] Attempt to continue. Don't pass any value if the user needs to start a new attempt.
+     * @param {boolean} [askPreflight] Whether it should ask for preflight data if needed.
+     * @param {string} [modalTitle] Lang key of the title to set to preflight modal (e.g. 'addon.mod_quiz.startattempt').
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the preflight data.
      */
     getPreflightData(quiz: any, accessInfo: any, attempt?: any, askPreflight?: boolean, title?: string, siteId?: string)
             : Promise<any> {
@@ -160,7 +88,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
                     quiz, accessInfo, preflightData, attempt, false, true, title, siteId);
         } else {
             // Get some fixed preflight data from access rules (data that doesn't require user interaction).
-            const rules = accessInfo && accessInfo.activerulenames;
+            const rules = accessInfo.activerulenames;
 
             promise = this.accessRuleDelegate.getFixedPreflightData(rules, quiz, preflightData, attempt, true, siteId).then(() => {
                 if (!attempt) {
@@ -178,9 +106,9 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId The course ID the module belongs to.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} moduleId The module ID.
+     * @param {number} courseId The course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number): Promise<any> {
         return this.quizProvider.invalidateContent(moduleId, courseId);
@@ -189,9 +117,9 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Invalidate WS calls needed to determine module status.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when invalidated.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when invalidated.
      */
     invalidateModule(module: any, courseId: number): Promise<any> {
         // Invalidate the calls required to check if a quiz is downloadable.
@@ -206,9 +134,9 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Check if a module can be downloaded. If the function is not defined, we assume that all modules are downloadable.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Whether the module can be downloaded. The promise should never be rejected.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {boolean|Promise<boolean>} Whether the module can be downloaded. The promise should never be rejected.
      */
     isDownloadable(module: any, courseId: number): boolean | Promise<boolean> {
         if (this.sitesProvider.getCurrentSite().isOfflineDisabled()) {
@@ -218,7 +146,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
 
         const siteId = this.sitesProvider.getCurrentSiteId();
 
-        return this.quizProvider.getQuiz(courseId, module.id, false, false, siteId).then((quiz) => {
+        return this.quizProvider.getQuiz(courseId, module.id, false, siteId).then((quiz) => {
             if (quiz.allowofflineattempts !== 1 || quiz.hasquestions === 0) {
                 return false;
             }
@@ -235,7 +163,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
+     * @return {boolean|Promise<boolean>} A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.quizProvider.isPluginEnabled();
@@ -244,37 +172,26 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Prefetch a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @param canStart If true, start a new attempt if needed.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    prefetch(module: any, courseId?: number, single?: boolean, dirPath?: string, canStart: boolean = true): Promise<any> {
-        if (module.attemptFinished) {
-            // Delete the value so it does not block anything if true.
-            delete module.attemptFinished;
-
-            // Quiz got synced recently and an attempt has finished. Do not prefetch.
-            return Promise.resolve();
-        }
-
-        return this.prefetchPackage(module, courseId, single, this.prefetchQuiz.bind(this), undefined, canStart);
-
+    prefetch(module: any, courseId?: number, single?: boolean, dirPath?: string): Promise<any> {
+        return this.prefetchPackage(module, courseId, single, this.prefetchQuiz.bind(this));
     }
 
     /**
      * Prefetch a quiz.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param siteId Site ID.
-     * @param canStart If true, start a new attempt if needed.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} single True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {String} siteId Site ID.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    protected prefetchQuiz(module: any, courseId: number, single: boolean, siteId: string, canStart: boolean): Promise<any> {
+    protected prefetchQuiz(module: any, courseId: number, single: boolean, siteId: string): Promise<any> {
         let attempts: any[],
             startAttempt = false,
             quiz,
@@ -283,7 +200,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
             preflightData;
 
         // Get quiz.
-        return this.quizProvider.getQuiz(courseId, module.id, false, true, siteId).then((quizData) => {
+        return this.quizProvider.getQuiz(courseId, module.id, false, siteId).then((quizData) => {
             quiz = quizData;
 
             const promises = [],
@@ -296,10 +213,6 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
             promises.push(this.quizProvider.getQuizRequiredQtypes(quiz.id, true, siteId));
             promises.push(this.quizProvider.getUserAttempts(quiz.id, 'all', true, false, true, siteId).then((atts) => {
                 attempts = atts;
-
-                return this.getAttemptsFeedbackFiles(quiz, attempts).then((attemptFiles) => {
-                    return this.filepoolProvider.addFilesToQueue(siteId, attemptFiles, AddonModQuizProvider.COMPONENT, module.id);
-                });
             }));
             promises.push(this.quizProvider.getAttemptAccessInformation(quiz.id, 0, false, true, siteId).then((info) => {
                 attemptAccessInfo = info;
@@ -311,13 +224,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
         }).then(() => {
             // Check if we need to start a new attempt.
             let attempt = attempts[attempts.length - 1];
-
-            if (!canStart && !attempt) {
-                // No attempts and we won't start a new one, so we don't need preflight data.
-                return;
-            }
-
-            if (canStart && (!attempt || this.quizProvider.isAttemptFinished(attempt.state))) {
+            if (!attempt || this.quizProvider.isAttemptFinished(attempt.state)) {
                 // Check if the user can attempt the quiz.
                 if (attemptAccessInfo.preventnewattemptreasons.length) {
                     return Promise.reject(this.textUtils.buildMessage(attemptAccessInfo.preventnewattemptreasons));
@@ -339,11 +246,6 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
                 // Re-fetch user attempts since we created a new one.
                 promises.push(this.quizProvider.getUserAttempts(quiz.id, 'all', true, false, true, siteId).then((atts) => {
                     attempts = atts;
-
-                    return this.getAttemptsFeedbackFiles(quiz, attempts).then((attemptFiles) => {
-                        return this.filepoolProvider.addFilesToQueue(siteId, attemptFiles, AddonModQuizProvider.COMPONENT,
-                            module.id);
-                    });
                 }));
 
                 // Update the download time to prevent detecting the new attempt as an update.
@@ -376,11 +278,6 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
 
             return Promise.all(promises);
         }).then(() => {
-            if (!canStart) {
-                // Nothing else to do.
-                return;
-            }
-
             // If there's nothing to send, mark the quiz as synchronized.
             // We don't return the promises because it should be fast and we don't want to block the user for this.
             if (!this.syncProvider) {
@@ -398,11 +295,11 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
     /**
      * Prefetch all WS data for an attempt.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param preflightData Preflight required data (like password).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the prefetch is finished. Data returned is not reliable.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} preflightData Preflight required data (like password).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the prefetch is finished. Data returned is not reliable.
      */
     prefetchAttempt(quiz: any, attempt: any, preflightData: any, siteId?: string): Promise<any> {
         const pages = this.quizProvider.getPagesFromLayout(attempt.layout),
@@ -431,7 +328,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
 
                 data.questions.forEach((question) => {
                     questionPromises.push(this.questionHelper.prefetchQuestionFiles(
-                            question, this.component, quiz.coursemodule, siteId, attempt.uniqueid));
+                            question, this.component, quiz.coursemodule, siteId));
                 });
 
                 return Promise.all(questionPromises);
@@ -459,7 +356,7 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
 
                         data.questions.forEach((question) => {
                             questionPromises.push(this.questionHelper.prefetchQuestionFiles(
-                                    question, this.component, quiz.coursemodule, siteId, attempt.uniqueid));
+                                    question, this.component, quiz.coursemodule, siteId));
                         });
 
                         return Promise.all(questionPromises);
@@ -475,10 +372,10 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
      * Prefetches some data for a quiz and its last attempt.
      * This function will NOT start a new attempt, it only reads data for the quiz and the last attempt.
      *
-     * @param quiz Quiz.
-     * @param askPreflight Whether it should ask for preflight data if needed.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {any} quiz Quiz.
+     * @param {boolean} [askPreflight] Whether it should ask for preflight data if needed.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     prefetchQuizAndLastAttempt(quiz: any, askPreflight?: boolean, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -527,79 +424,18 @@ export class AddonModQuizPrefetchHandler extends CoreCourseActivityPrefetchHandl
                 return this.prefetchAttempt(quiz, lastAttempt, preflightData, siteId);
             }
         }).then(() => {
-            // Prefetch finished, set the right status.
-            return this.setStatusAfterPrefetch(quiz, attempts, true, false, siteId);
-        });
-    }
+            // Prefetch finished, get current status to determine if we need to change it.
 
-    /**
-     * Set the right status to a quiz after prefetching.
-     * If the last attempt is finished or there isn't one, set it as not downloaded to show download icon.
-     *
-     * @param quiz Quiz.
-     * @param attempts List of attempts. If not provided, they will be calculated.
-     * @param forceCache Whether it should always return cached data. Only if attempts is undefined.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down). Only if
-     *                    attempts is undefined.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
-     */
-    setStatusAfterPrefetch(quiz: any, attempts?: any[], forceCache?: boolean, ignoreCache?: boolean, siteId?: string)
-            : Promise<any> {
-        siteId = siteId || this.sitesProvider.getCurrentSiteId();
-
-        const promises = [];
-        let status;
-
-        if (!attempts) {
-            // Get the attempts.
-            promises.push(this.quizProvider.getUserAttempts(quiz.id, 'all', true, forceCache, ignoreCache, siteId).then((atts) => {
-                attempts = atts;
-            }));
-        }
-
-        // Check the current status of the quiz.
-        promises.push(this.filepoolProvider.getPackageStatus(siteId, this.component, quiz.coursemodule).then((stat) => {
-            status = stat;
-        }));
-
-        return Promise.all(promises).then(() => {
-
+            return this.filepoolProvider.getPackageStatus(siteId, this.component, quiz.coursemodule);
+        }).then((status) => {
             if (status !== CoreConstants.NOT_DOWNLOADED) {
                 // Quiz was downloaded, set the new status.
                 // If no attempts or last is finished we'll mark it as not downloaded to show download icon.
-                const lastAttempt = attempts[attempts.length - 1],
-                    isLastFinished = !lastAttempt || this.quizProvider.isAttemptFinished(lastAttempt.state),
+                const isLastFinished = !lastAttempt || this.quizProvider.isAttemptFinished(lastAttempt.state),
                     newStatus = isLastFinished ? CoreConstants.NOT_DOWNLOADED : CoreConstants.DOWNLOADED;
 
                 return this.filepoolProvider.storePackageStatus(siteId, newStatus, this.component, quiz.coursemodule);
             }
-        });
-    }
-
-    /**
-     * Sync a module.
-     *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
-     */
-    sync(module: any, courseId: number, siteId?: any): Promise<any> {
-        if (!this.syncProvider) {
-            this.syncProvider = this.injector.get(AddonModQuizSyncProvider);
-        }
-
-        return this.quizProvider.getQuiz(courseId, module.id).then((quiz) => {
-            return this.syncProvider.syncQuiz(quiz, false, siteId).then((results) => {
-                module.attemptFinished = (results && results.attemptFinished) || false;
-
-                return results;
-            }).catch(() => {
-                // Ignore errors.
-
-                module.attemptFinished = false;
-            });
         });
     }
 }

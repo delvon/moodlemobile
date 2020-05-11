@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,10 @@
 // limitations under the License.
 
 import { Component, Injector } from '@angular/core';
-import { CoreSitesProvider } from '@providers/sites';
-import { CoreMimetypeUtilsProvider } from '@providers/utils/mimetype';
 import { CoreCourseProvider } from '@core/course/providers/course';
 import { CoreCourseModuleMainResourceComponent } from '@core/course/classes/main-resource-component';
 import { AddonModUrlProvider } from '../../providers/url';
 import { AddonModUrlHelperProvider } from '../../providers/helper';
-import { CoreConstants } from '@core/constants';
 
 /**
  * Component that displays a url.
@@ -33,19 +30,9 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
 
     canGetUrl: boolean;
     url: string;
-    name: string;
-    shouldEmbed = false;
-    shouldIframe = false;
-    isImage = false;
-    isAudio = false;
-    isVideo = false;
-    isOther = false;
-    mimetype: string;
-    displayDescription = true;
 
     constructor(injector: Injector, private urlProvider: AddonModUrlProvider, private courseProvider: CoreCourseProvider,
-            private urlHelper: AddonModUrlHelperProvider, private mimeUtils: CoreMimetypeUtilsProvider,
-            private sitesProvider: CoreSitesProvider) {
+            private urlHelper: AddonModUrlHelperProvider) {
         super(injector);
     }
 
@@ -57,18 +44,13 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
 
         this.canGetUrl = this.urlProvider.isGetUrlWSAvailable();
 
-        this.loadContent().then(() => {
-            if ((this.shouldIframe || (this.shouldEmbed && this.isOther)) ||
-                    (!this.shouldIframe && (!this.shouldEmbed || !this.isOther))) {
-                this.logView();
-            }
-        });
+        this.loadContent();
     }
 
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         return this.urlProvider.invalidateContent(this.module.id, this.courseId);
@@ -77,13 +59,12 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
     /**
      * Download url contents.
      *
-     * @param refresh Whether we're refreshing data.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh] Whether we're refreshing data.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh?: boolean): Promise<any> {
         let canGetUrl = this.canGetUrl,
             mod,
-            url,
             promise;
 
         // Fetch the module data.
@@ -98,17 +79,9 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
 
             // Fallback in case is not prefetched or not available.
             return this.courseProvider.getModule(this.module.id, this.courseId, undefined, false, false, undefined, 'url');
-        }).then((urlData) => {
-            url = urlData;
-
-            this.name = url.name || this.module.name;
+        }).then((url) => {
             this.description = url.intro || url.description;
             this.dataRetrieved.emit(url);
-
-            if (canGetUrl && url.displayoptions) {
-                const unserialized = this.textUtils.unserialize(url.displayoptions);
-                this.displayDescription = typeof unserialized.printintro == 'undefined' || !!unserialized.printintro;
-            }
 
             if (!canGetUrl) {
                 mod = url;
@@ -120,66 +93,14 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
             } else {
                 mod = this.module;
 
-                // Try to load module contents, it's needed to get the URL with parameters.
-                return this.courseProvider.loadModuleContents(mod, this.courseId, undefined, false, refresh, undefined, 'url');
+                if (!mod.contents || !mod.contents.length) {
+                    // Try to load module contents, it's needed to get the URL with parameters.
+                    return this.courseProvider.loadModuleContents(mod, this.courseId, undefined, false, false, undefined, 'url');
+                }
             }
         }).then(() => {
             // Always use the URL from the module because it already includes the parameters.
             this.url = mod.contents && mod.contents[0] && mod.contents[0].fileurl ? mod.contents[0].fileurl : undefined;
-
-            if (canGetUrl) {
-                return this.calculateDisplayOptions(url);
-            }
-        });
-    }
-
-    /**
-     * Calculate the display options to determine how the URL should be rendered.
-     *
-     * @param url Object with the URL data.
-     * @return Promise resolved when done.
-     */
-    protected calculateDisplayOptions(url: any): Promise<any> {
-        const displayType = this.urlProvider.getFinalDisplayType(url);
-
-        this.shouldEmbed = displayType == CoreConstants.RESOURCELIB_DISPLAY_EMBED;
-        this.shouldIframe = displayType == CoreConstants.RESOURCELIB_DISPLAY_FRAME;
-
-        if (this.shouldEmbed) {
-            const extension = this.mimeUtils.guessExtensionFromUrl(url.externalurl);
-
-            this.mimetype = this.mimeUtils.getMimeType(extension);
-            this.isImage = this.mimeUtils.isExtensionInGroup(extension, ['web_image']);
-            this.isAudio = this.mimeUtils.isExtensionInGroup(extension, ['web_audio']);
-            this.isVideo = this.mimeUtils.isExtensionInGroup(extension, ['web_video']);
-            this.isOther = !this.isImage && !this.isAudio && !this.isVideo;
-        }
-
-        if (this.shouldIframe || (this.shouldEmbed && !this.isImage && !this.isAudio && !this.isVideo)) {
-            // Will be displayed in an iframe. Check if we need to auto-login.
-            const currentSite = this.sitesProvider.getCurrentSite();
-
-            if (currentSite && currentSite.containsUrl(this.url)) {
-                // Format the URL to add auto-login.
-                return currentSite.getAutoLoginUrl(this.url, false).then((url) => {
-                    this.url = url;
-                });
-            }
-        }
-
-        return Promise.resolve();
-    }
-
-    /**
-     * Log view into the site and checks module completion.
-     *
-     * @return Promise resolved when done.
-     */
-    protected logView(): Promise<void> {
-        return this.urlProvider.logView(this.module.instance, this.module.name).then(() => {
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-        }).catch(() => {
-            // Ignore errors.
         });
     }
 
@@ -187,7 +108,9 @@ export class AddonModUrlIndexComponent extends CoreCourseModuleMainResourceCompo
      * Opens a file.
      */
     go(): void {
-        this.logView();
+        this.urlProvider.logView(this.module.instance).then(() => {
+            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
+        });
         this.urlHelper.open(this.url);
     }
 }

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ export class AddonMessagesSendMessageUserHandler implements CoreUserProfileHandl
     /**
      * Check if handler is enabled.
      *
-     * @return Promise resolved with true if enabled, rejected or resolved with false otherwise.
+     * @return {Promise<any>} Promise resolved with true if enabled, rejected or resolved with false otherwise.
      */
     isEnabled(): Promise<any> {
         return this.messagesProvider.isPluginEnabled();
@@ -42,27 +42,20 @@ export class AddonMessagesSendMessageUserHandler implements CoreUserProfileHandl
     /**
      * Check if handler is enabled for this user in this context.
      *
-     * @param user User to check.
-     * @param courseId Course ID.
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return Promise resolved with true if enabled, resolved with false otherwise.
+     * @param {any} user          User to check.
+     * @param {number} courseId   Course ID.
+     * @param  {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param  {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return  {boolean|Promise<boolean>}   Promise resolved with true if enabled, resolved with false otherwise.
      */
     isEnabledForUser(user: any, courseId: number, navOptions?: any, admOptions?: any): boolean | Promise<boolean> {
-        const currentSite = this.sitesProvider.getCurrentSite();
-
-        if (!currentSite) {
-            return false;
-        }
-
-        // From 3.7 you can send messages to yourself.
-        return user.id != currentSite.getUserId() || currentSite.isVersionGreaterEqualThan('3.7');
+        return user.id != this.sitesProvider.getCurrentSiteUserId();
     }
 
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreUserProfileHandlerData} Data needed to render the handler.
      */
     getDisplayData(user: any, courseId: number): CoreUserProfileHandlerData {
         return {
@@ -76,6 +69,7 @@ export class AddonMessagesSendMessageUserHandler implements CoreUserProfileHandl
                     showKeyboard: true,
                     userId: user.id
                 };
+                // Always use redirect to make it the new history root (to avoid "loops" in history).
                 this.linkHelper.goInSite(navCtrl, 'AddonMessagesDiscussionPage', pageParams);
             }
         };

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Injectable } from '@angular/core';
 import { CoreContentLinksHandlerBase } from '@core/contentlinks/classes/base-handler';
 import { CoreContentLinksAction } from '@core/contentlinks/providers/delegate';
-import { CoreContentLinksHelperProvider } from '@core/contentlinks/providers/helper';
+import { CoreLoginHelperProvider } from '@core/login/providers/helper';
 import { CoreCoursesProvider } from './courses';
 
 /**
@@ -27,18 +27,18 @@ export class CoreCoursesIndexLinkHandler extends CoreContentLinksHandlerBase {
     featureName = 'CoreMainMenuDelegate_CoreCourses';
     pattern = /\/course\/?(index\.php.*)?$/;
 
-    constructor(private coursesProvider: CoreCoursesProvider, private linkHelper: CoreContentLinksHelperProvider) {
+    constructor(private coursesProvider: CoreCoursesProvider, private loginHelper: CoreLoginHelperProvider) {
         super();
     }
 
     /**
      * Get the list of actions for a link (url).
      *
-     * @param siteIds List of sites the URL belongs to.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return List of (or promise resolved with list of) actions.
+     * @param {string[]} siteIds List of sites the URL belongs to.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {CoreContentLinksAction[] | Promise<CoreContentLinksAction[]>} List of (or promise resolved with list of) actions.
      */
     getActions(siteIds: string[], url: string, params: any, courseId?: number):
             CoreContentLinksAction[] | Promise<CoreContentLinksAction[]> {
@@ -56,7 +56,8 @@ export class CoreCoursesIndexLinkHandler extends CoreContentLinksHandlerBase {
                     }
                 }
 
-                this.linkHelper.goInSite(navCtrl, page, pageParams, siteId);
+                // Always use redirect to make it the new history root (to avoid "loops" in history).
+                this.loginHelper.redirect(page, pageParams, siteId);
             }
         }];
     }

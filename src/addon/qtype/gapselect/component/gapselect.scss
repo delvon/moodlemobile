@@ -1,5 +1,5 @@
 // Style gapselect content a bit. All these styles are copied from Moodle.
-ion-app.app-root addon-qtype-gapselect {
+addon-qtype-gapselect {
     p {
         margin: 0 0 .5em;
     }
@@ -15,9 +15,5 @@ ion-app.app-root addon-qtype-gapselect {
         border-radius: 4px;
         margin-bottom: 10px;
         background: $gray-lighter;
-
-        @include darkmode() {
-            background: $gray-dark;
-        }
     }
 }

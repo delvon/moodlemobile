@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,15 +50,13 @@ export class AddonModFolderIndexComponent extends CoreCourseModuleMainResourceCo
 
         if (this.path) {
             // Subfolder. Use module param.
-            this.showModuleData(this.module, this.module.contents);
+            this.showModuleData(this.module);
             this.loaded = true;
             this.refreshIcon = 'refresh';
         } else {
             this.loadContent().then(() => {
-                this.folderProvider.logView(this.module.instance, this.module.name).then(() => {
-                    this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-                }).catch(() => {
-                    // Ignore errors.
+                this.folderProvider.logView(this.module.instance).then(() => {
+                    this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
                 });
             }).finally(() => {
                 this.loaded = true;
@@ -70,7 +68,7 @@ export class AddonModFolderIndexComponent extends CoreCourseModuleMainResourceCo
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         return this.folderProvider.invalidateContent(this.module.id, this.courseId);
@@ -78,35 +76,34 @@ export class AddonModFolderIndexComponent extends CoreCourseModuleMainResourceCo
 
     /**
      * Convenience function to set scope data using module.
-     * @param module Module to show.
+     * @param {any} module Module to show.
      */
-    protected showModuleData(module: any, folderContents: any): void {
+    protected showModuleData(module: any): void {
         this.description = module.intro || module.description;
 
         this.dataRetrieved.emit(module);
 
         if (this.path) {
             // Subfolder.
-            this.contents = folderContents;
+            this.contents = module.contents;
         } else {
-            this.contents = this.folderHelper.formatContents(folderContents);
+            this.contents = this.folderHelper.formatContents(module.contents);
         }
     }
 
     /**
      * Download folder contents.
      *
-     * @param refresh Whether we're refreshing data.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh] Whether we're refreshing data.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh?: boolean): Promise<any> {
-        let promise,
-            folderContents = this.module.contents;
+        let promise;
 
         if (this.canGetFolder) {
             promise = this.folderProvider.getFolder(this.courseId, this.module.id).then((folder) => {
-                return this.courseProvider.loadModuleContents(this.module, this.courseId, undefined, false, refresh).then(() => {
-                    folderContents = this.module.contents;
+                return this.courseProvider.loadModuleContents(this.module, this.courseId).then(() => {
+                    folder.contents = this.module.contents;
 
                     return folder;
                 });
@@ -118,15 +115,20 @@ export class AddonModFolderIndexComponent extends CoreCourseModuleMainResourceCo
                     folder.contents = this.module.contents;
                 }
                 this.module = folder;
-                folderContents = folder.contents;
 
                 return folder;
             });
         }
 
         return promise.then((folder) => {
-            this.showModuleData(folder, folderContents);
-        }).finally(() => {
+            if (folder) {
+                this.description = folder.intro || folder.description;
+                this.dataRetrieved.emit(folder);
+            }
+
+            this.showModuleData(folder);
+
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
         });
     }

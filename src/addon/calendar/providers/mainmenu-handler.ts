@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ export class AddonCalendarMainMenuHandler implements CoreMainMenuHandler {
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return !this.calendarProvider.isCalendarDisabledInSite();
@@ -38,13 +38,13 @@ export class AddonCalendarMainMenuHandler implements CoreMainMenuHandler {
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreMainMenuHandlerData} Data needed to render the handler.
      */
     getDisplayData(): CoreMainMenuHandlerData {
         return {
             icon: 'calendar',
             title: 'addon.calendar.calendar',
-            page: this.calendarProvider.canViewMonthInSite() ? 'AddonCalendarIndexPage' : 'AddonCalendarListPage',
+            page: 'AddonCalendarListPage',
             class: 'addon-calendar-handler'
         };
     }

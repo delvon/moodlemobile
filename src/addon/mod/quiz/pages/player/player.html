@@ -1,6 +1,6 @@
 <ion-header>
     <ion-navbar core-back-button>
-        <ion-title><core-format-text *ngIf="quiz" [text]="quiz.name" contextLevel="module" [contextInstanceId]="quiz.coursemodule" [courseId]="courseId"></core-format-text></ion-title>
+        <ion-title><core-format-text *ngIf="quiz" [text]="quiz.name"></core-format-text></ion-title>
 
         <ion-buttons end>
             <button id="addon-mod_quiz-connection-error-button" ion-button icon-only [hidden]="!autoSaveError" (click)="showConnectionError($event)" [attr.aria-label]="'core.error' | translate">
@@ -45,20 +45,20 @@
         </div>
 
         <!-- Questions -->
-        <form name="addon-mod_quiz-player-form" *ngIf="questions && questions.length && !quizAborted && !showSummary" #quizForm>
+        <form name="addon-mod_quiz-player-form" *ngIf="questions && questions.length && !quizAborted && !showSummary">
             <div *ngFor="let question of questions">
                 <ion-card id="addon-mod_quiz-question-{{question.slot}}">
                     <!-- "Header" of the question. -->
-                    <ion-item-divider>
+                    <ion-item-divider color="light">
                         <h2 *ngIf="question.number" class="inline">{{ 'core.question.questionno' | translate:{$a: question.number} }}</h2>
                         <h2 *ngIf="!question.number" class="inline">{{ 'core.question.information' | translate }}</h2>
                         <ion-note text-wrap item-end *ngIf="question.status || question.readableMark">
                             <p *ngIf="question.status" class="block">{{question.status}}</p>
-                            <p *ngIf="question.readableMark">{{ question.readableMark }}</p>
+                            <p *ngIf="question.readableMark"><core-format-text [text]="question.readableMark"></core-format-text></p>
                         </ion-note>
                     </ion-item-divider>
                     <!-- Body of the question. -->
-                    <core-question text-wrap [question]="question" [component]="component" [componentId]="quiz.coursemodule" [attemptId]="attempt.id" [usageId]="attempt.uniqueid" [offlineEnabled]="offline" contextLevel="module" [contextInstanceId]="quiz.coursemodule" [courseId]="courseId" (onAbort)="abortQuiz()" (buttonClicked)="behaviourButtonClicked($event)"></core-question>
+                    <core-question text-wrap [question]="question" [component]="component" [componentId]="quiz.coursemodule" [attemptId]="attempt.id" [offlineEnabled]="offline" (onAbort)="abortQuiz()" (buttonClicked)="behaviourButtonClicked($event)"></core-question>
                 </ion-card>
             </div>
         </form>
@@ -89,8 +89,7 @@
             <!-- "Header" of the summary table. -->
             <ion-item text-wrap>
                 <ion-row align-items-center>
-                    <ion-col col-3 text-center class="hidden-phone"><b>{{ 'addon.mod_quiz.question' | translate }}</b></ion-col>
-                    <ion-col col-3 text-center class="hidden-tablet"><b>#</b></ion-col>
+                    <ion-col col-3 text-center><b>{{ 'addon.mod_quiz.question' | translate }}</b></ion-col>
                     <ion-col col-9 text-center><b>{{ 'addon.mod_quiz.status' | translate }}</b></ion-col>
                 </ion-row>
             </ion-item>
@@ -99,7 +98,7 @@
                 <a ion-item (click)="changePage(question.page, false, question.slot)" *ngIf="question.number" [attr.aria-label]="'core.question.questionno' | translate:{$a: question.number}" [attr.detail-push]="!quiz.isSequential && canReturn ? true : null">
                     <ion-row align-items-center>
                         <ion-col col-3 text-center>{{ question.number }}</ion-col>
-                        <ion-col col-9 text-center text-wrap>{{ question.status }}</ion-col>
+                        <ion-col col-9 text-center>{{ question.status }}</ion-col>
                     </ion-row>
                 </a>
             </ng-container>
@@ -118,8 +117,8 @@
                 <p class="item-heading">{{ 'addon.mod_quiz.cannotsubmitquizdueto' | translate }}</p>
                 <p *ngFor="let message of preventSubmitMessages">{{message}}</p>
                 <a ion-button block icon-end [href]="moduleUrl" core-link>
-                    {{ 'core.openinbrowser' | translate }}
                     <ion-icon name="open"></ion-icon>
+                    {{ 'core.openinbrowser' | translate }}
                 </a>
             </ion-item>
             <!-- Button to submit the quiz. -->
@@ -135,8 +134,8 @@
             </ion-item>
             <ion-item>
                 <a ion-button block icon-end [href]="moduleUrl" core-link>
-                    {{ 'core.openinbrowser' | translate }}
                     <ion-icon name="open"></ion-icon>
+                    {{ 'core.openinbrowser' | translate }}
                 </a>
             </ion-item>
         </ion-card>

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Add or remove 'www' from a URL. The url needs to have http or https protocol.
      *
-     * @param url URL to modify.
-     * @return Modified URL.
+     * @param {string} url URL to modify.
+     * @return {string} Modified URL.
      */
     addOrRemoveWWW(url: string): string {
         if (url) {
@@ -45,106 +45,20 @@ export class CoreUrlUtilsProvider {
     }
 
     /**
-     * Add params to a URL.
-     *
-     * @param url URL to add the params to.
-     * @param params Object with the params to add.
-     * @param anchor Anchor text if needed.
-     * @param boolToNumber Whether to convert bools to 1 or 0.
-     * @return URL with params.
-     */
-    addParamsToUrl(url: string, params?: {[key: string]: any}, anchor?: string, boolToNumber?: boolean): string {
-        let separator = url.indexOf('?') != -1 ? '&' : '?';
-
-        for (const key in params) {
-            let value = params[key];
-
-            if (boolToNumber && typeof value == 'boolean') {
-                // Convert booleans to 1 or 0.
-                value = value ? 1 : 0;
-            }
-
-            // Ignore objects.
-            if (typeof value != 'object') {
-                url += separator + key + '=' + value;
-                separator = '&';
-            }
-        }
-
-        if (anchor) {
-            url += '#' + anchor;
-        }
-
-        return url;
-    }
-
-    /**
-     * Given a URL and a text, return an HTML link.
-     *
-     * @param url URL.
-     * @param text Text of the link.
-     * @return Link.
-     */
-    buildLink(url: string, text: string): string {
-        return '<a href="' + url + '">' + text + '</a>';
-    }
-
-    /**
-     * Check whether we can use tokenpluginfile.php endpoint for a certain URL.
-     *
-     * @param url URL to check.
-     * @param siteUrl The URL of the site the URL belongs to.
-     * @param accessKey User access key for tokenpluginfile.
-     * @return Whether tokenpluginfile.php can be used.
-     */
-    canUseTokenPluginFile(url: string, siteUrl: string, accessKey?: string): boolean {
-        // Do not use tokenpluginfile if site doesn't use slash params, the URL doesn't work.
-        // Also, only use it for "core" pluginfile endpoints. Some plugins can implement their own endpoint (like customcert).
-        return accessKey && !url.match(/[\&?]file=/) && (
-                url.indexOf(this.textUtils.concatenatePaths(siteUrl, 'pluginfile.php')) === 0 ||
-                url.indexOf(this.textUtils.concatenatePaths(siteUrl, 'webservice/pluginfile.php')) === 0);
-    }
-
-    /**
      * Extracts the parameters from a URL and stores them in an object.
      *
-     * @param url URL to treat.
-     * @return Object with the params.
+     * @param {string} url URL to treat.
+     * @return {any} Object with the params.
      */
     extractUrlParams(url: string): any {
         const regex = /[?&]+([^=&]+)=?([^&]*)?/gi,
-            subParamsPlaceholder = '@@@SUBPARAMS@@@',
-            params: any = {},
-            urlAndHash = url.split('#'),
-            questionMarkSplit = urlAndHash[0].split('?');
-        let subParams;
+            params = {};
 
-        if (questionMarkSplit.length > 2) {
-            // There is more than one question mark in the URL. This can happen if any of the params is a URL with params.
-            // We only want to treat the first level of params, so we'll remove this second list of params and restore it later.
-            questionMarkSplit.splice(0, 2);
-
-            subParams = '?' + questionMarkSplit.join('?');
-            urlAndHash[0] = urlAndHash[0].replace(subParams, subParamsPlaceholder);
-        }
-
-        urlAndHash[0].replace(regex, (match: string, key: string, value: string): string => {
-            params[key] = typeof value != 'undefined' ? this.textUtils.decodeURIComponent(value) : '';
-
-            if (subParams) {
-                params[key] = params[key].replace(subParamsPlaceholder, subParams);
-            }
+        url.replace(regex, (match: string, key: string, value: string): string => {
+            params[key] = typeof value != 'undefined' ? value : '';
 
             return match;
         });
-
-        if (urlAndHash.length > 1) {
-            // Remove the URL from the array.
-            urlAndHash.shift();
-
-            // Add the hash as a param with a special name. Use a join in case there is more than one #.
-            params.urlHash = urlAndHash.join('#');
-        }
 
         return params;
     }
@@ -154,44 +68,29 @@ export class CoreUrlUtilsProvider {
      * For download remote files from Moodle we need to use the special /webservice/pluginfile passing
      * the ws token as a get parameter.
      *
-     * @param url The url to be fixed.
-     * @param token Token to use.
-     * @param siteUrl The URL of the site the URL belongs to.
-     * @param accessKey User access key for tokenpluginfile.
-     * @return Fixed URL.
+     * @param {string} url The url to be fixed.
+     * @param {string} token Token to use.
+     * @param {string} siteUrl The URL of the site the URL belongs to.
+     * @return {string} Fixed URL.
      */
-    fixPluginfileURL(url: string, token: string, siteUrl: string, accessKey?: string): string {
-        if (!url) {
+    fixPluginfileURL(url: string, token: string, siteUrl: string): string {
+        if (!url || !token) {
             return '';
         }
 
         url = url.replace(/&amp;/g, '&');
 
-        const canUseTokenPluginFile = accessKey && this.canUseTokenPluginFile(url, siteUrl, accessKey);
-
         // First check if we need to fix this url or is already fixed.
-        if (!canUseTokenPluginFile && url.indexOf('token=') != -1) {
+        if (url.indexOf('token=') != -1) {
             return url;
         }
 
-        // Check if is a valid URL (contains the pluginfile endpoint) and belongs to the site.
-        if (!this.isPluginFileUrl(url) || url.indexOf(this.textUtils.addEndingSlash(siteUrl)) !== 0) {
+        // Check if is a valid URL (contains the pluginfile endpoint).
+        if (!this.isPluginFileUrl(url)) {
             return url;
         }
 
-        // Check if is a valid URL (contains the pluginfile endpoint) and belongs to the site.
-        if (!this.isPluginFileUrl(url) || url.indexOf(this.textUtils.addEndingSlash(siteUrl)) !== 0) {
-            return url;
-        }
-
-        if (canUseTokenPluginFile) {
-            // Use tokenpluginfile.php.
-            url = url.replace(/(\/webservice)?\/pluginfile\.php/, '/tokenpluginfile.php/' + accessKey);
-
-            return url;
-        }
-
-        // No access key, use pluginfile.php. Check if the URL already has params.
+        // Check if the URL already has params.
         if (url.match(/\?[^=]+=/)) {
             url += '&';
         } else {
@@ -211,8 +110,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Formats a URL, trim, lowercase, etc...
      *
-     * @param url The url to be formatted.
-     * @return Fromatted url.
+     * @param {string} url The url to be formatted.
+     * @return {string} Fromatted url.
      */
     formatURL(url: string): string {
         url = url.trim();
@@ -236,9 +135,9 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns the URL to the documentation of the app, based on Moodle version and current language.
      *
-     * @param release Moodle release.
-     * @param page Docs page to go to.
-     * @return Promise resolved with the Moodle docs URL.
+     * @param {string} [release] Moodle release.
+     * @param {string} [page=Mobile_app] Docs page to go to.
+     * @return {Promise<string>} Promise resolved with the Moodle docs URL.
      */
     getDocsUrl(release?: string, page: string = 'Mobile_app'): Promise<string> {
         let docsUrl = 'https://docs.moodle.org/en/' + page;
@@ -260,64 +159,12 @@ export class CoreUrlUtilsProvider {
     }
 
     /**
-     * Returns the Youtube Embed Video URL or null if not found.
-     *
-     * @param  url URL
-     * @return Youtube Embed Video URL or null if not found.
-     */
-    getYoutubeEmbedUrl(url: string): string {
-        if (!url) {
-            return;
-        }
-
-        let videoId;
-        const params: any = {};
-
-        url = this.textUtils.decodeHTML(url);
-
-        // Get the video ID.
-        let match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
-
-        if (match && match[2].length === 11) {
-            videoId = match[2];
-        }
-
-        // No videoId, do not continue.
-        if (!videoId) {
-            return;
-        }
-
-        // Now get the playlist (if any).
-        match = url.match(/[?&]list=([^#\&\?]+)/);
-
-        if (match && match[1]) {
-            params.list = match[1];
-        }
-
-        // Now get the start time (if any).
-        match = url.match(/[?&]start=(\d+)/);
-
-        if (match && match[1]) {
-            params.start = parseInt(match[1], 10);
-        } else {
-            // No start param, but it could have a time param.
-            match = url.match(/[?&]t=(\d+h)?(\d+m)?(\d+s)?/);
-            if (match) {
-                params.start = (match[1] ? parseInt(match[1], 10) * 3600 : 0) + (match[2] ? parseInt(match[2], 10) * 60 : 0) +
-                        (match[3] ? parseInt(match[3], 10) : 0);
-            }
-        }
-
-        return this.addParamsToUrl('https://www.youtube.com/embed/' + videoId, params);
-    }
-
-    /**
      * Given a URL, returns what's after the last '/' without params.
      * Example:
      * http://mysite.com/a/course.html?id=1 -> course.html
      *
-     * @param url URL to treat.
-     * @return Last file without params.
+     * @param {string} url URL to treat.
+     * @return {string} Last file without params.
      */
     getLastFileWithoutParams(url: string): string {
         let filename = url.substr(url.lastIndexOf('/') + 1);
@@ -332,8 +179,8 @@ export class CoreUrlUtilsProvider {
      * Get the protocol from a URL.
      * E.g. http://www.google.com returns 'http'.
      *
-     * @param url URL to treat.
-     * @return Protocol, undefined if no protocol found.
+     * @param {string} url URL to treat.
+     * @return {string} Protocol, undefined if no protocol found.
      */
     getUrlProtocol(url: string): string {
         if (!url) {
@@ -350,8 +197,8 @@ export class CoreUrlUtilsProvider {
      * Get the scheme from a URL. Please notice that, if a URL has protocol, it will return the protocol.
      * E.g. javascript:doSomething() returns 'javascript'.
      *
-     * @param url URL to treat.
-     * @return Scheme, undefined if no scheme found.
+     * @param {string} url URL to treat.
+     * @return {string} Scheme, undefined if no scheme found.
      */
     getUrlScheme(url: string): string {
         if (!url) {
@@ -367,13 +214,13 @@ export class CoreUrlUtilsProvider {
     /*
      * Gets a username from a URL like: user@mysite.com.
      *
-     * @param url URL to treat.
-     * @return Username. Undefined if no username found.
+     * @param {string} url URL to treat.
+     * @return {string} Username. Undefined if no username found.
      */
     getUsernameFromUrl(url: string): string {
         if (url.indexOf('@') > -1) {
             // Get URL without protocol.
-            const withoutProtocol = url.replace(/^[^?@\/]*:\/\//, ''),
+            const withoutProtocol = url.replace(/.*?:\/\//, ''),
                 matches = withoutProtocol.match(/[^@]*/);
 
             // Make sure that @ is at the start of the URL, not in a param at the end.
@@ -386,8 +233,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns if a URL has any protocol (not a relative URL).
      *
-     * @param url The url to test against the pattern.
-     * @return Whether the url is absolute.
+     * @param {string} url The url to test against the pattern.
+     * @return {boolean} Whether the url is absolute.
      */
     isAbsoluteURL(url: string): boolean {
         return /^[^:]{2,}:\/\//i.test(url) || /^(tel:|mailto:|geo:)/.test(url);
@@ -396,8 +243,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns if a URL is downloadable: plugin file OR theme/image.php OR gravatar.
      *
-     * @param url The URL to test.
-     * @return Whether the URL is downloadable.
+     * @param {string} url The URL to test.
+     * @return {boolean} Whether the URL is downloadable.
      */
     isDownloadableUrl(url: string): boolean {
         return this.isPluginFileUrl(url) || this.isThemeImageUrl(url) || this.isGravatarUrl(url);
@@ -406,8 +253,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns if a URL is a gravatar URL.
      *
-     * @param url The URL to test.
-     * @return Whether the URL is a gravatar URL.
+     * @param {string} url The URL to test.
+     * @return {boolean} Whether the URL is a gravatar URL.
      */
     isGravatarUrl(url: string): boolean {
         return url && url.indexOf('gravatar.com/avatar') !== -1;
@@ -416,8 +263,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Check if a URL uses http or https protocol.
      *
-     * @param url The url to test.
-     * @return Whether the url uses http or https protocol.
+     * @param {string} url The url to test.
+     * @return {boolean} Whether the url uses http or https protocol.
      */
     isHttpURL(url: string): boolean {
         return /^https?\:\/\/.+/i.test(url);
@@ -426,8 +273,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns if a URL is a pluginfile URL.
      *
-     * @param url The URL to test.
-     * @return Whether the URL is a pluginfile URL.
+     * @param {string} url The URL to test.
+     * @return {boolean} Whether the URL is a pluginfile URL.
      */
     isPluginFileUrl(url: string): boolean {
         return url && url.indexOf('/pluginfile.php') !== -1;
@@ -436,8 +283,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Returns if a URL is a theme image URL.
      *
-     * @param url The URL to test.
-     * @return Whether the URL is a theme image URL.
+     * @param {string} url The URL to test.
+     * @return {boolean} Whether the URL is a theme image URL.
      */
     isThemeImageUrl(url: string): boolean {
         return url && url.indexOf('/theme/image.php') !== -1;
@@ -446,8 +293,8 @@ export class CoreUrlUtilsProvider {
     /**
      * Remove protocol and www from a URL.
      *
-     * @param url URL to treat.
-     * @return Treated URL.
+     * @param {string} url URL to treat.
+     * @return {string} Treated URL.
      */
     removeProtocolAndWWW(url: string): string {
         // Remove protocol.
@@ -461,40 +308,12 @@ export class CoreUrlUtilsProvider {
     /**
      * Remove the parameters from a URL, returning the URL without them.
      *
-     * @param url URL to treat.
-     * @return URL without params.
+     * @param {string} url URL to treat.
+     * @return {string} URL without params.
      */
     removeUrlParams(url: string): string {
         const matches = url.match(/^[^\?]+/);
 
         return matches && matches[0];
-    }
-
-    /**
-     * Modifies a pluginfile URL to use the default pluginfile script instead of the webservice one.
-     *
-     * @param url The url to be fixed.
-     * @param siteUrl The URL of the site the URL belongs to.
-     * @return Modified URL.
-     */
-    unfixPluginfileURL(url: string, siteUrl?: string): string {
-        if (!url) {
-            return '';
-        }
-
-        url = url.replace(/&amp;/g, '&');
-
-        // It site URL is supplied, check if the URL belongs to the site.
-        if (siteUrl && url.indexOf(this.textUtils.addEndingSlash(siteUrl)) !== 0) {
-            return url;
-        }
-
-        // Not a pluginfile URL. Treat webservice/pluginfile case.
-        url = url.replace(/\/webservice\/pluginfile\.php\//, '/pluginfile.php/');
-
-        // Make sure the URL doesn't contain the token.
-        url.replace(/([?&])token=[^&]*&?/, '$1');
-
-        return url;
     }
 }

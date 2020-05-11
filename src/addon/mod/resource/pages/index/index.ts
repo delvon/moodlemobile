@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ export class AddonModResourceIndexPage {
     /**
      * Update some data based on the resource instance.
      *
-     * @param resource Resource instance.
+     * @param {any} resource Resource instance.
      */
     updateData(resource: any): void {
         this.title = resource.name || this.title;

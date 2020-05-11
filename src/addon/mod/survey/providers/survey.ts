@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,7 @@ import { CoreSitesProvider } from '@providers/sites';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreAppProvider } from '@providers/app';
 import { CoreFilepoolProvider } from '@providers/filepool';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
 import { AddonModSurveyOfflineProvider } from './offline';
-import { CoreSite, CoreSiteWSPreSets } from '@classes/site';
-import { CoreWSExternalWarning, CoreWSExternalFile } from '@providers/ws';
 
 /**
  * Service that provides some features for surveys.
@@ -35,36 +32,27 @@ export class AddonModSurveyProvider {
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private appProvider: CoreAppProvider,
             private filepoolProvider: CoreFilepoolProvider, private utils: CoreUtilsProvider,
-            private surveyOffline: AddonModSurveyOfflineProvider, private logHelper: CoreCourseLogHelperProvider) {
+            private surveyOffline: AddonModSurveyOfflineProvider) {
         this.logger = logger.getInstance('AddonModSurveyProvider');
     }
 
     /**
      * Get a survey's questions.
      *
-     * @param surveyId Survey ID.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the questions are retrieved.
+     * @param {number} surveyId Survey ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}  Promise resolved when the questions are retrieved.
      */
-    getQuestions(surveyId: number, ignoreCache?: boolean, siteId?: string): Promise<AddonModSurveyQuestion[]> {
+    getQuestions(surveyId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                     surveyid: surveyId
                 },
-                preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getQuestionsCacheKey(surveyId),
-                    updateFrequency: CoreSite.FREQUENCY_RARELY
+                preSets = {
+                    cacheKey: this.getQuestionsCacheKey(surveyId)
                 };
 
-            if (ignoreCache) {
-                preSets.getFromCache = false;
-                preSets.emergencyCache = false;
-            }
-
-            return site.read('mod_survey_get_questions', params, preSets)
-                    .then((response: AddonModSurveyGetQuestionsResult): any => {
-
+            return site.read('mod_survey_get_questions', params, preSets).then((response) => {
                 if (response.questions) {
                     return response.questions;
                 }
@@ -77,8 +65,8 @@ export class AddonModSurveyProvider {
     /**
      * Get cache key for survey questions WS calls.
      *
-     * @param surveyId Survey ID.
-     * @return Cache key.
+     * @param {number} surveyId Survey ID.
+     * @return {string}         Cache key.
      */
     protected getQuestionsCacheKey(surveyId: number): string {
         return this.ROOT_CACHE_KEY + 'questions:' + surveyId;
@@ -87,8 +75,8 @@ export class AddonModSurveyProvider {
     /**
      * Get cache key for survey data WS calls.
      *
-     * @param courseId Course ID.
-     * @return Cache key.
+     * @param {number} courseId Course ID.
+     * @return {string}         Cache key.
      */
     protected getSurveyCacheKey(courseId: number): string {
         return this.ROOT_CACHE_KEY + 'survey:' + courseId;
@@ -97,33 +85,22 @@ export class AddonModSurveyProvider {
     /**
      * Get a survey data.
      *
-     * @param courseId Course ID.
-     * @param key Name of the property to check.
-     * @param value Value to search.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the survey is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {string} key     Name of the property to check.
+     * @param {any}  value   Value to search.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}  Promise resolved when the survey is retrieved.
      */
-    protected getSurveyDataByKey(courseId: number, key: string, value: any, ignoreCache?: boolean, siteId?: string)
-            : Promise<AddonModSurveySurvey> {
-
+    protected getSurveyDataByKey(courseId: number, key: string, value: any, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                     courseids: [courseId]
                 },
-                preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getSurveyCacheKey(courseId),
-                    updateFrequency: CoreSite.FREQUENCY_RARELY
+                preSets = {
+                    cacheKey: this.getSurveyCacheKey(courseId)
                 };
 
-            if (ignoreCache) {
-                preSets.getFromCache = false;
-                preSets.emergencyCache = false;
-            }
-
-            return site.read('mod_survey_get_surveys_by_courses', params, preSets)
-                    .then((response: AddonModSurveyGetSurveysByCoursesResult): any => {
-
+            return site.read('mod_survey_get_surveys_by_courses', params, preSets).then((response) => {
                 if (response && response.surveys) {
                     const currentSurvey = response.surveys.find((survey) => {
                         return survey[key] == value;
@@ -141,36 +118,34 @@ export class AddonModSurveyProvider {
     /**
      * Get a survey by course module ID.
      *
-     * @param courseId Course ID.
-     * @param cmId Course module ID.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the survey is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} cmId     Course module ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}   Promise resolved when the survey is retrieved.
      */
-    getSurvey(courseId: number, cmId: number, ignoreCache?: boolean, siteId?: string): Promise<AddonModSurveySurvey> {
-        return this.getSurveyDataByKey(courseId, 'coursemodule', cmId, ignoreCache, siteId);
+    getSurvey(courseId: number, cmId: number, siteId?: string): Promise<any> {
+        return this.getSurveyDataByKey(courseId, 'coursemodule', cmId, siteId);
     }
 
     /**
      * Get a survey by ID.
      *
-     * @param courseId Course ID.
-     * @param id Survey ID.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the survey is retrieved.
+     * @param {number} courseId  Course ID.
+     * @param {number} id        Survey ID.
+     * @param {string} [siteId]  Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved when the survey is retrieved.
      */
-    getSurveyById(courseId: number, id: number, ignoreCache?: boolean, siteId?: string): Promise<AddonModSurveySurvey> {
-        return this.getSurveyDataByKey(courseId, 'id', id, ignoreCache, siteId);
+    getSurveyById(courseId: number, id: number, siteId?: string): Promise<any> {
+        return this.getSurveyDataByKey(courseId, 'id', id, siteId);
     }
 
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId Course ID of the module.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param  {number} moduleId The module ID.
+     * @param  {number} courseId Course ID of the module.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}    Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -195,9 +170,9 @@ export class AddonModSurveyProvider {
     /**
      * Invalidates survey questions.
      *
-     * @param surveyId Survey ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} surveyId Survey ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}  Promise resolved when the data is invalidated.
      */
     invalidateQuestions(surveyId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -208,9 +183,9 @@ export class AddonModSurveyProvider {
     /**
      * Invalidates survey data.
      *
-     * @param courseId Course ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} courseId Course ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}   Promise resolved when the data is invalidated.
      */
     invalidateSurveyData(courseId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -221,30 +196,27 @@ export class AddonModSurveyProvider {
     /**
      * Report the survey as being viewed.
      *
-     * @param id Module ID.
-     * @param name Name of the assign.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {number} id Module ID.
+     * @return {Promise<any>}  Promise resolved when the WS call is successful.
      */
-    logView(id: number, name?: string, siteId?: string): Promise<any> {
+    logView(id: number): Promise<any> {
         const params = {
             surveyid: id
         };
 
-        return this.logHelper.logSingle('mod_survey_view_survey', params, AddonModSurveyProvider.COMPONENT, id, name, 'survey',
-                {}, siteId);
+        return this.sitesProvider.getCurrentSite().write('mod_survey_view_survey', params);
     }
 
     /**
      * Send survey answers. If cannot send them to Moodle, they'll be stored in offline to be sent later.
      *
-     * @param surveyId Survey ID.
-     * @param name Survey name.
-     * @param courseId Course ID the survey belongs to.
-     * @param answers Answers.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean if success: true if answers were sent to server,
-     *         false if stored in device.
+     * @param  {number} surveyId  Survey ID.
+     * @param  {string} name      Survey name.
+     * @param  {number} courseId  Course ID the survey belongs to.
+     * @param  {any[]} answers Answers.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>}    Promise resolved with boolean if success: true if answers were sent to server,
+     *                           false if stored in device.
      */
     submitAnswers(surveyId: number, name: string, courseId: number, answers: any[], siteId?: string): Promise<boolean> {
         // Convenience function to store a survey to be synchronized later.
@@ -281,19 +253,20 @@ export class AddonModSurveyProvider {
     /**
      * Send survey answers to Moodle.
      *
-     * @param surveyId Survey ID.
-     * @param answers Answers.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when answers are successfully submitted.
+     * @param  {number} surveyId  Survey ID.
+     * @param  {any[]} answers Answers.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}     Promise resolved when answers are successfully submitted. Rejected with object containing
+     *                            the error message (if any) and a boolean indicating if the error was returned by WS.
      */
-    submitAnswersOnline(surveyId: number, answers: any[], siteId?: string): Promise<void> {
+    submitAnswersOnline(surveyId: number, answers: any[], siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                 surveyid: surveyId,
                 answers: answers
             };
 
-            return site.write('mod_survey_submit_answers', params).then((response: AddonModSurveySubmitAnswersResult) => {
+            return site.write('mod_survey_submit_answers', params).then((response) => {
                 if (!response.status) {
                     return Promise.reject(this.utils.createFakeWSError(''));
                 }
@@ -301,64 +274,3 @@ export class AddonModSurveyProvider {
         });
     }
 }
-
-/**
- * Survey returned by WS mod_survey_get_surveys_by_courses.
- */
-export type AddonModSurveySurvey = {
-    id: number; // Survey id.
-    coursemodule: number; // Course module id.
-    course: number; // Course id.
-    name: string; // Survey name.
-    intro?: string; // The Survey intro.
-    introformat?: number; // Intro format (1 = HTML, 0 = MOODLE, 2 = PLAIN or 4 = MARKDOWN).
-    introfiles?: CoreWSExternalFile[]; // @since 3.2.
-    template?: number; // Survey type.
-    days?: number; // Days.
-    questions?: string; // Question ids.
-    surveydone?: number; // Did I finish the survey?.
-    timecreated?: number; // Time of creation.
-    timemodified?: number; // Time of last modification.
-    section?: number; // Course section id.
-    visible?: number; // Visible.
-    groupmode?: number; // Group mode.
-    groupingid?: number; // Group id.
-};
-
-/**
- * Survey question.
- */
-export type AddonModSurveyQuestion = {
-    id: number; // Question id.
-    text: string; // Question text.
-    shorttext: string; // Question short text.
-    multi: string; // Subquestions ids.
-    intro: string; // The question intro.
-    type: number; // Question type.
-    options: string; // Question options.
-    parent: number; // Parent question (for subquestions).
-};
-
-/**
- * Result of WS mod_survey_get_questions.
- */
-export type AddonModSurveyGetQuestionsResult = {
-    questions: AddonModSurveyQuestion[];
-    warnings?: CoreWSExternalWarning[];
-};
-
-/**
- * Result of WS mod_survey_get_surveys_by_courses.
- */
-export type AddonModSurveyGetSurveysByCoursesResult = {
-    surveys: AddonModSurveySurvey[];
-    warnings?: CoreWSExternalWarning[];
-};
-
-/**
- * Result of WS mod_survey_submit_answers.
- */
-export type AddonModSurveySubmitAnswersResult = {
-    status: boolean; // Status: true if success.
-    warnings?: CoreWSExternalWarning[];
-};

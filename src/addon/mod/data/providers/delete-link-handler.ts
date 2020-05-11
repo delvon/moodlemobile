@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { CoreContentLinksHandlerBase } from '@core/contentlinks/classes/base-handler';
 import { CoreContentLinksAction } from '@core/contentlinks/providers/delegate';
 import { AddonModDataProvider } from './data';
-import { AddonModDataHelperProvider } from './helper';
+import { CoreCourseProvider } from '@core/course/providers/course';
+import { CoreDomUtilsProvider } from '@providers/utils/dom';
+import { CoreEventsProvider } from '@providers/events';
 
 /**
  * Content links handler for database delete entry.
@@ -28,27 +31,75 @@ export class AddonModDataDeleteLinkHandler extends CoreContentLinksHandlerBase {
     featureName = 'CoreCourseModuleDelegate_AddonModData';
     pattern = /\/mod\/data\/view\.php.*([\?\&](d|delete)=\d+)/;
 
-    constructor(private dataProvider: AddonModDataProvider, private dataHelper: AddonModDataHelperProvider) {
+    constructor(private dataProvider: AddonModDataProvider, private courseProvider: CoreCourseProvider,
+            private domUtils: CoreDomUtilsProvider, private eventsProvider: CoreEventsProvider,
+            private translate: TranslateService) {
         super();
+    }
+
+    /**
+     * Convenience function to help get courseId.
+     *
+     * @param {number} dataId   Database Id.
+     * @param {string} siteId   Site Id, if not set, current site will be used.
+     * @param {number} courseId Course Id if already set.
+     * @return {Promise<number>}   Resolved with course Id when done.
+     */
+    protected getActivityCourseIdIfNotSet(dataId: number, siteId: string, courseId: number): Promise<number> {
+        if (courseId) {
+            return Promise.resolve(courseId);
+        }
+
+        return this.courseProvider.getModuleBasicInfoByInstance(dataId, 'data', siteId).then((module) => {
+            return module.course;
+        });
     }
 
     /**
      * Get the list of actions for a link (url).
      *
-     * @param siteIds List of sites the URL belongs to.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return List of (or promise resolved with list of) actions.
+     * @param {string[]} siteIds List of sites the URL belongs to.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {CoreContentLinksAction[]|Promise<CoreContentLinksAction[]>} List of (or promise resolved with list of) actions.
      */
     getActions(siteIds: string[], url: string, params: any, courseId?: number):
             CoreContentLinksAction[] | Promise<CoreContentLinksAction[]> {
         return [{
             action: (siteId, navCtrl?): void => {
-                const dataId = parseInt(params.d, 10);
-                const entryId = parseInt(params.delete, 10);
 
-                this.dataHelper.showDeleteEntryModal(dataId, entryId, courseId);
+                this.domUtils.showConfirm(this.translate.instant('addon.mod_data.confirmdeleterecord')).then(() => {
+                    const modal = this.domUtils.showModalLoading(),
+                        dataId = parseInt(params.d, 10),
+                        entryId = parseInt(params.delete, 10);
+
+                    return this.getActivityCourseIdIfNotSet(dataId, siteId, courseId).then((cId) => {
+                        courseId = cId;
+
+                        // Delete entry.
+                        return this.dataProvider.deleteEntry(dataId, entryId, courseId, siteId).catch((message) => {
+                            this.domUtils.showErrorModalDefault(message, 'addon.mod_data.errordeleting', true);
+
+                            return Promise.reject(null);
+                        });
+                    }).then(() => {
+                        const promises = [];
+                        promises.push(this.dataProvider.invalidateEntryData(dataId, entryId, siteId));
+                        promises.push(this.dataProvider.invalidateEntriesData(dataId, siteId));
+
+                        return Promise.all(promises);
+                    }).then(() => {
+                        this.eventsProvider.trigger(AddonModDataProvider.ENTRY_CHANGED, {dataId: dataId, entryId: entryId,
+                            deleted: true}, siteId);
+
+                        this.domUtils.showToast('addon.mod_data.recorddeleted', true, 3000);
+                    }).finally(() => {
+                        modal.dismiss();
+                    });
+                }).catch(() => {
+                    // Nothing to do.
+                });
             }
         }];
     }
@@ -57,11 +108,11 @@ export class AddonModDataDeleteLinkHandler extends CoreContentLinksHandlerBase {
      * Check if the handler is enabled for a certain site (site + user) and a URL.
      * If not defined, defaults to true.
      *
-     * @param siteId The site ID.
-     * @param url The URL to treat.
-     * @param params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
-     * @param courseId Course ID related to the URL. Optional but recommended.
-     * @return Whether the handler is enabled for the URL and site.
+     * @param {string} siteId The site ID.
+     * @param {string} url The URL to treat.
+     * @param {any} params The params of the URL. E.g. 'mysite.com?id=1' -> {id: 1}
+     * @param {number} [courseId] Course ID related to the URL. Optional but recommended.
+     * @return {boolean|Promise<boolean>} Whether the handler is enabled for the URL and site.
      */
     isEnabled(siteId: string, url: string, params: any, courseId?: number): boolean | Promise<boolean> {
         if (typeof params.d == 'undefined' || typeof params.delete == 'undefined') {

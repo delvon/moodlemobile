@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate
 import { AddonModFolderComponentsModule } from './components/components.module';
 import { AddonModFolderPrefetchHandler } from './providers/prefetch-handler';
 import { AddonModFolderLinkHandler } from './providers/link-handler';
-import { AddonModFolderListLinkHandler } from './providers/list-link-handler';
 import { AddonModFolderPluginFileHandler } from './providers/pluginfile-handler';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
 import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
@@ -44,7 +43,6 @@ export const ADDON_MOD_FOLDER_PROVIDERS: any[] = [
         AddonModFolderModuleHandler,
         AddonModFolderPrefetchHandler,
         AddonModFolderLinkHandler,
-        AddonModFolderListLinkHandler,
         AddonModFolderPluginFileHandler
     ]
 })
@@ -52,13 +50,10 @@ export class AddonModFolderModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModFolderModuleHandler,
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModFolderPrefetchHandler,
             contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModFolderLinkHandler,
-            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModFolderPluginFileHandler,
-            listLinkHandler: AddonModFolderListLinkHandler) {
-
+            pluginfileDelegate: CorePluginFileDelegate, pluginfileHandler: AddonModFolderPluginFileHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
         pluginfileDelegate.registerHandler(pluginfileHandler);
     }
 }

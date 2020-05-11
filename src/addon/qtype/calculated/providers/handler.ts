@@ -1,5 +1,5 @@
 
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ import { Injectable, Injector } from '@angular/core';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreQuestionHandler } from '@core/question/providers/delegate';
+import { AddonQtypeNumericalHandler } from '@addon/qtype/numerical/providers/handler';
 import { AddonQtypeCalculatedComponent } from '../component/calculated';
 
 /**
@@ -27,15 +28,16 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     name = 'AddonQtypeCalculated';
     type = 'qtype_calculated';
 
-    constructor(private utils: CoreUtilsProvider, private domUtils: CoreDomUtilsProvider) { }
+    constructor(private utils: CoreUtilsProvider, private numericalHandler: AddonQtypeNumericalHandler,
+            private domUtils: CoreDomUtilsProvider) { }
 
     /**
      * Return the Component to use to display the question.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param question The question to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} question The question to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector, question: any): any | Promise<any> {
         return AddonQtypeCalculatedComponent;
@@ -44,12 +46,13 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     /**
      * Check if a response is complete.
      *
-     * @param question The question.
-     * @param answers Object with the question answers (without prefix).
-     * @return 1 if complete, 0 if not complete, -1 if cannot determine.
+     * @param {any} question The question.
+     * @param {any} answers Object with the question answers (without prefix).
+     * @return {number} 1 if complete, 0 if not complete, -1 if cannot determine.
      */
     isCompleteResponse(question: any, answers: any): number {
-        if (this.isGradableResponse(question, answers) === 0 || !this.validateUnits(answers['answer'])) {
+        // This question type depends on numerical.
+        if (this.isGradableResponse(question, answers) === 0 || !this.numericalHandler.validateUnits(answers['answer'])) {
             return 0;
         }
 
@@ -63,7 +66,7 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -73,11 +76,12 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
      * Check if a student has provided enough of an answer for the question to be graded automatically,
      * or whether it must be considered aborted.
      *
-     * @param question The question.
-     * @param answers Object with the question answers (without prefix).
-     * @return 1 if gradable, 0 if not gradable, -1 if cannot determine.
+     * @param {any} question The question.
+     * @param {any} answers Object with the question answers (without prefix).
+     * @return {number} 1 if gradable, 0 if not gradable, -1 if cannot determine.
      */
     isGradableResponse(question: any, answers: any): number {
+        // This question type depends on numerical.
         let isGradable = this.isValidValue(answers['answer']);
         if (isGradable && this.requiresUnits(question)) {
             // The question requires a unit.
@@ -90,12 +94,13 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     /**
      * Check if two responses are the same.
      *
-     * @param question Question.
-     * @param prevAnswers Object with the previous question answers.
-     * @param newAnswers Object with the new question answers.
-     * @return Whether they're the same.
+     * @param {any} question Question.
+     * @param {any} prevAnswers Object with the previous question answers.
+     * @param {any} newAnswers Object with the new question answers.
+     * @return {boolean} Whether they're the same.
      */
     isSameResponse(question: any, prevAnswers: any, newAnswers: any): boolean {
+        // This question type depends on numerical.
         return this.utils.sameAtKeyMissingIsBlank(prevAnswers, newAnswers, 'answer') &&
             this.utils.sameAtKeyMissingIsBlank(prevAnswers, newAnswers, 'unit');
     }
@@ -103,8 +108,8 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     /**
      * Check if a value is valid (not empty).
      *
-     * @param value Value to check.
-     * @return Whether the value is valid.
+     * @param {string|number} value Value to check.
+     * @return {boolean} Whether the value is valid.
      */
     isValidValue(value: string | number): boolean {
         return !!value || value === '0' || value === 0;
@@ -113,46 +118,12 @@ export class AddonQtypeCalculatedHandler implements CoreQuestionHandler {
     /**
      * Check if a question requires units in a separate input.
      *
-     * @param question The question.
-     * @return Whether the question requires units.
+     * @param {any} question The question.
+     * @return {boolean} Whether the question requires units.
      */
     requiresUnits(question: any): boolean {
         const element = this.domUtils.convertToElement(question.html);
 
         return !!(element.querySelector('select[name*=unit]') || element.querySelector('input[type="radio"]'));
-    }
-
-    /**
-     * Validate a number with units. We don't have the list of valid units and conversions, so we can't perform
-     * a full validation. If this function returns true it means we can't be sure it's valid.
-     *
-     * @param answer Answer.
-     * @return False if answer isn't valid, true if we aren't sure if it's valid.
-     */
-    validateUnits(answer: string): boolean {
-        if (!answer) {
-            return false;
-        }
-
-        const regexString = '[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[-+]?\\d+)?';
-
-        // Strip spaces (which may be thousands separators) and change other forms of writing e to e.
-        answer = answer.replace(' ', '');
-        answer = answer.replace(/(?:e|E|(?:x|\*|×)10(?:\^|\*\*))([+-]?\d+)/, 'e$1');
-
-        // If a '.' is present or there are multiple ',' (i.e. 2,456,789) assume ',' is a thousands separator and stip it.
-        // Else assume it is a decimal separator, and change it to '.'.
-        if (answer.indexOf('.') != -1 || answer.split(',').length - 1 > 1) {
-            answer = answer.replace(',', '');
-        } else {
-            answer = answer.replace(',', '.');
-        }
-
-        // We don't know if units should be before or after so we check both.
-        if (answer.match(new RegExp('^' + regexString)) === null || answer.match(new RegExp(regexString + '$')) === null) {
-            return false;
-        }
-
-        return true;
     }
 }

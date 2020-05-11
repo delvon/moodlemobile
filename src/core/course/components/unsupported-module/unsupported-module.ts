@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import { CoreCourseModuleDelegate } from '../../providers/module-delegate';
     templateUrl: 'core-course-unsupported-module.html',
 })
 export class CoreCourseUnsupportedModuleComponent implements OnInit {
-    @Input() courseId: number; // The course to module belongs to.
+    @Input() course: any; // The course to module belongs to.
     @Input() module: any; // The module to render.
 
     isDisabledInSite: boolean;

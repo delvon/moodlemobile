@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreSitePluginsCompileInitComponent } from '../../classes/compile-init-component';
-import { CoreQuestionDelegate } from '@core/question/providers/delegate';
 
 /**
  * Component that displays a question created using a site plugin.
@@ -34,8 +33,7 @@ export class CoreSitePluginsQuestionComponent extends CoreSitePluginsCompileInit
     @Output() buttonClicked: EventEmitter<any>; // Should emit an event when a behaviour button is clicked.
     @Output() onAbort: EventEmitter<void>; // Should emit an event if the question should be aborted.
 
-    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider,
-            protected questionDelegate: CoreQuestionDelegate) {
+    constructor(sitePluginsProvider: CoreSitePluginsProvider, utils: CoreUtilsProvider) {
         super(sitePluginsProvider, utils);
     }
 
@@ -53,7 +51,7 @@ export class CoreSitePluginsQuestionComponent extends CoreSitePluginsCompileInit
         this.jsData.onAbort = this.onAbort;
 
         if (this.question) {
-            this.getHandlerData(this.questionDelegate.getHandlerName('qtype_' + this.question.type));
+            this.getHandlerData('qtype_' + this.question.type);
         }
     }
 }

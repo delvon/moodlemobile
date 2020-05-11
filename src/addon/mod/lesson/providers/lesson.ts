@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@
 
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreEventsProvider } from '@providers/events';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreGradesProvider } from '@core/grades/providers/grades';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
-import { CoreSite, CoreSiteWSPreSets } from '@classes/site';
+import { CoreSiteWSPreSets } from '@classes/site';
 import { AddonModLessonOfflineProvider } from './lesson-offline';
 
 /**
@@ -58,36 +56,43 @@ export interface AddonModLessonRecordAttemptResult extends AddonModLessonCheckAn
 export interface AddonModLessonGrade {
     /**
      * Number of questions answered.
+     * @type {number}
      */
     nquestions: number;
 
     /**
      * Number of question attempts.
+     * @type {number}
      */
     attempts: number;
 
     /**
      * Max points possible.
+     * @type {number}
      */
     total: number;
 
     /**
      * Points earned by the student.
+     * @type {number}
      */
     earned: number;
 
     /**
      * Calculated percentage grade.
+     * @type {number}
      */
     grade: number;
 
     /**
      * Numer of manually graded questions.
+     * @type {number}
      */
     nmanual: number;
 
     /**
      * Point value for manually graded questions.
+     * @type {number}
      */
     manualpoints: number;
 }
@@ -107,7 +112,6 @@ export interface AddonModLessonGrade {
 @Injectable()
 export class AddonModLessonProvider {
     static COMPONENT = 'mmaModLesson';
-    static DATA_SENT_EVENT = 'addon_mod_lesson_data_sent';
 
     // This page.
     static LESSON_THISPAGE = 0;
@@ -144,36 +148,23 @@ export class AddonModLessonProvider {
     static LESSON_PAGE_CLUSTER =      30;
     static LESSON_PAGE_ENDOFCLUSTER = 31;
 
-    /**
-     * Constant used as a delimiter when parsing multianswer questions
-     */
-    static MULTIANSWER_DELIMITER = '@^#|';
-
-    static LESSON_OTHER_ANSWERS = '@#wronganswer#@';
-
     // Variables for database.
     static PASSWORD_TABLE = 'addon_mod_lesson_password';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModLessonProvider',
-        version: 1,
-        tables: [
+    protected tablesSchema = {
+        name: AddonModLessonProvider.PASSWORD_TABLE,
+        columns: [
             {
-                name: AddonModLessonProvider.PASSWORD_TABLE,
-                columns: [
-                    {
-                        name: 'lessonid',
-                        type: 'INTEGER',
-                        primaryKey: true
-                    },
-                    {
-                        name: 'password',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    }
-                ]
+                name: 'lessonid',
+                type: 'INTEGER',
+                primaryKey: true
+            },
+            {
+                name: 'password',
+                type: 'TEXT'
+            },
+            {
+                name: 'timemodified',
+                type: 'INTEGER'
             }
         ]
     };
@@ -183,48 +174,18 @@ export class AddonModLessonProvider {
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private utils: CoreUtilsProvider,
             private translate: TranslateService, private textUtils: CoreTextUtilsProvider, private domUtils: CoreDomUtilsProvider,
-            private lessonOfflineProvider: AddonModLessonOfflineProvider, private logHelper: CoreCourseLogHelperProvider,
-            private eventsProvider: CoreEventsProvider) {
+            private lessonOfflineProvider: AddonModLessonOfflineProvider) {
         this.logger = logger.getInstance('AddonModLessonProvider');
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
-    }
-
-    /**
-     * Add an answer and its response to a feedback string (HTML).
-     *
-     * @param feedback The current feedback.
-     * @param answer Student answer.
-     * @param answerFormat Answer format.
-     * @param response Response.
-     * @param className Class to add to the response.
-     * @return New feedback.
-     */
-    protected addAnswerAndResponseToFeedback(feedback: string, answer: string, answerFormat: number, response: string,
-            className: string): string {
-
-        // Add a table row containing the answer.
-        feedback += '<tr><td class="cell c0 lastcol">' + (answerFormat ? answer : this.textUtils.cleanTags(answer)) +
-                '</td></tr>';
-
-        // If the response exists, add a table row containing the response. If not, add en empty row.
-        if (response && response.trim()) {
-            feedback += '<tr><td class="cell c0 lastcol ' + className + '"><em>' +
-                this.translate.instant('addon.mod_lesson.response') + '</em>: <br/>' +
-                response + '</td></tr>';
-        } else {
-            feedback += '<tr><td class="cell c0 lastcol"></td></tr>';
-        }
-
-        return feedback;
+        this.sitesProvider.createTableFromSchema(this.tablesSchema);
     }
 
     /**
      * Add a message to a list of messages, following the format of the messages returned by WS.
      *
-     * @param messages List of messages where to add the message.
-     * @param stringName The ID of the message to be translated. E.g. 'addon.mod_lesson.numberofpagesviewednotice'.
-     * @param stringParams The params of the message (if any).
+     * @param {any[]} messages List of messages where to add the message.
+     * @param {string} stringName The ID of the message to be translated. E.g. 'addon.mod_lesson.numberofpagesviewednotice'.
+     * @param {any} [stringParams] The params of the message (if any).
      */
     protected addMessage(messages: any[], stringName: string, stringParams?: any): void {
         messages.push({
@@ -235,10 +196,10 @@ export class AddonModLessonProvider {
     /**
      * Add a property to the result of the "process EOL page" simulation in offline.
      *
-     * @param result Result where to add the value.
-     * @param name Name of the property.
-     * @param value Value to add.
-     * @param addMessage Whether to add a message related to the value.
+     * @param {any} result Result where to add the value.
+     * @param {string} name Name of the property.
+     * @param {any} value Value to add.
+     * @param {boolean} addMessage Whether to add a message related to the value.
      */
     protected addResultValueEolPage(result: any, name: string, value: any, addMessage?: boolean): void {
         let message = '';
@@ -258,8 +219,8 @@ export class AddonModLessonProvider {
     /**
      * Check if an answer page (from getUserRetake) is a content page.
      *
-     * @param page Answer page.
-     * @return Whether it's a content page.
+     * @param {any} page Answer page.
+     * @return {boolean} Whether it's a content page.
      */
     answerPageIsContent(page: any): boolean {
         // The page doesn't have any reliable field to use for checking this. Check qtype first (translated string).
@@ -284,8 +245,8 @@ export class AddonModLessonProvider {
     /**
      * Check if an answer page (from getUserRetake) is a question page.
      *
-     * @param page Answer page.
-     * @return Whether it's a question page.
+     * @param {any} page Answer page.
+     * @return {boolean} Whether it's a question page.
      */
     answerPageIsQuestion(page: any): boolean {
         if (!page.answerdata) {
@@ -313,16 +274,16 @@ export class AddonModLessonProvider {
     /**
      * Calculate some offline data like progress and ongoingscore.
      *
-     * @param lesson Lesson.
-     * @param accessInfo Result of get access info.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param pageIndex Object containing all the pages indexed by ID. If not defined, it will be calculated.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the data.
+     * @param {any} lesson Lesson.
+     * @param {any} accessInfo Result of get access info.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {any} [pageIndex] Object containing all the pages indexed by ID. If not defined, it will be calculated.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<{reviewMode: boolean, progress: number, ongoingScore: string}>} Promise resolved with the data.
      */
     protected calculateOfflineData(lesson: any, accessInfo?: any, password?: string, review?: boolean, pageIndex?: any,
-            siteId?: string): Promise<{reviewmode: boolean, progress: number, ongoingscore: string}> {
+            siteId?: string): Promise<{reviewMode: boolean, progress: number, ongoingScore: string}> {
 
         accessInfo = accessInfo || {};
 
@@ -347,9 +308,9 @@ export class AddonModLessonProvider {
 
         return Promise.all(promises).then(() => {
             return {
-                reviewmode: reviewMode,
+                reviewMode: reviewMode,
                 progress: progress,
-                ongoingscore: ongoingMessage
+                ongoingScore: ongoingMessage
             };
         });
     }
@@ -358,13 +319,13 @@ export class AddonModLessonProvider {
      * Calculate the progress of the current user in the lesson.
      * Based on Moodle's calculate_progress.
      *
-     * @param lessonId Lesson ID.
-     * @param accessInfo Result of get access info.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param pageIndex Object containing all the pages indexed by ID. If not defined, it will be calculated.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with a number: the progress (scale 0-100).
+     * @param {number} lessonId Lesson ID.
+     * @param {any} accessInfo Result of get access info.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {any} [pageIndex] Object containing all the pages indexed by ID. If not defined, it will be calculated.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with a number: the progress (scale 0-100).
      */
     calculateProgress(lessonId: number, accessInfo: any, password?: string, review?: boolean, pageIndex?: any, siteId?: string)
             : Promise<number> {
@@ -422,12 +383,12 @@ export class AddonModLessonProvider {
      * Check if the answer provided by the user is correct or not and return the result object.
      * This method is based on the check_answer implementation of all page types (Moodle).
      *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param jumps Result of get pages possible jumps.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @return Result.
+     * @param {any} lesson Lesson.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {any} jumps Result of get pages possible jumps.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @return {AddonModLessonCheckAnswerResult} Result.
      */
     protected checkAnswer(lesson: any, pageData: any, data: any, jumps: any, pageIndex: any): AddonModLessonCheckAnswerResult {
         // Default result.
@@ -485,9 +446,9 @@ export class AddonModLessonProvider {
     /**
      * Check an essay answer.
      *
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param result Object where to store the result.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {AddonModLessonCheckAnswerResult} result Object where to store the result.
      */
     protected checkAnswerEssay(pageData: any, data: any, result: AddonModLessonCheckAnswerResult): void {
         let studentAnswer;
@@ -501,12 +462,7 @@ export class AddonModLessonProvider {
             return;
         }
 
-        // The name was changed to "answer_editor" in 3.7. Before it was just "answer". Support both cases.
-        if (typeof data['answer_editor[text]'] != 'undefined') {
-            studentAnswer = data['answer_editor[text]'];
-        } else if (typeof data.answer_editor == 'object') {
-            studentAnswer = data.answer_editor.text;
-        } else if (typeof data['answer[text]'] != 'undefined') {
+        if (typeof data['answer[text]'] != 'undefined') {
             studentAnswer = data['answer[text]'];
         } else if (typeof data.answer == 'object') {
             studentAnswer = data.answer.text;
@@ -542,9 +498,9 @@ export class AddonModLessonProvider {
     /**
      * Check a matching answer.
      *
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param result Object where to store the result.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {AddonModLessonCheckAnswerResult} result Object where to store the result.
      */
     protected checkAnswerMatching(pageData: any, data: any, result: AddonModLessonCheckAnswerResult): void {
         if (!data) {
@@ -613,11 +569,11 @@ export class AddonModLessonProvider {
     /**
      * Check a multichoice answer.
      *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @param result Object where to store the result.
+     * @param {any} lesson Lesson.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @param {AddonModLessonCheckAnswerResult} result Object where to store the result.
      */
     protected checkAnswerMultichoice(lesson: any, pageData: any, data: any, pageIndex: any,
             result: AddonModLessonCheckAnswerResult): void {
@@ -645,8 +601,7 @@ export class AddonModLessonProvider {
             result.userresponse = studentAnswers.join(',');
 
             // Get the answers in a set order, the id order.
-            const studentAswersArray = [],
-                responses = [];
+            const responses = [];
             let nHits = 0,
                 nCorrect = 0,
                 correctAnswerId = 0,
@@ -662,13 +617,14 @@ export class AddonModLessonProvider {
                     const answerId = studentAnswers[i];
 
                     if (answerId == answer.id) {
-                        studentAswersArray.push(answer.answer);
-                        responses.push(answer.response);
+                        result.studentanswer += '<br />' + answer.answer;
+                        if (this.textUtils.cleanTags(answer.response).trim()) {
+                            responses.push(answer.response);
+                        }
                         break;
                     }
                 }
             });
-            result.studentanswer = studentAswersArray.join(AddonModLessonProvider.MULTIANSWER_DELIMITER);
 
             // Iterate over all the possible answers.
             answers.forEach((answer) => {
@@ -708,12 +664,12 @@ export class AddonModLessonProvider {
 
             if (studentAnswers.length == nCorrect && nHits == nCorrect) {
                 result.correctanswer = true;
-                result.response = responses.join(AddonModLessonProvider.MULTIANSWER_DELIMITER);
+                result.response = responses.join('<br />');
                 result.newpageid = correctPageId;
                 result.answerid = correctAnswerId;
             } else {
                 result.correctanswer = false;
-                result.response = responses.join(AddonModLessonProvider.MULTIANSWER_DELIMITER);
+                result.response = responses.join('<br />');
                 result.newpageid = wrongPageId;
                 result.answerid = wrongAnswerId;
             }
@@ -744,11 +700,11 @@ export class AddonModLessonProvider {
     /**
      * Check a numerical answer.
      *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @param result Object where to store the result.
+     * @param {any} lesson Lesson.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @param {any} result Object where to store the result.
      */
     protected checkAnswerNumerical(lesson: any, pageData: any, data: any, pageIndex: any, result: AddonModLessonCheckAnswerResult)
             : void {
@@ -793,18 +749,16 @@ export class AddonModLessonProvider {
                 break;
             }
         }
-
-        this.checkOtherAnswers(lesson, pageData, result);
     }
 
     /**
      * Check a short answer.
      *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @param result Object where to store the result.
+     * @param {any} lesson Lesson.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @param {any} result Object where to store the result.
      */
     protected checkAnswerShort(lesson: any, pageData: any, data: any, pageIndex: any, result: AddonModLessonCheckAnswerResult)
             : void {
@@ -909,8 +863,6 @@ export class AddonModLessonProvider {
             }
         }
 
-        this.checkOtherAnswers(lesson, pageData, result);
-
         result.userresponse = studentAnswer;
         result.studentanswer = this.textUtils.s(studentAnswer); // Clean student answer as it goes to output.
     }
@@ -918,11 +870,11 @@ export class AddonModLessonProvider {
     /**
      * Check a truefalse answer.
      *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data containing the user answer.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @param result Object where to store the result.
+     * @param {any} lesson Lesson.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data containing the user answer.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @param {any} result Object where to store the result.
      */
     protected checkAnswerTruefalse(lesson: any, pageData: any, data: any, pageIndex: any, result: AddonModLessonCheckAnswerResult)
             : void {
@@ -950,37 +902,10 @@ export class AddonModLessonProvider {
     }
 
     /**
-     * Check the "other answers" value.
-     *
-     * @param lesson Lesson.
-     * @param pageData Result of getPageData for the page to process.
-     * @param result Object where to store the result.
-     */
-    protected checkOtherAnswers(lesson: any, pageData: any, result: AddonModLessonCheckAnswerResult): void {
-        // We could check here to see if we have a wrong answer jump to use.
-        if (result.answerid == 0) {
-            // Use the all other answers jump details if it is set up.
-            const lastAnswer = pageData.answers[pageData.answers.length - 1] || {};
-
-            // Double check that this is the OTHER_ANSWERS answer.
-            if (typeof lastAnswer.answer == 'string' &&
-                    lastAnswer.answer.indexOf(AddonModLessonProvider.LESSON_OTHER_ANSWERS) != -1) {
-                result.newpageid = lastAnswer.jumpto;
-                result.response = lastAnswer.response;
-
-                if (lesson.custom) {
-                    result.correctanswer = lastAnswer.score > 0;
-                }
-                result.answerid = lastAnswer.id;
-            }
-        }
-    }
-
-    /**
      * Create a list of pages indexed by page ID based on a list of pages.
      *
-     * @param pageList Result of get pages.
-     * @return Pages index.
+     * @param {Object[]} pageList Result of get pages.
+     * @return {any} Pages index.
      */
     protected createPagesIndex(pageList: any[]): any {
         // Index the pages by page ID.
@@ -996,15 +921,15 @@ export class AddonModLessonProvider {
     /**
      * Finishes a retake.
      *
-     * @param lesson Lesson.
-     * @param courseId Course ID the lesson belongs to.
-     * @param password Lesson password (if any).
-     * @param outOfTime If the user ran out of time.
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param offline Whether it's offline mode.
-     * @param accessInfo Result of get access info. Required if offline is true.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {any} lesson Lesson.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [outOfTime] If the user ran out of time.
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {boolean} [offline] Whether it's offline mode.
+     * @param {any} [accessInfo] Result of get access info. Required if offline is true.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     finishRetake(lesson: any, courseId: number, password?: string, outOfTime?: boolean, review?: boolean, offline?: boolean,
             accessInfo?: any, siteId?: string): Promise<any> {
@@ -1121,28 +1046,18 @@ export class AddonModLessonProvider {
             });
         }
 
-        return this.finishRetakeOnline(lesson.id, password, outOfTime, review, siteId).then((response) => {
-            this.eventsProvider.trigger(AddonModLessonProvider.DATA_SENT_EVENT, {
-                lessonId: lesson.id,
-                type: 'finish',
-                courseId: courseId,
-                outOfTime: outOfTime,
-                review: review
-            }, this.sitesProvider.getCurrentSiteId());
-
-            return response;
-        });
+        return this.finishRetakeOnline(lesson.id, password, outOfTime, review, siteId);
     }
 
     /**
      * Finishes a retake. It will fail if offline or cannot connect.
      *
-     * @param lessonId Lesson ID.
-     * @param password Lesson password (if any).
-     * @param outOfTime If the user ran out of time.
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [outOfTime] If the user ran out of time.
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     finishRetakeOnline(lessonId: number, password?: string, outOfTime?: boolean, review?: boolean, siteId?: string): Promise<any> {
 
@@ -1179,11 +1094,11 @@ export class AddonModLessonProvider {
     /**
      * Get the access information of a certain lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the access information.
+     * @param {number} lessonId Lesson ID.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the access information.
      */
     getAccessInformation(lessonId: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -1208,8 +1123,8 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for access information WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getAccessInformationCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'accessInfo:' + lessonId;
@@ -1218,10 +1133,10 @@ export class AddonModLessonProvider {
     /**
      * Get content pages viewed in online and offline.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with an object with the online and offline viewed pages.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<{online: any[], offline: any[]}>} Promise resolved with an object with the online and offline viewed pages.
      */
     getContentPagesViewed(lessonId: number, retake: number, siteId?: string): Promise<{online: any[], offline: any[]}> {
         const promises = [],
@@ -1251,9 +1166,9 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get content pages viewed WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @return {string} Cache key.
      */
     protected getContentPagesViewedCacheKey(lessonId: number, retake: number): string {
         return this.getContentPagesViewedCommonCacheKey(lessonId) + ':' + retake;
@@ -1262,8 +1177,8 @@ export class AddonModLessonProvider {
     /**
      * Get common cache key for get content pages viewed WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getContentPagesViewedCommonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'contentPagesViewed:' + lessonId;
@@ -1272,10 +1187,10 @@ export class AddonModLessonProvider {
     /**
      * Get IDS of content pages viewed in online and offline.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with list of IDs.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<number[]>} Promise resolved with list of IDs.
      */
     getContentPagesViewedIds(lessonId: number, retake: number, siteId?: string): Promise<number[]> {
         return this.getContentPagesViewed(lessonId, retake, siteId).then((result) => {
@@ -1297,12 +1212,12 @@ export class AddonModLessonProvider {
     /**
      * Get the list of content pages viewed in the site for a certain retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the viewed pages.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the viewed pages.
      */
     getContentPagesViewedOnline(lessonId: number, retake: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string)
             : Promise<any[]> {
@@ -1332,10 +1247,10 @@ export class AddonModLessonProvider {
     /**
      * Get the last content page viewed.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the last content page viewed.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the last content page viewed.
      */
     getLastContentPageViewed(lessonId: number, retake: number, siteId?: string): Promise<any> {
         return this.getContentPagesViewed(lessonId, retake, siteId).then((data) => {
@@ -1366,10 +1281,10 @@ export class AddonModLessonProvider {
      * Get the last page seen.
      * Based on Moodle's get_last_page_seen.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the last page seen.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<number>} Promise resolved with the last page seen.
      */
     getLastPageSeen(lessonId: number, retake: number, siteId?: string): Promise<number> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -1404,45 +1319,38 @@ export class AddonModLessonProvider {
     /**
      * Get a Lesson by module ID.
      *
-     * @param courseId Course ID.
-     * @param cmid Course module ID.
-     * @param forceCache Whether it should always return cached data.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the lesson is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} cmid Course module ID.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the lesson is retrieved.
      */
-    getLesson(courseId: number, cmId: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string): Promise<any> {
-        return this.getLessonByField(courseId, 'coursemodule', cmId, forceCache, ignoreCache, siteId);
+    getLesson(courseId: number, cmId: number, forceCache?: boolean, siteId?: string): Promise<any> {
+        return this.getLessonByField(courseId, 'coursemodule', cmId, forceCache, siteId);
     }
 
     /**
      * Get a Lesson with key=value. If more than one is found, only the first will be returned.
      *
-     * @param courseId Course ID.
-     * @param key Name of the property to check.
-     * @param value Value to search.
-     * @param forceCache Whether it should always return cached data.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the lesson is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {string} key Name of the property to check.
+     * @param {any} value Value to search.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the lesson is retrieved.
      */
-    protected getLessonByField(courseId: number, key: string, value: any, forceCache?: boolean, ignoreCache?: boolean,
-            siteId?: string): Promise<any> {
+    protected getLessonByField(courseId: number, key: string, value: any, forceCache?: boolean, siteId?: string): Promise<any> {
 
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                     courseids: [courseId]
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getLessonDataCacheKey(courseId),
-                    updateFrequency: CoreSite.FREQUENCY_RARELY
+                    cacheKey: this.getLessonDataCacheKey(courseId)
                 };
 
             if (forceCache) {
                 preSets.omitExpires = true;
-            } else if (ignoreCache) {
-                preSets.getFromCache = false;
-                preSets.emergencyCache = false;
             }
 
             return site.read('mod_lesson_get_lessons_by_courses', params, preSets).then((response) => {
@@ -1464,22 +1372,21 @@ export class AddonModLessonProvider {
     /**
      * Get a Lesson by lesson ID.
      *
-     * @param courseId Course ID.
-     * @param id Lesson ID.
-     * @param forceCache Whether it should always return cached data.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the lesson is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} id Lesson ID.
+     * @param {boolean} [forceCache] Whether it should always return cached data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the lesson is retrieved.
      */
-    getLessonById(courseId: number, id: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string): Promise<any> {
-        return this.getLessonByField(courseId, 'id', id, forceCache, ignoreCache, siteId);
+    getLessonById(courseId: number, id: number, forceCache?: boolean, siteId?: string): Promise<any> {
+        return this.getLessonByField(courseId, 'id', id, forceCache, siteId);
     }
 
     /**
      * Get cache key for Lesson data WS calls.
      *
-     * @param courseId Course ID.
-     * @return Cache key.
+     * @param {number} courseId Course ID.
+     * @return {string} Cache key.
      */
     protected getLessonDataCacheKey(courseId: number): string {
         return this.ROOT_CACHE_KEY + 'lesson:' + courseId;
@@ -1488,14 +1395,14 @@ export class AddonModLessonProvider {
     /**
      * Get a lesson protected with password.
      *
-     * @param lessonId Lesson ID.
-     * @param password Password.
-     * @param validatePassword If true, the function will fail if the password is wrong.
-     *                         If false, it will return a lesson with the basic data if password is wrong.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the lesson.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [password] Password.
+     * @param {boolean} [validatePassword=true] If true, the function will fail if the password is wrong.
+     *                                          If false, it will return a lesson with the basic data if password is wrong.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the lesson.
      */
     getLessonWithPassword(lessonId: number, password?: string, validatePassword: boolean = true, forceCache?: boolean,
             ignoreCache?: boolean, siteId?: string): Promise<any> {
@@ -1542,8 +1449,8 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get lesson with password WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getLessonWithPasswordCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'lessonWithPswrd:' + lessonId;
@@ -1552,10 +1459,10 @@ export class AddonModLessonProvider {
     /**
      * Given a page ID, a jumpto and all the possible jumps, calcualate the new page ID.
      *
-     * @param pageId Current page ID.
-     * @param jumpTo The jumpto.
-     * @param jumps Result of get pages possible jumps.
-     * @return New page ID.
+     * @param {number} pageId Current page ID.
+     * @param {number} jumpTo The jumpto.
+     * @param {any} jumps Result of get pages possible jumps.
+     * @return {number} New page ID.
      */
     protected getNewPageId(pageId: number, jumpTo: number, jumps: any): number {
         // If jump not found, return current jumpTo.
@@ -1572,13 +1479,13 @@ export class AddonModLessonProvider {
     /**
      * Get the ongoing score message for the user (depending on the user permission and lesson settings).
      *
-     * @param lesson Lesson.
-     * @param accessInfo Result of get access info.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param pageIndex Object containing all the pages indexed by ID. If not provided, it will be calculated.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the ongoing score message.
+     * @param {any} lesson Lesson.
+     * @param {any} accessInfo Result of get access info.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {any} [pageIndex] Object containing all the pages indexed by ID. If not provided, it will be calculated.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with the ongoing score message.
      */
     getOngoingScoreMessage(lesson: any, accessInfo: any, password?: string, review?: boolean, pageIndex?: any, siteId?: string)
             : Promise<string> {
@@ -1612,12 +1519,12 @@ export class AddonModLessonProvider {
     /**
      * Get the possible answers from a page.
      *
-     * @param lesson Lesson.
-     * @param pageId Page ID.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the list of possible answers.
+     * @param {any} lesson Lesson.
+     * @param {number} pageId Page ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the list of possible answers.
      */
     protected getPageAnswers(lesson: any, pageId: number, password?: string, review?: boolean, siteId?: string): Promise<any[]> {
         return this.getPageData(lesson, pageId, password, review, true, true, false, undefined, undefined, siteId).then((data) => {
@@ -1628,12 +1535,12 @@ export class AddonModLessonProvider {
     /**
      * Get all the possible answers from a list of pages, indexed by answerId.
      *
-     * @param lesson Lesson.
-     * @param pageIds List of page IDs.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with an object containing the answers.
+     * @param {any} lesson Lesson.
+     * @param {number[]} pageIds List of page IDs.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with an object containing the answers.
      */
     protected getPagesAnswers(lesson: any, pageIds: number[], password?: string, review?: boolean, siteId?: string)
             : Promise<any> {
@@ -1659,17 +1566,17 @@ export class AddonModLessonProvider {
     /**
      * Get page data.
      *
-     * @param lesson Lesson.
-     * @param pageId Page ID.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param includeContents Include the page rendered contents.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param accessInfo Result of get access info. Required if offline is true.
-     * @param jumps Result of get pages possible jumps. Required if offline is true.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the page data.
+     * @param {any} lesson Lesson.
+     * @param {number} pageId Page ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {boolean} [includeContents] Include the page rendered contents.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {any} [accessInfo] Result of get access info. Required if offline is true.
+     * @param {any} [jumps] Result of get pages possible jumps. Required if offline is true.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the page data.
      */
     getPageData(lesson: any, pageId: number, password?: string, review?: boolean, includeContents?: boolean, forceCache?: boolean,
             ignoreCache?: boolean, accessInfo?: any, jumps?: any, siteId?: string): Promise<any> {
@@ -1725,9 +1632,9 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get page data WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param pageId Page ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} pageId Page ID.
+     * @return {string} Cache key.
      */
     protected getPageDataCacheKey(lessonId: number, pageId: number): string {
         return this.getPageDataCommonCacheKey(lessonId) + ':' + pageId;
@@ -1736,8 +1643,8 @@ export class AddonModLessonProvider {
     /**
      * Get common cache key for get page data WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getPageDataCommonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'pageData:' + lessonId;
@@ -1746,12 +1653,12 @@ export class AddonModLessonProvider {
     /**
      * Get lesson pages.
      *
-     * @param lessonId Lesson ID.
-     * @param password Lesson password (if any).
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the pages.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the pages.
      */
     getPages(lessonId: number, password?: string, forceCache?: boolean, ignoreCache?: boolean, siteId?: string): Promise<any[]> {
 
@@ -1760,8 +1667,7 @@ export class AddonModLessonProvider {
                     lessonid: lessonId,
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getPagesCacheKey(lessonId),
-                    updateFrequency: CoreSite.FREQUENCY_SOMETIMES
+                    cacheKey: this.getPagesCacheKey(lessonId)
                 };
 
             if (typeof password == 'string') {
@@ -1784,8 +1690,8 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get pages WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getPagesCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'pages:' + lessonId;
@@ -1794,11 +1700,11 @@ export class AddonModLessonProvider {
     /**
      * Get possible jumps for a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the jumps.
+     * @param {number} lessonId Lesson ID.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the jumps.
      */
     getPagesPossibleJumps(lessonId: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string): Promise<any> {
 
@@ -1840,8 +1746,8 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get pages possible jumps WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getPagesPossibleJumpsCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'pagesJumps:' + lessonId;
@@ -1852,12 +1758,12 @@ export class AddonModLessonProvider {
      * Please try to use WS response messages instead of this function if possible.
      * Based on Moodle's add_messages_on_page_process.
      *
-     * @param lesson Lesson.
-     * @param accessInfo Result of get access info.
-     * @param result Result of process page.
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param jumps Result of get pages possible jumps.
-     * @return Array with the messages.
+     * @param {any} lesson Lesson.
+     * @param {any} accessInfo Result of get access info.
+     * @param {any} result Result of process page.
+     * @param {boolean} review If the user wants to review just after finishing (1 hour margin).
+     * @param {any} jumps Result of get pages possible jumps.
+     * @return {any[]} Array with the messages.
      */
     getPageProcessMessages(lesson: any, accessInfo: any, result: any, review: boolean, jumps: any): any[] {
         const messages = [];
@@ -1887,12 +1793,12 @@ export class AddonModLessonProvider {
     /**
      * Get the IDs of all the pages that have at least 1 question attempt.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param correct True to only fetch correct attempts, false to get them all.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's user.
-     * @return Promise resolved with the IDs.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {boolean} [correct] True to only fetch correct attempts, false to get them all.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's user.
+     * @return {Promise<number[]>} Promise resolved with the IDs.
      */
     getPagesIdsWithQuestionAttempts(lessonId: number, retake: number, correct?: boolean, siteId?: string, userId?: number)
             : Promise<number[]> {
@@ -1918,14 +1824,14 @@ export class AddonModLessonProvider {
      * Please try to use WS response messages instead of this function if possible.
      * Based on Moodle's add_messages_on_page_view.
      *
-     * @param lesson Lesson.
-     * @param accessInfo Result of get access info. Required if offline is true.
-     * @param page Page loaded.
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param jumps Result of get pages possible jumps.
-     * @param password Lesson password (if any).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the list of messages.
+     * @param {any} lesson Lesson.
+     * @param {any} accessInfo Result of get access info. Required if offline is true.
+     * @param {any} page Page loaded.
+     * @param {boolean} review If the user wants to review just after finishing (1 hour margin).
+     * @param {any} jumps Result of get pages possible jumps.
+     * @param {string} [password] Lesson password (if any).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the list of messages.
      */
     getPageViewMessages(lesson: any, accessInfo: any, page: any, review: boolean, jumps: any, password?: string, siteId?: string)
             : Promise<any[]> {
@@ -1984,13 +1890,13 @@ export class AddonModLessonProvider {
     /**
      * Get questions attempts, including offline attempts.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param correct True to only fetch correct attempts, false to get them all.
-     * @param pageId If defined, only get attempts on this page.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's user.
-     * @return Promise resolved with the questions attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {boolean} [correct] True to only fetch correct attempts, false to get them all.
+     * @param {number} [pageId] If defined, only get attempts on this page.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's user.
+     * @return {Promise<{online: any[], offline: any[]}>} Promise resolved with the questions attempts.
      */
     getQuestionsAttempts(lessonId: number, retake: number, correct?: boolean, pageId?: number, siteId?: string, userId?: number)
             : Promise<{online: any[], offline: any[]}> {
@@ -2021,10 +1927,10 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get questions attempts WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param userId User ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {number} userId User ID.
+     * @return {string} Cache key.
      */
     protected getQuestionsAttemptsCacheKey(lessonId: number, retake: number, userId: number): string {
         return this.getQuestionsAttemptsCommonCacheKey(lessonId) + ':' + userId + ':' + retake;
@@ -2033,8 +1939,8 @@ export class AddonModLessonProvider {
     /**
      * Get common cache key for get questions attempts WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getQuestionsAttemptsCommonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'questionsAttempts:' + lessonId;
@@ -2043,15 +1949,15 @@ export class AddonModLessonProvider {
     /**
      * Get questions attempts from the site.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param correct True to only fetch correct attempts, false to get them all.
-     * @param pageId If defined, only get attempts on this page.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's user.
-     * @return Promise resolved with the questions attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {boolean} [correct] True to only fetch correct attempts, false to get them all.
+     * @param {number} [pageId] If defined, only get attempts on this page.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's user.
+     * @return {Promise<any[]>} Promise resolved with the questions attempts.
      */
     getQuestionsAttemptsOnline(lessonId: number, retake: number, correct?: boolean, pageId?: number, forceCache?: boolean,
             ignoreCache?: boolean, siteId?: string, userId?: number): Promise<any[]> {
@@ -2100,12 +2006,12 @@ export class AddonModLessonProvider {
     /**
      * Get the overview of retakes in a lesson (named "attempts overview" in Moodle).
      *
-     * @param lessonId Lesson ID.
-     * @param groupId The group to get. If not defined, all participants.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retakes overview.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} [groupId] The group to get. If not defined, all participants.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the retakes overview.
      */
     getRetakesOverview(lessonId: number, groupId?: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string)
             : Promise<any> {
@@ -2118,8 +2024,7 @@ export class AddonModLessonProvider {
                     groupid: groupId
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getRetakesOverviewCacheKey(lessonId, groupId),
-                    updateFrequency: CoreSite.FREQUENCY_OFTEN
+                    cacheKey: this.getRetakesOverviewCacheKey(lessonId, groupId)
                 };
 
             if (forceCache) {
@@ -2138,9 +2043,9 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get retakes overview WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param groupId Group ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} groupId Group ID.
+     * @return {string} Cache key.
      */
     protected getRetakesOverviewCacheKey(lessonId: number, groupId: number): string {
         return this.getRetakesOverviewCommonCacheKey(lessonId) + ':' + groupId;
@@ -2149,8 +2054,8 @@ export class AddonModLessonProvider {
     /**
      * Get common cache key for get retakes overview WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getRetakesOverviewCommonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'retakesOverview:' + lessonId;
@@ -2159,9 +2064,9 @@ export class AddonModLessonProvider {
     /**
      * Get a password stored in DB.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with password on success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<string>} Promise resolved with password on success, rejected otherwise.
      */
     getStoredPassword(lessonId: number, siteId?: string): Promise<string> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2176,10 +2081,10 @@ export class AddonModLessonProvider {
      * encountered or no more pages exist.
      * Based on Moodle's get_sub_pages_of.
      *
-     * @param pages Index of lesson pages, indexed by page ID. See createPagesIndex.
-     * @param pageId Page ID to get subpages of.
-     * @param end An array of LESSON_PAGE_* types that signify an end of the subtype.
-     * @return List of subpages.
+     * @param {any} pages Index of lesson pages, indexed by page ID. See createPagesIndex.
+     * @param {number} pageId Page ID to get subpages of.
+     * @param {number[]} end An array of LESSON_PAGE_* types that signify an end of the subtype.
+     * @return {Object[]} List of subpages.
      */
     getSubpagesOf(pages: any, pageId: number, ends: number[]): any[] {
         const subPages = [];
@@ -2203,12 +2108,12 @@ export class AddonModLessonProvider {
     /**
      * Get lesson timers.
      *
-     * @param lessonId Lesson ID.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's current user.
-     * @return Promise resolved with the pages.
+     * @param {number} lessonId Lesson ID.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @return {Promise<any[]>} Promise resolved with the pages.
      */
     getTimers(lessonId: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string, userId?: number): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2238,9 +2143,9 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get timers WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param userId User ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} userId User ID.
+     * @return {string} Cache key.
      */
     protected getTimersCacheKey(lessonId: number, userId: number): string {
         return this.getTimersCommonCacheKey(lessonId) + ':' + userId;
@@ -2249,8 +2154,8 @@ export class AddonModLessonProvider {
     /**
      * Get common cache key for get timers WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getTimersCommonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'timers:' + lessonId;
@@ -2259,8 +2164,8 @@ export class AddonModLessonProvider {
     /**
      * Get the list of used answers (with valid answer) in a multichoice question page.
      *
-     * @param pageData Result of getPageData for the page to process.
-     * @return List of used answers.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @return {any[]} List of used answers.
      */
     protected getUsedAnswersMultichoice(pageData: any): any[] {
         const answers = this.utils.clone(pageData.answers);
@@ -2273,8 +2178,8 @@ export class AddonModLessonProvider {
     /**
      * Get the user's response in a matching question page.
      *
-     * @param data Data containing the user answer.
-     * @return User response.
+     * @param {any} data Data containing the user answer.
+     * @return {any} User response.
      */
     protected getUserResponseMatching(data: any): any {
         if (data.response) {
@@ -2299,8 +2204,8 @@ export class AddonModLessonProvider {
     /**
      * Get the user's response in a multichoice page if multiple answers are allowed.
      *
-     * @param data Data containing the user answer.
-     * @return User response.
+     * @param {any} data Data containing the user answer.
+     * @return {any[]} User response.
      */
     protected getUserResponseMultichoice(data: any): any[] {
         if (data.answer) {
@@ -2329,13 +2234,13 @@ export class AddonModLessonProvider {
     /**
      * Get a user's retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number
-     * @param userId User ID. Undefined for current user.
-     * @param forceCache Whether it should always return cached data. Has priority over ignoreCache.
-     * @param ignoreCache Whether it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake data.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number
+     * @param {number} [userId] User ID. Undefined for current user.
+     * @param {boolean} [forceCache] Whether it should always return cached data. Has priority over ignoreCache.
+     * @param {boolean} [ignoreCache] Whether it should ignore cached data (it will always fail in offline or server down).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the retake data.
      */
     getUserRetake(lessonId: number, retake: number, userId?: number, forceCache?: boolean, ignoreCache?: boolean, siteId?: string)
             : Promise<any> {
@@ -2349,8 +2254,7 @@ export class AddonModLessonProvider {
                     lessonattempt: retake
                 },
                 preSets: CoreSiteWSPreSets = {
-                    cacheKey: this.getUserRetakeCacheKey(lessonId, userId, retake),
-                    updateFrequency: CoreSite.FREQUENCY_SOMETIMES
+                    cacheKey: this.getUserRetakeCacheKey(lessonId, userId, retake)
                 };
 
             if (forceCache) {
@@ -2367,10 +2271,10 @@ export class AddonModLessonProvider {
     /**
      * Get cache key for get user retake WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param userId User ID.
-     * @param retake Retake number
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} userId User ID.
+     * @param {number} retake Retake number
+     * @return {string} Cache key.
      */
     protected getUserRetakeCacheKey(lessonId: number, userId: number, retake: number): string {
         return this.getUserRetakeUserCacheKey(lessonId, userId) + ':' + retake;
@@ -2379,9 +2283,9 @@ export class AddonModLessonProvider {
     /**
      * Get user cache key for get user retake WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @param userId User ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} userId User ID.
+     * @return {string} Cache key.
      */
     protected getUserRetakeUserCacheKey(lessonId: number, userId: number): string {
         return this.getUserRetakeLessonCacheKey(lessonId) + ':' + userId;
@@ -2390,56 +2294,21 @@ export class AddonModLessonProvider {
     /**
      * Get lesson cache key for get user retake WS calls.
      *
-     * @param lessonId Lesson ID.
-     * @return Cache key.
+     * @param {number} lessonId Lesson ID.
+     * @return {string} Cache key.
      */
     protected getUserRetakeLessonCacheKey(lessonId: number): string {
         return this.ROOT_CACHE_KEY + 'userRetake:' + lessonId;
     }
 
     /**
-     * Get the prevent access reason to display for a certain lesson.
-     *
-     * @param info Lesson access info.
-     * @param ignorePassword Whether password protected reason should be ignored (user already entered the password).
-     * @param isReview Whether user is reviewing a retake.
-     * @return Prevent access reason.
-     */
-    getPreventAccessReason(info: any, ignorePassword?: boolean, isReview?: boolean): any {
-        let result;
-
-        if (info && info.preventaccessreasons) {
-            for (let i = 0; i < info.preventaccessreasons.length; i++) {
-                const entry = info.preventaccessreasons[i];
-
-                if (entry.reason == 'lessonopen' || entry.reason == 'lessonclosed') {
-                    // Time restrictions are the most prioritary, return it.
-                    return entry;
-                } else if (entry.reason == 'passwordprotectedlesson') {
-                    if (!ignorePassword) {
-                        // Treat password before all other reasons.
-                        result = entry;
-                    }
-                } else if (entry.reason == 'noretake' && isReview) {
-                    // Ignore noretake error when reviewing.
-                } else if (!result) {
-                    // Rest of cases, just return any of them.
-                    result = entry;
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
      * Check if a jump is correct.
      * Based in Moodle's jumpto_is_correct.
      *
-     * @param pageId ID of the page from which you are jumping from.
-     * @param jumpTo The jumpto number.
-     * @param pageIndex Object containing all the pages indexed by ID. See createPagesIndex.
-     * @return Whether jump is correct.
+     * @param {number} pageId ID of the page from which you are jumping from.
+     * @param {number} jumpTo The jumpto number.
+     * @param {any} pageIndex Object containing all the pages indexed by ID. See createPagesIndex.
+     * @return {boolean} Whether jump is correct.
      */
     jumptoIsCorrect(pageId: number, jumpTo: number, pageIndex: any): boolean {
         // First test the special values.
@@ -2473,9 +2342,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates Lesson data.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateAccessInformation(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2486,9 +2355,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates content pages viewed for all retakes.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContentPagesViewed(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2499,10 +2368,10 @@ export class AddonModLessonProvider {
     /**
      * Invalidates content pages viewed for a certain retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContentPagesViewedForRetake(lessonId: number, retake: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2513,9 +2382,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates Lesson data.
      *
-     * @param courseId Course ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} courseId Course ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateLessonData(courseId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2526,9 +2395,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates lesson with password.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateLessonWithPassword(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2539,9 +2408,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates page data for all pages.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidatePageData(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2552,10 +2421,10 @@ export class AddonModLessonProvider {
     /**
      * Invalidates page data for a certain page.
      *
-     * @param lessonId Lesson ID.
-     * @param pageId Page ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} pageId Page ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidatePageDataForPage(lessonId: number, pageId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2566,9 +2435,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates pages.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidatePages(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2579,9 +2448,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates pages possible jumps.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidatePagesPossibleJumps(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2592,9 +2461,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates questions attempts for all retakes.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateQuestionsAttempts(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2605,11 +2474,11 @@ export class AddonModLessonProvider {
     /**
      * Invalidates question attempts for a certain retake and user.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site..
-     * @param userId User ID. If not defined, site's user.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site..
+     * @param {number} [userId] User ID. If not defined, site's user.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateQuestionsAttemptsForRetake(lessonId: number, retake: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2622,9 +2491,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates retakes overview for all groups in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateRetakesOverview(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2635,10 +2504,10 @@ export class AddonModLessonProvider {
     /**
      * Invalidates retakes overview for a certain group in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param groupId Group ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} groupId Group ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateRetakesOverviewForGroup(lessonId: number, groupId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2649,9 +2518,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates timers for all users in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateTimers(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2662,10 +2531,10 @@ export class AddonModLessonProvider {
     /**
      * Invalidates timers for a certain user.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's current user.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's current user.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateTimersForUser(lessonId: number, siteId?: string, userId?: number): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2678,11 +2547,11 @@ export class AddonModLessonProvider {
     /**
      * Invalidates a certain retake for a certain user.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param userId User ID. Undefined for current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {number} [userId] User ID. Undefined for current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateUserRetake(lessonId: number, retake: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2695,9 +2564,9 @@ export class AddonModLessonProvider {
     /**
      * Invalidates all retakes for all users in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateUserRetakesForLesson(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2708,10 +2577,10 @@ export class AddonModLessonProvider {
     /**
      * Invalidates all retakes for a certain user in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param userId User ID. Undefined for current user.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} [userId] User ID. Undefined for current user.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateUserRetakesForUser(lessonId: number, userId?: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2724,11 +2593,11 @@ export class AddonModLessonProvider {
     /**
      * Check if a page answer is correct.
      *
-     * @param lesson Lesson.
-     * @param pageId The page ID.
-     * @param answer The answer to check.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @return Whether the answer is correct.
+     * @param {any} lesson Lesson.
+     * @param {number} pageId The page ID.
+     * @param {any} answer The answer to check.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @return {boolean} Whether the answer is correct.
      */
     protected isAnswerCorrect(lesson: any, pageId: number, answer: any, pageIndex: any): boolean {
         if (lesson.custom) {
@@ -2742,8 +2611,8 @@ export class AddonModLessonProvider {
     /**
      * Check if a lesson is enabled to be used in offline.
      *
-     * @param lesson Lesson.
-     * @return Whether offline is enabled.
+     * @param {any} lesson Lesson.
+     * @return {boolean} Whether offline is enabled.
      */
     isLessonOffline(lesson: any): boolean {
         return !!lesson.allowofflineattempts;
@@ -2752,8 +2621,8 @@ export class AddonModLessonProvider {
     /**
      * Check if a lesson is password protected based in the access info.
      *
-     * @param info Lesson access info.
-     * @return Whether the lesson is password protected.
+     * @param {any} info Lesson access info.
+     * @return {boolean} Whether the lesson is password protected.
      */
     isPasswordProtected(info: any): boolean {
         if (info && info.preventaccessreasons) {
@@ -2772,10 +2641,10 @@ export class AddonModLessonProvider {
     /**
      * Return whether or not the plugin is enabled in a certain site. Plugin is enabled if the lesson WS are available.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with true if plugin is enabled, rejected or resolved with false otherwise.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with true if plugin is enabled, rejected or resolved with false otherwise.
      */
-    isPluginEnabled(siteId?: string): Promise<boolean> {
+    isPluginEnabled(siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             // All WS were introduced at the same time so checking one is enough.
             return site.wsAvailable('mod_lesson_get_lesson_access_information');
@@ -2785,8 +2654,8 @@ export class AddonModLessonProvider {
     /**
      * Check if a page is a question page or a content page.
      *
-     * @param type Type of the page.
-     * @return True if question page, false if content page.
+     * @param {number} type Type of the page.
+     * @return {boolean} True if question page, false if content page.
      */
     isQuestionPage(type: number): boolean {
         return type == AddonModLessonProvider.TYPE_QUESTION;
@@ -2795,12 +2664,12 @@ export class AddonModLessonProvider {
     /**
      * Start or continue a retake.
      *
-     * @param id Lesson ID.
-     * @param password Lesson password (if any).
-     * @param pageId Page id to continue from (only when continuing a retake).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {string} id Lesson ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {number} [pageId] Page id to continue from (only when continuing a retake).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the WS call is successful.
      */
     launchRetake(id: number, password?: string, pageId?: number, review?: boolean, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -2816,22 +2685,15 @@ export class AddonModLessonProvider {
                 params.pageid = pageId;
             }
 
-            return site.write('mod_lesson_launch_attempt', params).then((response) => {
-                this.eventsProvider.trigger(AddonModLessonProvider.DATA_SENT_EVENT, {
-                    lessonId: id,
-                    type: 'launch'
-                }, this.sitesProvider.getCurrentSiteId());
-
-                return response;
-            });
+            return site.write('mod_lesson_launch_attempt', params);
         });
     }
 
     /**
      * Check if the user left during a timed session.
      *
-     * @param info Lesson access info.
-     * @return True if left during timed, false otherwise.
+     * @param {any} info Lesson access info.
+     * @return {boolean} True if left during timed, false otherwise.
      */
     leftDuringTimed(info: any): boolean {
         return info && info.lastpageseen && info.lastpageseen != AddonModLessonProvider.LESSON_EOL && info.leftduringtimedsession;
@@ -2841,8 +2703,8 @@ export class AddonModLessonProvider {
      * Checks to see if a LESSON_CLUSTERJUMP or a LESSON_UNSEENBRANCHPAGE is used in a lesson.
      * Based on Moodle's lesson_display_teacher_warning.
      *
-     * @param jumps Result of get pages possible jumps.
-     * @return Whether the lesson uses one of those jumps.
+     * @param {any} jumps Result of get pages possible jumps.
+     * @return {boolean} Whether the lesson uses one of those jumps.
      */
     lessonDisplayTeacherWarning(jumps: any): boolean {
         if (!jumps) {
@@ -2868,14 +2730,14 @@ export class AddonModLessonProvider {
      * Calculates a user's grade for a lesson.
      * Based on Moodle's lesson_grade.
      *
-     * @param lesson Lesson.
-     * @param retake Retake number.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param pageIndex Object containing all the pages indexed by ID. If not provided, it will be calculated.
-     * @param siteId Site ID. If not defined, current site.
-     * @param userId User ID. If not defined, site's user.
-     * @return Promise resolved with the grade data.
+     * @param {any} lesson Lesson.
+     * @param {number} retake Retake number.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {any} [pageIndex] Object containing all the pages indexed by ID. If not provided, it will be calculated.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {number} [userId] User ID. If not defined, site's user.
+     * @return {Promise<AddonModLessonCheckAnswerResult>} Promise resolved with the grade data.
      */
     lessonGrade(lesson: any, retake: number, password?: string, review?: boolean, pageIndex?: any, siteId?: string,
             userId?: number): Promise<AddonModLessonGrade> {
@@ -3017,13 +2879,12 @@ export class AddonModLessonProvider {
     /**
      * Report a lesson as being viewed.
      *
-     * @param id Module ID.
-     * @param password Lesson password (if any).
-     * @param name Name of the assign.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {string} id Module ID.
+     * @param {string} [password] Lesson password (if any).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the WS call is successful.
      */
-    logViewLesson(id: number, password?: string, name?: string, siteId?: string): Promise<any> {
+    logViewLesson(id: number, password?: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params: any = {
                 lessonid: id
@@ -3033,26 +2894,30 @@ export class AddonModLessonProvider {
                 params.password = password;
             }
 
-            return this.logHelper.logSingle('mod_lesson_view_lesson', params, AddonModLessonProvider.COMPONENT, id, name,
-                    'lesson', {}, siteId);
-        });
+            return site.write('mod_lesson_view_lesson', params).then((result) => {
+                if (!result.status) {
+                    return Promise.reject(null);
+                }
 
+                return result;
+            });
+        });
     }
 
     /**
      * Process a lesson page, saving its data.
      *
-     * @param lesson Lesson.
-     * @param courseId Course ID the lesson belongs to.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data to save.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param offline Whether it's offline mode.
-     * @param accessInfo Result of get access info. Required if offline is true.
-     * @param jumps Result of get pages possible jumps. Required if offline is true.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {any} lesson Lesson.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data to save.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {boolean} [offline] Whether it's offline mode.
+     * @param {any} [accessInfo] Result of get access info. Required if offline is true.
+     * @param {any} [jumps] Result of get pages possible jumps. Required if offline is true.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     processPage(lesson: any, courseId: number, pageData: any, data: any, password?: string, review?: boolean, offline?: boolean,
             accessInfo?: boolean, jumps?: any, siteId?: string): Promise<any> {
@@ -3089,38 +2954,25 @@ export class AddonModLessonProvider {
                 result.warnings = [];
                 result.displaymenu = pageData.displaymenu; // Keep the same value since we can't calculate it in offline.
                 result.messages = this.getPageProcessMessages(lesson, accessInfo, result, review, jumps);
-                result.sent = false;
                 Object.assign(result, calculatedData);
 
                 return result;
             });
         }
 
-        return this.processPageOnline(lesson.id, pageId, data, password, review, siteId).then((response) => {
-            this.eventsProvider.trigger(AddonModLessonProvider.DATA_SENT_EVENT, {
-                lessonId: lesson.id,
-                type: 'process',
-                courseId: courseId,
-                pageId: pageId,
-                review: review
-            }, this.sitesProvider.getCurrentSiteId());
-
-            response.sent = true;
-
-            return response;
-        });
+        return this.processPageOnline(lesson.id, pageId, data, password, review, siteId);
     }
 
     /**
      * Process a lesson page, saving its data. It will fail if offline or cannot connect.
      *
-     * @param lessonId Lesson ID.
-     * @param pageId Page ID.
-     * @param data Data to save.
-     * @param password Lesson password (if any).
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} pageId Page ID.
+     * @param {any} data Data to save.
+     * @param {string} [password] Lesson password (if any).
+     * @param {boolean} [review] If the user wants to review just after finishing (1 hour margin).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     processPageOnline(lessonId: number, pageId: number, data: any, password?: string, review?: boolean, siteId?: string)
             : Promise<any> {
@@ -3145,16 +2997,16 @@ export class AddonModLessonProvider {
      * Records an attempt on a certain page.
      * Based on Moodle's record_attempt.
      *
-     * @param lesson Lesson.
-     * @param courseId Course ID the lesson belongs to.
-     * @param pageData Result of getPageData for the page to process.
-     * @param data Data to save.
-     * @param review If the user wants to review just after finishing (1 hour margin).
-     * @param accessInfo Result of get access info.
-     * @param jumps Result of get pages possible jumps.
-     * @param pageIndex Object containing all the pages indexed by ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the result.
+     * @param {any} lesson Lesson.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {any} pageData Result of getPageData for the page to process.
+     * @param {any} data Data to save.
+     * @param {boolean} review If the user wants to review just after finishing (1 hour margin).
+     * @param {any} accessInfo Result of get access info.
+     * @param {any} jumps Result of get pages possible jumps.
+     * @param {any} pageIndex Object containing all the pages indexed by ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<AddonModLessonRecordAttemptResult>} Promise resolved with the result.
      */
     protected recordAttempt(lesson: any, courseId: number, pageData: any, data: any, review: boolean, accessInfo: any, jumps: any,
             pageIndex: any, siteId?: string): Promise<AddonModLessonRecordAttemptResult> {
@@ -3291,31 +3143,11 @@ export class AddonModLessonProvider {
                     }
 
                     return subPromise.then(() => {
-                        result.feedback += '<div class="box generalbox boxaligncenter p-y-1">' + pageData.page.contents + '</div>';
+                        result.feedback += '<div class="box generalbox boxaligncenter">' + pageData.page.contents + '</div>';
                         result.feedback += '<div class="correctanswer generalbox"><em>' +
                             this.translate.instant('addon.mod_lesson.youranswer') + '</em> : ' +
-                            '<div class="studentanswer m-t-2 m-b-2"><table class="generaltable"><tbody>';
-
-                        // Create a table containing the answers and responses.
-                        if (pageData.page.qoption) {
-                            // Multianswer allowed.
-                            const studentAnswerArray = result.studentanswer ?
-                                        result.studentanswer.split(AddonModLessonProvider.MULTIANSWER_DELIMITER) : [],
-                                responseArray = result.response ?
-                                        result.response.split(AddonModLessonProvider.MULTIANSWER_DELIMITER) : [];
-
-                            // Add answers and responses to the table.
-                            for (let i = 0; i < studentAnswerArray.length; i++) {
-                                result.feedback = this.addAnswerAndResponseToFeedback(result.feedback, studentAnswerArray[i],
-                                        result.studentanswerformat, responseArray[i], className);
-                            }
-                        } else {
-                            // Only 1 answer, add it to the table.
-                            result.feedback = this.addAnswerAndResponseToFeedback(result.feedback, result.studentanswer,
-                                    result.studentanswerformat, result.response, className);
-                        }
-
-                        result.feedback += '</tbody></table></div></div>';
+                            (result.studentanswerformat ? result.studentanswer : this.textUtils.cleanTags(result.studentanswer)) +
+                            '<div class="box ' + className + '">' + result.response + '</div></div>';
                     });
                 }
             });
@@ -3329,9 +3161,9 @@ export class AddonModLessonProvider {
     /**
      * Remove a password stored in DB.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when removed.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when removed.
      */
     removeStoredPassword(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -3342,10 +3174,10 @@ export class AddonModLessonProvider {
     /**
      * Store a password in DB.
      *
-     * @param lessonId Lesson ID.
-     * @param password Password to store.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when stored.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} password Password to store.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when stored.
      */
     storePassword(lessonId: number, password: string, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -3364,11 +3196,11 @@ export class AddonModLessonProvider {
      * modify the list of viewedPagesIds for cluster pages.
      * Based on Moodle's valid_page_and_view.
      *
-     * @param pages Index of lesson pages, indexed by page ID. See createPagesIndex.
-     * @param page Page to check.
-     * @param validPages Valid pages, indexed by page ID.
-     * @param viewedPagesIds List of viewed pages IDs.
-     * @return Next page ID.
+     * @param {any} pages Index of lesson pages, indexed by page ID. See createPagesIndex.
+     * @param {any} page Page to check.
+     * @param {any} validPages Valid pages, indexed by page ID.
+     * @param {number[]} viewedPagesIds List of viewed pages IDs.
+     * @return {number} Next page ID.
      */
     validPageAndView(pages: any, page: any, validPages: any, viewedPagesIds: number[]): number {
 

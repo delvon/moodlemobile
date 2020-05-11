@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ export class CoreEventsProvider {
     static PASSWORD_CHANGE_FORCED = 'password_change_forced';
     static USER_NOT_FULLY_SETUP = 'user_not_fully_setup';
     static SITE_POLICY_NOT_AGREED = 'site_policy_not_agreed';
+    static SITE_POLICY_CONSENT_PENDING = 'site_policy_consent_pending'; // CATALYST CUSTOM.
     static LOGIN = 'login';
     static LOGOUT = 'logout';
     static LANGUAGE_CHANGED = 'language_changed';
@@ -48,7 +49,6 @@ export class CoreEventsProvider {
     static COURSE_STATUS_CHANGED = 'course_status_changed';
     static SECTION_STATUS_CHANGED = 'section_status_changed';
     static SITE_PLUGINS_LOADED = 'site_plugins_loaded';
-    static SITE_PLUGINS_COURSE_RESTRICT_UPDATED = 'site_plugins_course_restrict_updated';
     static LOGIN_SITE_CHECKED = 'login_site_checked';
     static LOGIN_SITE_UNCHECKED = 'login_site_unchecked';
     static IAB_LOAD_START = 'inappbrowser_load_start';
@@ -57,14 +57,6 @@ export class CoreEventsProvider {
     static FILE_SHARED = 'file_shared';
     static KEYBOARD_CHANGE = 'keyboard_change';
     static CORE_LOADING_CHANGED = 'core_loading_changed';
-    static ORIENTATION_CHANGE = 'orientation_change';
-    static LOAD_PAGE_MAIN_MENU = 'load_page_main_menu';
-    static SEND_ON_ENTER_CHANGED = 'send_on_enter_changed';
-    static MAIN_MENU_OPEN = 'main_menu_open';
-    static SELECT_COURSE_TAB = 'select_course_tab';
-    static WS_CACHE_INVALIDATED = 'ws_cache_invalidated';
-    static SITE_STORAGE_DELETED = 'site_storage_deleted';
-    static FORM_ACTION = 'form_action';
 
     protected logger;
     protected observables: { [s: string]: Subject<any> } = {};
@@ -80,10 +72,10 @@ export class CoreEventsProvider {
      * ...
      * observer.off();
      *
-     * @param eventName Name of the event to listen to.
-     * @param callBack Function to call when the event is triggered.
-     * @param siteId Site where to trigger the event. Undefined won't check the site.
-     * @return Observer to stop listening.
+     * @param {string} eventName Name of the event to listen to.
+     * @param {Function} callBack Function to call when the event is triggered.
+     * @param {string} [siteId] Site where to trigger the event. Undefined won't check the site.
+     * @return {CoreEventObserver} Observer to stop listening.
      */
     on(eventName: string, callBack: (value: any) => void, siteId?: string): CoreEventObserver {
         // If it's a unique event and has been triggered already, call the callBack.
@@ -124,9 +116,9 @@ export class CoreEventsProvider {
     /**
      * Triggers an event, notifying all the observers.
      *
-     * @param event Name of the event to trigger.
-     * @param data Data to pass to the observers.
-     * @param siteId Site where to trigger the event. Undefined means no Site.
+     * @param {string} event Name of the event to trigger.
+     * @param {any} [data] Data to pass to the observers.
+     * @param {string} [siteId] Site where to trigger the event. Undefined means no Site.
      */
     trigger(eventName: string, data?: any, siteId?: string): void {
         this.logger.debug(`Event '${eventName}' triggered.`);
@@ -144,9 +136,9 @@ export class CoreEventsProvider {
     /**
      * Triggers a unique event, notifying all the observers. If the event has already been triggered, don't do anything.
      *
-     * @param event Name of the event to trigger.
-     * @param data Data to pass to the observers.
-     * @param siteId Site where to trigger the event. Undefined means no Site.
+     * @param {string} event Name of the event to trigger.
+     * @param {any} data Data to pass to the observers.
+     * @param {string} [siteId] Site where to trigger the event. Undefined means no Site.
      */
     triggerUnique(eventName: string, data: any, siteId?: string): void {
         if (this.uniqueEvents[eventName]) {

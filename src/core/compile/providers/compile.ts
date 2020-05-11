@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,24 +23,18 @@ import { CoreLoggerProvider } from '@providers/logger';
 
 // Import core providers.
 import { CORE_PROVIDERS } from '@app/app.module';
-import { CORE_BLOCK_PROVIDERS } from '@core/block/block.module';
 import { CORE_CONTENTLINKS_PROVIDERS } from '@core/contentlinks/contentlinks.module';
 import { CORE_COURSE_PROVIDERS } from '@core/course/course.module';
 import { CORE_COURSES_PROVIDERS } from '@core/courses/courses.module';
 import { CORE_FILEUPLOADER_PROVIDERS } from '@core/fileuploader/fileuploader.module';
-import { CORE_FILTER_PROVIDERS } from '@core/filter/filter.module';
 import { CORE_GRADES_PROVIDERS } from '@core/grades/grades.module';
-import { CORE_H5P_PROVIDERS } from '@core/h5p/h5p.module';
 import { CORE_LOGIN_PROVIDERS } from '@core/login/login.module';
 import { CORE_MAINMENU_PROVIDERS } from '@core/mainmenu/mainmenu.module';
 import { CORE_QUESTION_PROVIDERS } from '@core/question/question.module';
 import { CORE_SHAREDFILES_PROVIDERS } from '@core/sharedfiles/sharedfiles.module';
 import { CORE_SITEHOME_PROVIDERS } from '@core/sitehome/sitehome.module';
 import { CORE_USER_PROVIDERS } from '@core/user/user.module';
-import { CORE_PUSHNOTIFICATIONS_PROVIDERS } from '@core/pushnotifications/pushnotifications.module';
 import { IONIC_NATIVE_PROVIDERS } from '@core/emulator/emulator.module';
-import { CORE_EDITOR_PROVIDERS } from '@core/editor/editor.module';
-import { CORE_SEARCH_PROVIDERS } from '@core/search/search.module';
 
 // Import only this provider to prevent circular dependencies.
 import { CoreSitePluginsProvider } from '@core/siteplugins/providers/siteplugins';
@@ -48,6 +42,7 @@ import { CoreSitePluginsProvider } from '@core/siteplugins/providers/siteplugins
 // Import other libraries and providers.
 import { DomSanitizer } from '@angular/platform-browser';
 import { FormBuilder, Validators } from '@angular/forms';
+import { Http } from '@angular/http';
 import { HttpClient } from '@angular/common/http';
 import { CoreConfigConstants } from '../../../configconstants';
 import { CoreConstants } from '@core/constants';
@@ -56,7 +51,6 @@ import { Md5 } from 'ts-md5/dist/md5';
 
 // Import core classes that can be useful for site plugins.
 import { CoreSyncBaseProvider } from '@classes/base-sync';
-import { CoreUrl } from '@classes/utils/url';
 import { CoreCache } from '@classes/cache';
 import { CoreDelegate } from '@classes/delegate';
 import { CoreContentLinksHandlerBase } from '@core/contentlinks/classes/base-handler';
@@ -76,15 +70,11 @@ import { CoreSitePluginsDirectivesModule } from '@core/siteplugins/directives/di
 import { CoreSiteHomeComponentsModule } from '@core/sitehome/components/components.module';
 import { CoreUserComponentsModule } from '@core/user/components/components.module';
 import { CoreQuestionComponentsModule } from '@core/question/components/components.module';
-import { CoreBlockComponentsModule } from '@core/block/components/components.module';
-import { CoreEditorComponentsModule } from '@core/editor/components/components.module';
-import { CoreSearchComponentsModule } from '@core/search/components/components.module';
 
 // Import some components listed in entryComponents so they can be injected dynamically.
 import { CoreCourseUnsupportedModuleComponent } from '@core/course/components/unsupported-module/unsupported-module';
 import { CoreCourseFormatSingleActivityComponent } from '@core/course/formats/singleactivity/components/singleactivity';
 import { CoreSitePluginsModuleIndexComponent } from '@core/siteplugins/components/module-index/module-index';
-import { CoreSitePluginsBlockComponent } from '@core/siteplugins/components/block/block';
 import { CoreSitePluginsCourseOptionComponent } from '@core/siteplugins/components/course-option/course-option';
 import { CoreSitePluginsCourseFormatComponent } from '@core/siteplugins/components/course-format/course-format';
 import { CoreSitePluginsQuestionComponent } from '@core/siteplugins/components/question/question';
@@ -122,6 +112,7 @@ import { ADDON_MOD_WIKI_PROVIDERS } from '@addon/mod/wiki/wiki.module';
 import { ADDON_MOD_WORKSHOP_PROVIDERS } from '@addon/mod/workshop/workshop.module';
 import { ADDON_NOTES_PROVIDERS } from '@addon/notes/notes.module';
 import { ADDON_NOTIFICATIONS_PROVIDERS } from '@addon/notifications/notifications.module';
+import { ADDON_PUSHNOTIFICATIONS_PROVIDERS } from '@addon/pushnotifications/pushnotifications.module';
 import { ADDON_REMOTETHEMES_PROVIDERS } from '@addon/remotethemes/remotethemes.module';
 
 // Import some addon modules that define components, directives and pipes. Only import the important ones.
@@ -139,7 +130,7 @@ export class CoreCompileProvider {
 
     // Other Ionic/Angular providers that don't depend on where they are injected.
     protected OTHER_PROVIDERS = [
-        TranslateService, HttpClient, Platform, DomSanitizer, ActionSheetController, AlertController, LoadingController,
+        TranslateService, Http, HttpClient, Platform, DomSanitizer, ActionSheetController, AlertController, LoadingController,
         ModalController, PopoverController, ToastController, FormBuilder
     ];
 
@@ -148,7 +139,7 @@ export class CoreCompileProvider {
         IonicModule, TranslateModule.forChild(), CoreComponentsModule, CoreDirectivesModule, CorePipesModule,
         CoreCourseComponentsModule, CoreCoursesComponentsModule, CoreSiteHomeComponentsModule, CoreUserComponentsModule,
         CoreCourseDirectivesModule, CoreSitePluginsDirectivesModule, CoreQuestionComponentsModule, AddonModAssignComponentsModule,
-        AddonModWorkshopComponentsModule, CoreBlockComponentsModule, CoreEditorComponentsModule, CoreSearchComponentsModule
+        AddonModWorkshopComponentsModule
     ];
 
     constructor(protected injector: Injector, logger: CoreLoggerProvider, compilerFactory: JitCompilerFactory) {
@@ -160,10 +151,10 @@ export class CoreCompileProvider {
     /**
      * Create and compile a dynamic component.
      *
-     * @param template The template of the component.
-     * @param componentClass The JS class of the component.
-     * @param extraImports Extra imported modules if needed and not imported by this class.
-     * @return Promise resolved with the factory to instantiate the component.
+     * @param {string} template The template of the component.
+     * @param {any} componentClass The JS class of the component.
+     * @param {any[]} [extraImports] Extra imported modules if needed and not imported by this class.
+     * @return {Promise<ComponentFactory<any>>} Promise resolved with the factory to instantiate the component.
      */
     createAndCompileComponent(template: string, componentClass: any, extraImports: any[] = []): Promise<ComponentFactory<any>> {
         // Create the component using the template and the class.
@@ -177,27 +168,23 @@ export class CoreCompileProvider {
         // Now create the module containing the component.
         const module = NgModule({imports: imports, declarations: [component]})(class {});
 
-        try {
-            // Compile the module and the component.
-            return this.compiler.compileModuleAndAllComponentsAsync(module).then((factories) => {
-                // Search and return the factory of the component we just created.
-                for (const i in factories.componentFactories) {
-                    const factory = factories.componentFactories[i];
-                    if (factory.componentType == component) {
-                        return factory;
-                    }
+        // Compile the module and the component.
+        return this.compiler.compileModuleAndAllComponentsAsync(module).then((factories) => {
+            // Search and return the factory of the component we just created.
+            for (const i in factories.componentFactories) {
+                const factory = factories.componentFactories[i];
+                if (factory.componentType == component) {
+                    return factory;
                 }
-            });
-        } catch (ex) {
-            return Promise.reject({message: 'Template has some errors and cannot be displayed.', debuginfo: ex});
-        }
+            }
+        });
     }
 
     /**
      * Eval some javascript using the context of the function.
      *
-     * @param javascript The javascript to eval.
-     * @return Result of the eval.
+     * @param {string} javascript The javascript to eval.
+     * @return {any} Result of the eval.
      */
     protected evalInContext(javascript: string): any {
         // tslint:disable: no-eval
@@ -207,9 +194,9 @@ export class CoreCompileProvider {
     /**
      * Execute some javascript code, using a certain instance as the context.
      *
-     * @param instance Instance to use as the context. In the JS code, "this" will be this instance.
-     * @param javascript The javascript code to eval.
-     * @return Result of the javascript execution.
+     * @param {any} instance Instance to use as the context. In the JS code, "this" will be this instance.
+     * @param {string} javascript The javascript code to eval.
+     * @return {any} Result of the javascript execution.
      */
     executeJavascript(instance: any, javascript: string): any {
         try {
@@ -222,8 +209,8 @@ export class CoreCompileProvider {
     /**
      * Inject all the core libraries in a certain object.
      *
-     * @param instance The instance where to inject the libraries.
-     * @param extraProviders Extra imported providers if needed and not imported by this class.
+     * @param {any} instance The instance where to inject the libraries.
+     * @param {any[]} [extraProviders] Extra imported providers if needed and not imported by this class.
      */
     injectLibraries(instance: any, extraProviders: any[] = []): void {
         const providers = (<any[]> CORE_PROVIDERS).concat(CORE_CONTENTLINKS_PROVIDERS).concat(CORE_COURSE_PROVIDERS)
@@ -240,9 +227,7 @@ export class CoreCompileProvider {
                 .concat(ADDON_MOD_QUIZ_PROVIDERS).concat(ADDON_MOD_RESOURCE_PROVIDERS).concat(ADDON_MOD_SCORM_PROVIDERS)
                 .concat(ADDON_MOD_SURVEY_PROVIDERS).concat(ADDON_MOD_URL_PROVIDERS).concat(ADDON_MOD_WIKI_PROVIDERS)
                 .concat(ADDON_MOD_WORKSHOP_PROVIDERS).concat(ADDON_NOTES_PROVIDERS).concat(ADDON_NOTIFICATIONS_PROVIDERS)
-                .concat(CORE_PUSHNOTIFICATIONS_PROVIDERS).concat(ADDON_REMOTETHEMES_PROVIDERS).concat(CORE_BLOCK_PROVIDERS)
-                .concat(CORE_FILTER_PROVIDERS).concat(CORE_H5P_PROVIDERS).concat(CORE_EDITOR_PROVIDERS)
-                .concat(CORE_SEARCH_PROVIDERS);
+                .concat(ADDON_PUSHNOTIFICATIONS_PROVIDERS).concat(ADDON_REMOTETHEMES_PROVIDERS);
 
         // We cannot inject anything to this constructor. Use the Injector to inject all the providers into the instance.
         for (const i in providers) {
@@ -268,7 +253,6 @@ export class CoreCompileProvider {
         instance['moment'] = moment;
         instance['Md5'] = Md5;
         instance['CoreSyncBaseProvider'] = CoreSyncBaseProvider;
-        instance['CoreUrl'] = CoreUrl;
         instance['CoreCache'] = CoreCache;
         instance['CoreDelegate'] = CoreDelegate;
         instance['CoreContentLinksHandlerBase'] = CoreContentLinksHandlerBase;
@@ -279,7 +263,6 @@ export class CoreCompileProvider {
         instance['CoreCourseUnsupportedModuleComponent'] = CoreCourseUnsupportedModuleComponent;
         instance['CoreCourseFormatSingleActivityComponent'] = CoreCourseFormatSingleActivityComponent;
         instance['CoreSitePluginsModuleIndexComponent'] = CoreSitePluginsModuleIndexComponent;
-        instance['CoreSitePluginsBlockComponent'] = CoreSitePluginsBlockComponent;
         instance['CoreSitePluginsCourseOptionComponent'] = CoreSitePluginsCourseOptionComponent;
         instance['CoreSitePluginsCourseFormatComponent'] = CoreSitePluginsCourseFormatComponent;
         instance['CoreSitePluginsQuestionComponent'] = CoreSitePluginsQuestionComponent;
@@ -293,10 +276,10 @@ export class CoreCompileProvider {
     /**
      * Instantiate a dynamic component.
      *
-     * @param template The template of the component.
-     * @param componentClass The JS class of the component.
-     * @param injector The injector to use. It's recommended to pass it so NavController and similar can be injected.
-     * @return Promise resolved with the component instance.
+     * @param {string} template The template of the component.
+     * @param {any} componentClass The JS class of the component.
+     * @param {Injector} [injector] The injector to use. It's recommended to pass it so NavController and similar can be injected.
+     * @return {Promise<ComponentRef<any>>} Promise resolved with the component instance.
      */
     instantiateDynamicComponent(template: string, componentClass: any, injector?: Injector): Promise<ComponentRef<any>> {
         injector = injector || this.injector;

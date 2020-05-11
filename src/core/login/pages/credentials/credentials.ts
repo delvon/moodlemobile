@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreAppProvider } from '@providers/app';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
+import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreLoginHelperProvider } from '../../providers/helper';
+import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
+import { CoreContentLinksHelperProvider } from '@core/contentlinks/providers/helper';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { CoreConfigConstants } from '../../../../configconstants';
 
 /**
  * Page to enter the user credentials.
@@ -32,9 +34,6 @@ import { CoreConfigConstants } from '../../../../configconstants';
     templateUrl: 'credentials.html',
 })
 export class CoreLoginCredentialsPage {
-
-    @ViewChild('credentialsForm') formElement: ElementRef;
-
     credForm: FormGroup;
     siteUrl: string;
     siteChecked = false;
@@ -45,8 +44,6 @@ export class CoreLoginCredentialsPage {
     identityProviders: any[];
     pageLoaded = false;
     isBrowserSSO = false;
-    isFixedUrlSet = false;
-    showForgottenPassword = true;
 
     protected siteConfig;
     protected eventThrown = false;
@@ -54,15 +51,11 @@ export class CoreLoginCredentialsPage {
     protected siteId: string;
     protected urlToOpen: string;
 
-    constructor(private navCtrl: NavController,
-            navParams: NavParams,
-            fb: FormBuilder,
-            private appProvider: CoreAppProvider,
-            private sitesProvider: CoreSitesProvider,
-            private loginHelper: CoreLoginHelperProvider,
-            private domUtils: CoreDomUtilsProvider,
-            private translate: TranslateService,
-            private eventsProvider: CoreEventsProvider) {
+    constructor(private navCtrl: NavController, navParams: NavParams, fb: FormBuilder, private appProvider: CoreAppProvider,
+            private sitesProvider: CoreSitesProvider, private loginHelper: CoreLoginHelperProvider,
+            private domUtils: CoreDomUtilsProvider, private translate: TranslateService, private utils: CoreUtilsProvider,
+            private eventsProvider: CoreEventsProvider, private contentLinksDelegate: CoreContentLinksDelegate,
+            private contentLinksHelper: CoreContentLinksHelperProvider) {
 
         this.siteUrl = navParams.get('siteUrl');
         this.siteConfig = navParams.get('siteConfig');
@@ -79,22 +72,14 @@ export class CoreLoginCredentialsPage {
      */
     ionViewDidLoad(): void {
         this.treatSiteConfig();
-        this.isFixedUrlSet = this.loginHelper.isFixedUrlSet();
 
-        if (this.isFixedUrlSet) {
+        if (this.loginHelper.isFixedUrlSet()) {
             // Fixed URL, we need to check if it uses browser SSO login.
             this.checkSite(this.siteUrl);
         } else {
             this.siteChecked = true;
             this.pageLoaded = true;
         }
-    }
-
-    /**
-     * View enter.
-     */
-    ionViewDidEnter(): void {
-        this.viewLeft = false;
     }
 
     /**
@@ -109,8 +94,8 @@ export class CoreLoginCredentialsPage {
      * Check if a site uses local_mobile, requires SSO login, etc.
      * This should be used only if a fixed URL is set, otherwise this check is already performed in CoreLoginSitePage.
      *
-     * @param siteUrl Site URL to check.
-     * @return Promise resolved when done.
+     * @param {string} siteUrl Site URL to check.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected checkSite(siteUrl: string): Promise<any> {
         this.pageLoaded = false;
@@ -155,15 +140,11 @@ export class CoreLoginCredentialsPage {
      */
     protected treatSiteConfig(): void {
         if (this.siteConfig) {
-            this.siteName = CoreConfigConstants.sitename ? CoreConfigConstants.sitename : this.siteConfig.sitename;
-            this.logoUrl = this.loginHelper.getLogoUrl(this.siteConfig);
+            this.siteName = this.siteConfig.sitename;
+            this.logoUrl = this.siteConfig.logourl || this.siteConfig.compactlogourl;
             this.authInstructions = this.siteConfig.authinstructions || this.translate.instant('core.login.loginsteps');
-
-            const disabledFeatures = this.loginHelper.getDisabledFeatures(this.siteConfig);
-            this.identityProviders = this.loginHelper.getValidIdentityProviders(this.siteConfig, disabledFeatures);
-            this.canSignup = this.siteConfig.registerauth == 'email' &&
-                    !this.loginHelper.isEmailSignupDisabled(this.siteConfig, disabledFeatures);
-            this.showForgottenPassword = !this.loginHelper.isForgottenPasswordDisabled(this.siteConfig, disabledFeatures);
+            this.canSignup = this.siteConfig.registerauth == 'email' && !this.loginHelper.isEmailSignupDisabled(this.siteConfig);
+            this.identityProviders = this.loginHelper.getValidIdentityProviders(this.siteConfig);
 
             if (!this.eventThrown && !this.viewLeft) {
                 this.eventThrown = true;
@@ -180,15 +161,8 @@ export class CoreLoginCredentialsPage {
 
     /**
      * Tries to authenticate the user.
-     *
-     * @param e Event.
      */
-    login(e?: Event): void {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
+    login(): void {
         this.appProvider.closeKeyboard();
 
         // Get input data.
@@ -236,17 +210,25 @@ export class CoreLoginCredentialsPage {
 
                 this.siteId = id;
 
-                return this.loginHelper.goToSiteInitialPage(undefined, undefined, undefined, undefined, this.urlToOpen);
+                if (this.urlToOpen) {
+                    // There's a content link to open.
+                    return this.contentLinksDelegate.getActionsFor(this.urlToOpen, undefined, username).then((actions) => {
+                        const action = this.contentLinksHelper.getFirstValidAction(actions);
+                        if (action && action.sites.length) {
+                            // Action should only have 1 site because we're filtering by username.
+                            action.action(action.sites[0]);
+                        } else {
+                            return this.loginHelper.goToSiteInitialPage();
+                        }
+                    });
+                } else {
+                    return this.loginHelper.goToSiteInitialPage();
+                }
             });
         }).catch((error) => {
-            this.loginHelper.treatUserTokenError(siteUrl, error, username, password);
-            if (error.loggedout) {
-                this.navCtrl.setRoot('CoreLoginSitesPage');
-            }
+            this.loginHelper.treatUserTokenError(siteUrl, error);
         }).finally(() => {
             modal.dismiss();
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, true);
         });
     }
 
@@ -254,13 +236,32 @@ export class CoreLoginCredentialsPage {
      * Forgotten password button clicked.
      */
     forgottenPassword(): void {
-        this.loginHelper.forgottenPasswordClicked(this.navCtrl, this.siteUrl, this.credForm.value.username, this.siteConfig);
+        if (this.siteConfig && this.siteConfig.forgottenpasswordurl) {
+            // URL set, open it.
+            this.utils.openInApp(this.siteConfig.forgottenpasswordurl);
+
+            return;
+        }
+
+        // Check if password reset can be done through the app.
+        const modal = this.domUtils.showModalLoading();
+        this.loginHelper.canRequestPasswordReset(this.siteUrl).then((canReset) => {
+            if (canReset) {
+                this.navCtrl.push('CoreLoginForgottenPasswordPage', {
+                    siteUrl: this.siteUrl, username: this.credForm.value.username
+                });
+            } else {
+                this.loginHelper.openForgottenPassword(this.siteUrl);
+            }
+        }).finally(() => {
+            modal.dismiss();
+        });
     }
 
     /**
      * An OAuth button was clicked.
      *
-     * @param provider The provider that was clicked.
+     * @param {any} provider The provider that was clicked.
      */
     oauthClicked(provider: any): void {
         if (!this.loginHelper.openBrowserForOAuthLogin(this.siteUrl, provider, this.siteConfig.launchurl)) {

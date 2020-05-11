@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
+import { ModalController } from 'ionic-angular';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreUserProvider } from '@core/user/providers/user';
 import { CoreUserDelegate, CoreUserProfileHandler, CoreUserProfileHandlerData } from '@core/user/providers/user-delegate';
-import { CoreContentLinksHelperProvider } from '@core/contentlinks/providers/helper';
 import { CoreSitesProvider } from '@providers/sites';
 import { AddonNotesProvider } from './notes';
 
@@ -25,36 +25,36 @@ import { AddonNotesProvider } from './notes';
  */
 @Injectable()
 export class AddonNotesUserHandler implements CoreUserProfileHandler {
-    name = 'AddonNotes:notes';
-    priority = 100;
-    type = CoreUserDelegate.TYPE_NEW_PAGE;
-    noteEnabledCache = {};
+    name = 'AddonNotes:addNote';
+    priority = 200;
+    type = CoreUserDelegate.TYPE_COMMUNICATION;
+    addNoteEnabledCache = {};
 
-    constructor(private linkHelper: CoreContentLinksHelperProvider, private sitesProvider: CoreSitesProvider,
+    constructor(private modalCtrl: ModalController, private sitesProvider: CoreSitesProvider,
             private notesProvider: AddonNotesProvider, eventsProvider: CoreEventsProvider) {
-        eventsProvider.on(CoreEventsProvider.LOGOUT, this.clearNoteCache.bind(this));
+        eventsProvider.on(CoreEventsProvider.LOGOUT, this.clearAddNoteCache.bind(this));
         eventsProvider.on(CoreUserProvider.PROFILE_REFRESHED, (data) => {
-            this.clearNoteCache(data.courseId);
+            this.clearAddNoteCache(data.courseId);
         });
     }
 
     /**
-     * Clear note cache.
+     * Clear add note cache.
      * If a courseId is specified, it will only delete the entry for that course.
      *
-     * @param courseId Course ID.
+     * @param {number} [courseId] Course ID.
      */
-    private clearNoteCache(courseId?: number): void {
+    private clearAddNoteCache(courseId?: number): void {
         if (courseId) {
-            delete this.noteEnabledCache[courseId];
+            delete this.addNoteEnabledCache[courseId];
         } else {
-            this.noteEnabledCache = {};
+            this.addNoteEnabledCache = {};
         }
     }
 
     /**
      * Whether or not the handler is enabled on a site level.
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean|Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.notesProvider.isPluginEnabled();
@@ -63,24 +63,24 @@ export class AddonNotesUserHandler implements CoreUserProfileHandler {
     /**
      * Check if handler is enabled for this user in this context.
      *
-     * @param user User to check.
-     * @param courseId Course ID.
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return Promise resolved with true if enabled, resolved with false otherwise.
+     * @param {any} user User to check.
+     * @param {number} courseId Course ID.
+     * @param {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return {boolean|Promise<boolean>} Promise resolved with true if enabled, resolved with false otherwise.
      */
     isEnabledForUser(user: any, courseId: number, navOptions?: any, admOptions?: any): boolean | Promise<boolean> {
         // Active course required.
         if (!courseId || user.id == this.sitesProvider.getCurrentSiteUserId()) {
-            return false;
+            return Promise.resolve(false);
         }
 
-        if (typeof this.noteEnabledCache[courseId] != 'undefined') {
-            return this.noteEnabledCache[courseId];
+        if (typeof this.addNoteEnabledCache[courseId] != 'undefined') {
+            return this.addNoteEnabledCache[courseId];
         }
 
-        return this.notesProvider.isPluginViewNotesEnabledForCourse(courseId).then((enabled) => {
-            this.noteEnabledCache[courseId] = enabled;
+        return this.notesProvider.isPluginAddNoteEnabledForCourse(courseId).then((enabled) => {
+            this.addNoteEnabledCache[courseId] = enabled;
 
             return enabled;
         });
@@ -89,18 +89,18 @@ export class AddonNotesUserHandler implements CoreUserProfileHandler {
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreUserProfileHandlerData} Data needed to render the handler.
      */
     getDisplayData(user: any, courseId: number): CoreUserProfileHandlerData {
         return {
             icon: 'list',
-            title: 'addon.notes.notes',
+            title: 'addon.notes.addnewnote',
             class: 'addon-notes-handler',
             action: (event, navCtrl, user, courseId): void => {
                 event.preventDefault();
                 event.stopPropagation();
-
-                this.linkHelper.goInSite(navCtrl, 'AddonNotesListPage', { userId: user.id, courseId: courseId });
+                const modal = this.modalCtrl.create('AddonNotesAddPage', { userId: user.id, courseId });
+                modal.present();
             }
         };
     }

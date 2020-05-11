@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreCourseProvider } from '@core/course/providers/course';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
 import { CoreCourseActivityPrefetchHandlerBase } from '@core/course/classes/activity-prefetch-handler';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
-import { CorePluginFileDelegate } from '@providers/plugin-file-delegate';
 
 /**
  * Handler to prefetch a module site plugin.
@@ -32,23 +30,12 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
 
     protected isResource: boolean;
 
-    constructor(translate: TranslateService,
-            appProvider: CoreAppProvider,
-            utils: CoreUtilsProvider,
-            courseProvider: CoreCourseProvider,
-            filepoolProvider: CoreFilepoolProvider,
-            sitesProvider: CoreSitesProvider,
-            domUtils: CoreDomUtilsProvider,
-            filterHelper: CoreFilterHelperProvider,
-            pluginFileDelegate: CorePluginFileDelegate,
-            protected sitePluginsProvider: CoreSitePluginsProvider,
-            component: string,
-            name: string,
-            modName: string,
-            protected handlerSchema: any) {
+    constructor(translate: TranslateService, appProvider: CoreAppProvider, utils: CoreUtilsProvider,
+            courseProvider: CoreCourseProvider, filepoolProvider: CoreFilepoolProvider, sitesProvider: CoreSitesProvider,
+            domUtils: CoreDomUtilsProvider, protected sitePluginsProvider: CoreSitePluginsProvider, component: string,
+            name: string, modName: string, protected handlerSchema: any) {
 
-        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils, filterHelper,
-                pluginFileDelegate);
+        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils);
 
         this.component = component;
         this.name = name;
@@ -67,10 +54,10 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Download the module.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when all content is downloaded.
+     * @param {any} module The module object returned by WS.
+     * @param {number} courseId Course ID.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when all content is downloaded.
      */
     download(module: any, courseId: number, dirPath?: string): Promise<any> {
         return this.prefetchPackage(module, courseId, false, this.downloadPrefetchPlugin.bind(this), undefined, false, dirPath);
@@ -79,13 +66,13 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Download or prefetch the plugin, downloading the files and calling the needed WS.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param siteId Site ID. If not defined, current site.
-     * @param prefetch True to prefetch, false to download right away.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when done.
+     * @param {any} module The module object returned by WS.
+     * @param {number} courseId Course ID.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {boolean} [prefetch] True to prefetch, false to download right away.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected downloadPrefetchPlugin(module: any, courseId: number, single?: boolean, siteId?: string, prefetch?: boolean,
             dirPath?: string): Promise<any> {
@@ -112,11 +99,11 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Download or prefetch the plugin files.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID.
-     * @param prefetch True to prefetch, false to download right away.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when done.
+     * @param {any} module The module object returned by WS.
+     * @param {number} courseId Course ID.
+     * @param {boolean} [prefetch] True to prefetch, false to download right away.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected downloadOrPrefetchFiles(siteId: string, module: any, courseId: number, prefetch?: boolean, dirPath?: string)
             : Promise<any> {
@@ -150,11 +137,11 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Get the download size of a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved with the size and a boolean indicating if it was able
-     *         to calculate the total size.
+     * @param {any} module Module.
+     * @param {Number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<{size: number, total: boolean}>} Promise resolved with the size and a boolean indicating if it was able
+     *                                                   to calculate the total size.
      */
     getDownloadSize(module: any, courseId: number, single?: boolean): Promise<{ size: number, total: boolean }> {
         // In most cases, to calculate the size we'll have to do all the WS calls. Just return unknown size.
@@ -164,9 +151,9 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} moduleId The module ID.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number): Promise<any> {
         const promises = [],
@@ -199,7 +186,7 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
+     * @return {boolean|Promise<boolean>} A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -208,10 +195,10 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Load module contents into module.contents if they aren't loaded already.
      *
-     * @param module Module to load the contents.
-     * @param courseId The course ID. Recommended to speed up the process and minimize data usage.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @return Promise resolved when loaded.
+     * @param {any} module Module to load the contents.
+     * @param {number} [courseId] The course ID. Recommended to speed up the process and minimize data usage.
+     * @param {boolean} [ignoreCache] True if it should ignore cached data (it will always fail in offline or server down).
+     * @return {Promise}           Promise resolved when loaded.
      */
     loadContents(module: any, courseId: number, ignoreCache?: boolean): Promise<void> {
         if (this.isResource) {
@@ -224,11 +211,11 @@ export class CoreSitePluginsModulePrefetchHandler extends CoreCourseActivityPref
     /**
      * Prefetch a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
     prefetch(module: any, courseId?: number, single?: boolean, dirPath?: string): Promise<any> {
         return this.prefetchPackage(module, courseId, false, this.downloadPrefetchPlugin.bind(this), undefined, true, dirPath);

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,8 +65,7 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
 
                     if (this.text) {
                         // Open a new state with the text.
-                        this.textUtils.expandText(this.plugin.name, this.text, this.component, this.assign.cmid, undefined, true,
-                                'module', this.assign.cmid, this.assign.course);
+                        this.textUtils.expandText(this.plugin.name, this.text, this.component, this.assign.cmid);
                     }
                 });
             } else if (this.edit) {
@@ -86,7 +85,7 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
 
             // Update the text and save it as draft.
             this.isSent = false;
-            this.text = this.replacePluginfileUrls(text);
+            this.text = text;
             this.feedbackDelegate.saveFeedbackDraft(this.assign.id, this.userId, this.plugin, {
                 text: text,
                 format: 1
@@ -99,7 +98,7 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
     /**
      * Get the text for the plugin.
      *
-     * @return Promise resolved with the text.
+     * @return {Promise<string>} Promise resolved with the text.
      */
     protected getText(): Promise<string> {
         // Check if the user already modified the comment.
@@ -107,7 +106,7 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
             if (draft) {
                 this.isSent = false;
 
-                return this.replacePluginfileUrls(draft.text);
+                return draft.text;
             } else {
                 // There is no draft saved. Check if we have anything offline.
                 return this.assignOfflineProvider.getSubmissionGrade(this.assign.id, this.userId).catch(() => {
@@ -119,7 +118,7 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
                         this.feedbackDelegate.saveFeedbackDraft(this.assign.id, this.userId, this.plugin,
                                 offlineData.plugindata.assignfeedbackcomments_editor);
 
-                        return this.replacePluginfileUrls(offlineData.plugindata.assignfeedbackcomments_editor.text);
+                        return offlineData.plugindata.assignfeedbackcomments_editor.text;
                     }
 
                     // No offline data found, return online text.
@@ -129,17 +128,5 @@ export class AddonModAssignFeedbackCommentsComponent extends AddonModAssignFeedb
                 });
             }
         });
-    }
-
-    /**
-     * Replace @@PLUGINFILE@@ wildcards with the real URL of embedded files.
-     *
-     * @param Text to treat.
-     * @return Treated text.
-     */
-    replacePluginfileUrls(text: string): string {
-        const files = this.plugin.fileareas && this.plugin.fileareas[0] && this.plugin.fileareas[0].files;
-
-        return this.textUtils.replacePluginfileUrls(text, files || []);
     }
 }

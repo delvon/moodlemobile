@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, Optional, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnDestroy, Optional, ViewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
@@ -25,7 +25,7 @@ import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreFileUploaderProvider } from '@core/fileuploader/providers/fileuploader';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
-import { CoreEditorRichTextEditorComponent } from '@core/editor/components/rich-text-editor/rich-text-editor.ts';
+import { CoreRichTextEditorComponent } from '@components/rich-text-editor/rich-text-editor.ts';
 import { AddonModForumProvider } from '../../providers/forum';
 import { AddonModForumOfflineProvider } from '../../providers/offline';
 import { AddonModForumHelperProvider } from '../../providers/helper';
@@ -41,8 +41,7 @@ import { AddonModForumSyncProvider } from '../../providers/sync';
 })
 export class AddonModForumNewDiscussionPage implements OnDestroy {
 
-    @ViewChild('newDiscFormEl') formElement: ElementRef;
-    @ViewChild(CoreEditorRichTextEditorComponent) messageEditor: CoreEditorRichTextEditorComponent;
+    @ViewChild(CoreRichTextEditorComponent) messageEditor: CoreRichTextEditorComponent;
 
     component = AddonModForumProvider.COMPONENT;
     messageControl = new FormControl();
@@ -54,18 +53,14 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     forum: any;
     showForm = false;
     groups = [];
-    groupIds = [];
     newDiscussion = {
         subject: '',
         message: null, // Null means empty or just white space.
-        postToAllGroups: false,
         groupId: 0,
         subscribe: true,
         pin: false,
         files: []
     };
-    advanced = false; // Display all form fields.
-    accessInfo: any = {};
 
     protected courseId: number;
     protected cmId: number;
@@ -75,7 +70,6 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     protected syncObserver: any;
     protected isDestroyed = false;
     protected originalData: any;
-    protected forceLeave = false;
 
     constructor(navParams: NavParams,
             private navCtrl: NavController,
@@ -130,34 +124,30 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Fetch if forum uses groups and the groups it uses.
      *
-     * @param refresh Whether we're refreshing data.
-     * @return Promise resolved when done.
+     * @param  {boolean} [refresh] Whether we're refreshing data.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchDiscussionData(refresh?: boolean): Promise<any> {
         return this.groupsProvider.getActivityGroupMode(this.cmId).then((mode) => {
             const promises = [];
 
             if (mode === CoreGroupsProvider.SEPARATEGROUPS || mode === CoreGroupsProvider.VISIBLEGROUPS) {
-                promises.push(this.groupsProvider.getActivityAllowedGroups(this.cmId).then((result) => {
+                promises.push(this.groupsProvider.getActivityAllowedGroups(this.cmId).then((forumGroups) => {
                     let promise;
                     if (mode === CoreGroupsProvider.VISIBLEGROUPS) {
                         // We need to check which of the returned groups the user can post to.
-                        promise = this.validateVisibleGroups(result.groups);
+                        promise = this.validateVisibleGroups(forumGroups);
                     } else {
                         // WS already filters groups, no need to do it ourselves. Add "All participants" if needed.
-                        promise = this.addAllParticipantsOption(result.groups, true);
+                        promise = this.addAllParticipantsOption(forumGroups, true);
                     }
 
                     return promise.then((forumGroups) => {
                         if (forumGroups.length > 0) {
                             this.groups = forumGroups;
-                            this.groupIds = forumGroups.map((group) => group.id).filter((id) => id > 0);
                             // Do not override group id.
                             this.newDiscussion.groupId = this.newDiscussion.groupId || forumGroups[0].id;
                             this.showGroups = true;
-                            if (this.groupIds.length <= 1) {
-                                this.newDiscussion.postToAllGroups = false;
-                            }
                         } else {
                             const message = mode === CoreGroupsProvider.SEPARATEGROUPS ?
                                     'addon.mod_forum.cannotadddiscussionall' : 'addon.mod_forum.cannotadddiscussion';
@@ -168,7 +158,6 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
                 }));
             } else {
                 this.showGroups = false;
-                this.newDiscussion.postToAllGroups = false;
 
                 // Use the canAddDiscussion WS to check if the user can add attachments and pin discussions.
                 promises.push(this.forumProvider.canAddDiscussionToAll(this.forumId).then((response) => {
@@ -184,18 +173,10 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
                 this.forum = forum;
             }));
 
-            // Get access information.
-            promises.push(this.forumProvider.getAccessInformation(this.forumId).then((accessInfo) => {
-                this.accessInfo = accessInfo;
-            }));
-
-            return Promise.all(promises);
-        }).then(() => {
             // If editing a discussion, get offline data.
             if (this.timeCreated && !refresh) {
                 this.syncId = this.forumSync.getForumSyncId(this.forumId);
-
-                return this.forumSync.waitForSync(this.syncId).then(() => {
+                promises.push(this.forumSync.waitForSync(this.syncId).then(() => {
                     // Do not block if the scope is already destroyed.
                     if (!this.isDestroyed) {
                         this.syncProvider.blockOperation(AddonModForumProvider.COMPONENT, this.syncId);
@@ -204,13 +185,7 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
                     return this.forumOffline.getNewDiscussion(this.forumId, this.timeCreated).then((discussion) => {
                         this.hasOffline = true;
                         discussion.options = discussion.options || {};
-                        if (discussion.groupid == AddonModForumProvider.ALL_GROUPS) {
-                            this.newDiscussion.groupId = this.groups[0].id;
-                            this.newDiscussion.postToAllGroups = true;
-                        } else {
-                            this.newDiscussion.groupId = discussion.groupid;
-                            this.newDiscussion.postToAllGroups = false;
-                        }
+                        this.newDiscussion.groupId = discussion.groupid ? discussion.groupid : this.newDiscussion.groupId;
                         this.newDiscussion.subject = discussion.subject;
                         this.newDiscussion.message = discussion.message;
                         this.newDiscussion.subscribe = discussion.options.discussionsubscribe;
@@ -218,24 +193,16 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
                         this.messageControl.setValue(discussion.message);
 
                         // Treat offline attachments if any.
-                        let promise;
                         if (discussion.options.attachmentsid && discussion.options.attachmentsid.offline) {
-                            promise = this.forumHelper.getNewDiscussionStoredFiles(this.forumId, this.timeCreated).then((files) => {
+                            return this.forumHelper.getNewDiscussionStoredFiles(this.forumId, this.timeCreated).then((files) => {
                                 this.newDiscussion.files = files;
                             });
                         }
-
-                        return Promise.resolve(promise).then(() => {
-                            // Show advanced fields by default if any of them has not the default value.
-                            if (!this.newDiscussion.subscribe || this.newDiscussion.pin || this.newDiscussion.files.length ||
-                                    this.groups.length > 0 && this.newDiscussion.groupId != this.groups[0].id ||
-                                    this.newDiscussion.postToAllGroups) {
-                                this.advanced = true;
-                            }
-                        });
                     });
-                });
+                }));
             }
+
+            return Promise.all(promises);
         }).then(() => {
             if (!this.originalData) {
                 // Initialize original data.
@@ -255,10 +222,10 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Validate which of the groups returned by getActivityAllowedGroups in visible groups should be shown to post to.
      *
-     * @param forumGroups Forum groups.
-     * @return Promise resolved with the list of groups.
+     * @param  {any[]} forumGroups Forum groups.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    protected validateVisibleGroups(forumGroups: any[]): Promise<any[]> {
+    protected validateVisibleGroups(forumGroups: any[]): Promise<any> {
         // We first check if the user can post to all the groups.
         return this.forumProvider.canAddDiscussionToAll(this.forumId).catch(() => {
             // The call failed, let's assume he can't.
@@ -303,9 +270,9 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Filter forum groups, returning only those that are inside user groups.
      *
-     * @param forumGroups Forum groups.
-     * @param userGroups User groups.
-     * @return Filtered groups.
+     * @param  {any[]} forumGroups Forum groups.
+     * @param  {any[]} userGroups User groups.
+     * @return {any[]} Filtered groups.
      */
     protected filterGroups(forumGroups: any[], userGroups: any[]): any[] {
         const filtered = [];
@@ -323,9 +290,9 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Add the "All participants" option to a list of groups if the user can add a discussion to all participants.
      *
-     * @param groups Groups.
-     * @param check True to check if the user can add a discussion to all participants.
-     * @return Promise resolved with the list of groups.
+     * @param  {any[]}   groups Groups.
+     * @param  {boolean} check  True to check if the user can add a discussion to all participants.
+     * @return {Promise<any[]>} Promise resolved with the list of groups.
      */
     protected addAllParticipantsOption(groups: any[], check: boolean): Promise<any[]> {
         if (!this.forumProvider.isAllParticipantsFixed()) {
@@ -355,7 +322,7 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
             if (canAdd) {
                 groups.unshift({
                     courseid: this.courseId,
-                    id: AddonModForumProvider.ALL_PARTICIPANTS,
+                    id: -1,
                     name: this.translate.instant('core.allparticipants')
                 });
             }
@@ -367,7 +334,7 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Pull to refresh.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshGroups(refresher: any): void {
         const promises = [
@@ -386,15 +353,13 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Convenience function to update or return to discussions depending on device.
      *
-     * @param discussionIds Ids of the new discussions.
-     * @param discTimecreated The time created of the discussion (if offline).
+     * @param {number} [discussionId] Id of the new discussion.
      */
-    protected returnToDiscussions(discussionIds?: number[], discTimecreated?: number): void {
+    protected returnToDiscussions(discussionId?: number): void {
         const data: any = {
             forumId: this.forumId,
             cmId: this.cmId,
-            discussionIds: discussionIds,
-            discTimecreated: discTimecreated
+            discussionId: discussionId,
         };
         this.eventsProvider.trigger(AddonModForumProvider.NEW_DISCUSSION_EVENT, data, this.sitesProvider.getCurrentSiteId());
 
@@ -407,10 +372,8 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
             this.newDiscussion.subject = '';
             this.newDiscussion.message = null;
             this.newDiscussion.files = [];
-            this.newDiscussion.postToAllGroups = false;
             this.messageEditor.clearText();
             this.originalData = this.utils.clone(this.newDiscussion);
-            this.forceLeave = true; // Avoid asking for confirmation.
 
             // Trigger view event, to highlight the current opened discussion in the split view.
             this.eventsProvider.trigger(AddonModForumProvider.VIEW_DISCUSSION_EVENT, {
@@ -418,7 +381,7 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
                 discussion: 0
             }, this.sitesProvider.getCurrentSiteId());
         } else {
-            this.forceLeave = true; // Avoid asking for confirmation.
+            this.originalData = null; // Avoid asking for confirmation.
             this.navCtrl.pop();
         }
     }
@@ -426,7 +389,7 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     /**
      * Message changed.
      *
-     * @param text The new text.
+     * @param {string} text The new text.
      */
     onMessageChange(text: string): void {
         this.newDiscussion.message = text;
@@ -440,11 +403,13 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
         const subject = this.newDiscussion.subject;
         let  message = this.newDiscussion.message;
         const pin = this.newDiscussion.pin;
+        const groupId = this.newDiscussion.groupId;
         const attachments = this.newDiscussion.files;
         const discTimecreated = this.timeCreated || Date.now();
         const options: any = {
             discussionsubscribe: !!this.newDiscussion.subscribe
         };
+        let saveOffline = false;
 
         if (!subject) {
             this.domUtils.showErrorModal('addon.mod_forum.erroremptysubject', true);
@@ -458,31 +423,51 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
         }
 
         const modal = this.domUtils.showModalLoading('core.sending', true);
+        let promise;
 
         // Add some HTML to the message if needed.
         message = this.textUtils.formatHtmlLines(message);
 
-        if (pin) {
-            options.discussionpinned = true;
+        // Upload attachments first if any.
+        if (attachments.length) {
+            promise = this.forumHelper.uploadOrStoreNewDiscussionFiles(this.forumId, discTimecreated, attachments, false)
+                    .catch(() => {
+                // Cannot upload them in online, save them in offline.
+                saveOffline = true;
+
+                return this.forumHelper.uploadOrStoreNewDiscussionFiles(this.forumId, discTimecreated, attachments, true);
+            });
+        } else {
+            promise = Promise.resolve();
         }
 
-        const groupIds = this.newDiscussion.postToAllGroups ? this.groupIds : [this.newDiscussion.groupId];
+        promise.then((attach) => {
+            if (attach) {
+                options.attachmentsid = attach;
+            }
+            if (pin) {
+                options.discussionpinned = true;
+            }
 
-        this.forumHelper.addNewDiscussion(this.forumId, forumName, this.courseId, subject, message, attachments, options, groupIds,
-                discTimecreated).then((discussionIds) => {
-            if (discussionIds) {
+            if (saveOffline) {
+                // Save discussion in offline.
+                return this.forumOffline.addNewDiscussion(this.forumId, forumName, this.courseId, subject,
+                        message, options, groupId, discTimecreated).then(() => {
+                    // Don't return anything.
+                });
+            } else {
+                // Try to send it to server.
+                // Don't allow offline if there are attachments since they were uploaded fine.
+                return this.forumProvider.addNewDiscussion(this.forumId, forumName, this.courseId, subject, message, options,
+                        groupId, undefined, discTimecreated, !attachments.length);
+            }
+        }).then((discussionId) => {
+            if (discussionId) {
                 // Data sent to server, delete stored files (if any).
                 this.forumHelper.deleteNewDiscussionStoredFiles(this.forumId, discTimecreated);
             }
 
-            if (discussionIds && discussionIds.length < groupIds.length) {
-                // Some discussions could not be created.
-                this.domUtils.showErrorModalDefault(null, 'addon.mod_forum.errorposttoallgroups', true);
-            }
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, !!discussionIds, this.sitesProvider.getCurrentSiteId());
-
-            this.returnToDiscussions(discussionIds, discTimecreated);
+            this.returnToDiscussions(discussionId);
         }).catch((message) => {
             this.domUtils.showErrorModalDefault(message, 'addon.mod_forum.cannotcreatediscussion', true);
         }).finally(() => {
@@ -503,8 +488,6 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
             }));
 
             return Promise.all(promises).then(() => {
-                this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
-
                 this.returnToDiscussions();
             });
         }).catch(() => {
@@ -513,33 +496,24 @@ export class AddonModForumNewDiscussionPage implements OnDestroy {
     }
 
     /**
-     * Show or hide advanced form fields.
-     */
-    toggleAdvanced(): void {
-        this.advanced = !this.advanced;
-    }
-
-    /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved if we can leave it, rejected if not.
+     * @return {boolean|Promise<void>} Resolved if we can leave it, rejected if not.
      */
-    async ionViewCanLeave(): Promise<void> {
-        if (this.forceLeave) {
-            return;
-        }
+    ionViewCanLeave(): boolean | Promise<void> {
+        let promise: any;
 
         if (this.forumHelper.hasPostDataChanged(this.newDiscussion, this.originalData)) {
             // Show confirmation if some data has been modified.
-            await this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
+            promise = this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
+        } else {
+            promise = Promise.resolve();
         }
 
-        // Delete the local files from the tmp folder.
-        this.uploaderProvider.clearTmpFiles(this.newDiscussion.files);
-
-        if (this.formElement) {
-            this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
-        }
+        return promise.then(() => {
+            // Delete the local files from the tmp folder.
+            this.uploaderProvider.clearTmpFiles(this.newDiscussion.files);
+        });
     }
 
     /**

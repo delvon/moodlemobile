@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,16 +30,11 @@ import { CoreTextUtilsProvider } from '@providers/utils/text';
 })
 export class CoreNavigationBarComponent {
     @Input() previous?: any; // Previous item. If not defined, the previous arrow won't be shown.
-    @Input() previousTitle?: string; // Previous item title. If not defined, only the arrow will be shown.
     @Input() next?: any; // Next item. If not defined, the next arrow won't be shown.
-    @Input() nextTitle?: string; // Next item title. If not defined, only the arrow will be shown.
     @Input() info?: string; // Info to show when clicking the info button. If not defined, the info button won't be shown.
     @Input() title?: string; // Title to show when seeing the info (new page).
     @Input() component?: string; // Component the bar belongs to.
     @Input() componentId?: number; // Component ID.
-    @Input() contextLevel?: string; // The context level.
-    @Input() contextInstanceId?: number; // The instance ID related to the context.
-    @Input() courseId?: number; // Course ID the text belongs to. It can be used to improve performance with filters.
     @Output() action?: EventEmitter<any>; // Function to call when an arrow is clicked. Will receive as a param the item to load.
 
     constructor(private textUtils: CoreTextUtilsProvider) {
@@ -47,7 +42,6 @@ export class CoreNavigationBarComponent {
     }
 
     showInfo(): void {
-        this.textUtils.expandText(this.title, this.info, this.component, this.componentId, [], true, this.contextLevel,
-                this.contextInstanceId, this.courseId);
+        this.textUtils.expandText(this.title, this.info, this.component, this.componentId);
     }
 }

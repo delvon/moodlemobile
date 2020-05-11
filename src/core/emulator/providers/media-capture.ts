@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ export class MediaCaptureMock extends MediaCapture {
     /**
      * Start the audio recorder application and return information about captured audio clip files.
      *
-     * @param options Options.
-     * @return Promise resolved when captured.
+     * @param {CaptureAudioOptions} options Options.
+     * @return {Promise<any>} Promise resolved when captured.
      */
     captureAudio(options: CaptureAudioOptions): Promise<any> {
         return this.captureHelper.captureMedia('audio', options);
@@ -39,8 +39,8 @@ export class MediaCaptureMock extends MediaCapture {
     /**
      * Start the camera application and return information about captured image files.
      *
-     * @param options Options.
-     * @return Promise resolved when captured.
+     * @param {CaptureImageOptions} options Options.
+     * @return {Promise<any>} Promise resolved when captured.
      */
     captureImage(options: CaptureImageOptions): Promise<any> {
         return this.captureHelper.captureMedia('captureimage', options);
@@ -49,8 +49,8 @@ export class MediaCaptureMock extends MediaCapture {
     /**
      * Start the video recorder application and return information about captured video clip files.
      *
-     * @param options Options.
-     * @return Promise resolved when captured.
+     * @param {CaptureVideoOptions} options Options.
+     * @return {Promise<any>} Promise resolved when captured.
      */
     captureVideo(options: CaptureVideoOptions): Promise<any> {
         return this.captureHelper.captureMedia('video', options);

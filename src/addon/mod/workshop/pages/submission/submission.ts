@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, Optional, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Optional, ViewChild } from '@angular/core';
 import { Content, IonicPage, NavParams, NavController } from 'ionic-angular';
 import { FormGroup, FormBuilder } from '@angular/forms';
 import { TranslateService } from '@ngx-translate/core';
@@ -41,7 +41,6 @@ import { AddonModWorkshopSyncProvider } from '../../providers/sync';
 export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
 
     @ViewChild(AddonModWorkshopAssessmentStrategyComponent) assessmentStrategy: AddonModWorkshopAssessmentStrategyComponent;
-    @ViewChild('feedbackFormEl') formElement: ElementRef;
 
     module: any;
     workshop: any;
@@ -131,10 +130,8 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
      */
     ngOnInit(): void {
         this.fetchSubmissionData().then(() => {
-            this.workshopProvider.logViewSubmission(this.submissionId, this.workshopId, this.workshop.name).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-            }).catch(() => {
-                // Ignore errors.
+            this.workshopProvider.logViewSubmission(this.submissionId).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             });
         });
     }
@@ -142,18 +139,16 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved if we can leave it, rejected if not.
+     * @return {boolean|Promise<void>} Resolved if we can leave it, rejected if not.
      */
-    async ionViewCanLeave(): Promise<void> {
+    ionViewCanLeave(): boolean | Promise<void> {
         const assessmentHasChanged = this.assessmentStrategy && this.assessmentStrategy.hasDataChanged();
         if (this.forceLeave || (!this.hasEvaluationChanged() && !assessmentHasChanged)) {
-            return;
+            return true;
         }
 
         // Show confirmation if some data has been modified.
-        await this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
-
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.siteId);
+        return this.domUtils.showConfirm(this.translate.instant('core.confirmcanceledit'));
     }
 
     /**
@@ -173,7 +168,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Function called when we receive an event of submission changes.
      *
-     * @param data Event data received.
+     * @param {any} data Event data received.
      */
     protected eventReceived(data: any): void {
         if (this.workshopId === data.workshopId) {
@@ -187,7 +182,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Fetch the submission data.
      *
-     * @return Resolved when done.
+     * @return {Promise<void>} Resolved when done.
      */
     protected fetchSubmissionData(): Promise<void> {
         return this.workshopHelper.getSubmissionById(this.workshopId, this.submissionId).then((submissionData) => {
@@ -262,7 +257,8 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
 
                 const defaultGrade = this.translate.instant('addon.mod_workshop.notoverridden');
 
-                promises.push(this.gradesHelper.makeGradesMenu(this.workshop.grade, undefined, defaultGrade, -1).then((grades) => {
+                promises.push(this.gradesHelper.makeGradesMenu(this.workshop.grade, this.workshopId, defaultGrade, -1)
+                        .then((grades) => {
                     this.evaluationGrades = grades;
 
                     this.evaluate.grade = {
@@ -293,8 +289,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
                         this.feedbackForm.controls['text'].setValue(this.evaluate.text);
                     });
                 }));
-            } else if (this.workshop.phase == AddonModWorkshopProvider.PHASE_CLOSED && submissionData.gradeoverby &&
-                    this.evaluate && this.evaluate.text) {
+            } else if (this.workshop.phase == AddonModWorkshopProvider.PHASE_CLOSED && submissionData.gradeoverby) {
                 promises.push(this.userProvider.getProfile(submissionData.gradeoverby, this.courseId, true).then((profile) => {
                     this.evaluateByProfile = profile;
                 }));
@@ -335,7 +330,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Check if data has changed.
      *
-     * @return True if changed, false otherwise.
+     * @return {boolean} True if changed, false otherwise.
      */
     protected hasEvaluationChanged(): boolean {
         if (!this.loaded || !this.access.canoverridegrades) {
@@ -362,7 +357,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Convenience function to refresh all the data.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected refreshAllData(): Promise<any> {
         const promises = [];
@@ -376,10 +371,6 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
             promises.push(this.workshopProvider.invalidateAssessmentData(this.workshopId, this.assessmentId));
         }
 
-        if (this.assessmentUserId) {
-            promises.push(this.workshopProvider.invalidateReviewerAssesmentsData(this.workshopId, this.assessmentId));
-        }
-
         return Promise.all(promises).finally(() => {
             this.eventsProvider.trigger(AddonModWorkshopProvider.ASSESSMENT_INVALIDATED, this.siteId);
 
@@ -390,7 +381,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Pull to refresh.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshSubmission(refresher: any): void {
         if (this.loaded) {
@@ -434,7 +425,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Sends the evaluation to be saved on the server.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected sendEvaluation(): Promise<any> {
         const modal = this.domUtils.showModalLoading('core.sending', true);
@@ -447,10 +438,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
 
         // Try to send it to server.
         return this.workshopProvider.evaluateSubmission(this.workshopId, this.submissionId, this.courseId, inputData.text,
-                inputData.published, inputData.grade).then((result) => {
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, !!result, this.siteId);
-
+                inputData.published, inputData.grade).then(() => {
             const data = {
                 workshopId: this.workshopId,
                 cmId: this.module.cmid,
@@ -471,7 +459,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
      * Perform the submission delete action.
      */
     deleteSubmission(): void {
-        this.domUtils.showDeleteConfirm('addon.mod_workshop.submissiondeleteconfirm').then(() => {
+        this.domUtils.showConfirm(this.translate.instant('addon.mod_workshop.submissiondeleteconfirm')).then(() => {
             const modal = this.domUtils.showModalLoading('core.deleting', true);
             let success = false;
             this.workshopProvider.deleteSubmission(this.workshopId, this.submissionId, this.courseId).then(() => {
@@ -500,7 +488,7 @@ export class AddonModWorkshopSubmissionPage implements OnInit, OnDestroy {
     /**
      * Undo the submission delete action.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     undoDeleteSubmission(): Promise<any> {
         return this.workshopOffline.deleteSubmissionAction(this.workshopId, this.submissionId, 'delete').finally(() => {

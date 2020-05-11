@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Optional } from '@angular/core';
-import { IonicPage, NavController } from 'ionic-angular';
+import { Component, } from '@angular/core';
+import { IonicPage, Platform } from 'ionic-angular';
+import { Device } from '@ionic-native/device';
 import { CoreAppProvider } from '@providers/app';
+import { CoreFileProvider } from '@providers/file';
+import { CoreInitDelegate } from '@providers/init';
+import { CoreLangProvider } from '@providers/lang';
+import { CoreLocalNotificationsProvider } from '@providers/local-notifications';
 import { CoreSitesProvider } from '@providers/sites';
-import { CoreSplitViewComponent } from '@components/split-view/split-view';
 import { CoreConfigConstants } from '../../../../configconstants';
 
 /**
@@ -31,30 +35,79 @@ export class CoreSettingsAboutPage {
 
     appName: string;
     versionName: string;
+    versionCode: number;
+    compilationTime: number;
     privacyPolicy: string;
+    navigator: Navigator;
+    locationHref: string;
+    appReady: string;
+    deviceType: string;
+    deviceOs: string;
+    currentLanguage: string;
+    networkStatus: string;
+    wifiConnection: string;
+    deviceWebWorkers: string;
+    device: Device;
+    fileSystemRoot: string;
+    fsClickable: boolean;
+    storageType: string;
+    localNotifAvailable: string;
 
-    constructor(appProvider: CoreAppProvider,
-            sitesProvider: CoreSitesProvider,
-            @Optional() private svComponent: CoreSplitViewComponent,
-            protected navCtrl: NavController) {
+    constructor(platform: Platform, device: Device, appProvider: CoreAppProvider, fileProvider: CoreFileProvider,
+            initDelegate: CoreInitDelegate, langProvider: CoreLangProvider, sitesProvider: CoreSitesProvider,
+            localNotificationsProvider: CoreLocalNotificationsProvider) {
 
         const currentSite = sitesProvider.getCurrentSite();
 
         this.appName = appProvider.isDesktop() ? CoreConfigConstants.desktopappname : CoreConfigConstants.appname;
         this.versionName = CoreConfigConstants.versionname;
+        this.versionCode = CoreConfigConstants.versioncode;
+        this.compilationTime = CoreConfigConstants.compilationtime;
 
         // Calculate the privacy policy to use.
-        this.privacyPolicy = (currentSite && (currentSite.getStoredConfig('tool_mobile_apppolicy') ||
-                currentSite.getStoredConfig('sitepolicy'))) || CoreConfigConstants.privacypolicy;
-    }
+        this.privacyPolicy = currentSite.getStoredConfig('tool_mobile_apppolicy') || currentSite.getStoredConfig('sitepolicy') ||
+                CoreConfigConstants.privacypolicy;
 
-    /**
-     * Opens a page.
-     *
-     * @param page The component deeplink name you want to push onto the navigation stack.
-     */
-    openPage(page: string): void {
-        const navCtrl = this.svComponent ? this.svComponent.getMasterNav() : this.navCtrl;
-        navCtrl.push(page);
+        this.navigator = window.navigator;
+        if (window.location && window.location.href) {
+            const url = window.location.href;
+            this.locationHref = url.substr(0, url.indexOf('#'));
+        }
+
+        this.appReady = initDelegate.isReady() ? 'core.yes' : 'core.no';
+        this.deviceType = platform.is('tablet') ? 'core.tablet' : 'core.phone';
+
+        if (platform.is('android')) {
+            this.deviceOs = 'core.android';
+        } else if (platform.is('ios')) {
+            this.deviceOs = 'core.ios';
+        } else if (platform.is('windows')) {
+            this.deviceOs = 'core.windowsphone';
+        } else {
+            const matches = navigator.userAgent.match(/\(([^\)]*)\)/);
+            if (matches && matches.length > 1) {
+                this.deviceOs = matches[1];
+            } else {
+                this.deviceOs = 'core.unknown';
+            }
+        }
+
+        langProvider.getCurrentLanguage().then((lang) => {
+            this.currentLanguage = lang;
+        });
+
+        this.networkStatus = appProvider.isOnline() ? 'core.online' : 'core.offline';
+        this.wifiConnection = appProvider.isNetworkAccessLimited() ? 'core.no' : 'core.yes';
+        this.deviceWebWorkers = !!window['Worker'] && !!window['URL'] ? 'core.yes' : 'core.no';
+        this.device = device;
+
+        if (fileProvider.isAvailable()) {
+            fileProvider.getBasePath().then((basepath) => {
+                this.fileSystemRoot = basepath;
+                this.fsClickable = fileProvider.usesHTMLAPI();
+            });
+        }
+
+        this.localNotifAvailable = localNotificationsProvider.isAvailable() ? 'core.yes' : 'core.no';
     }
 }

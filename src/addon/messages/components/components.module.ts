@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,17 +19,12 @@ import { TranslateModule } from '@ngx-translate/core';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
 import { CorePipesModule } from '@pipes/pipes.module';
-import { CoreSearchComponentsModule } from '@core/search/components/components.module';
 import { AddonMessagesDiscussionsComponent } from '../components/discussions/discussions';
-import { AddonMessagesConfirmedContactsComponent } from '../components/confirmed-contacts/confirmed-contacts';
-import { AddonMessagesContactRequestsComponent } from '../components/contact-requests/contact-requests';
 import { AddonMessagesContactsComponent } from '../components/contacts/contacts';
 
 @NgModule({
     declarations: [
         AddonMessagesDiscussionsComponent,
-        AddonMessagesConfirmedContactsComponent,
-        AddonMessagesContactRequestsComponent,
         AddonMessagesContactsComponent
     ],
     imports: [
@@ -38,15 +33,12 @@ import { AddonMessagesContactsComponent } from '../components/contacts/contacts'
         TranslateModule.forChild(),
         CoreComponentsModule,
         CoreDirectivesModule,
-        CorePipesModule,
-        CoreSearchComponentsModule,
+        CorePipesModule
     ],
     providers: [
     ],
     exports: [
         AddonMessagesDiscussionsComponent,
-        AddonMessagesConfirmedContactsComponent,
-        AddonMessagesContactRequestsComponent,
         AddonMessagesContactsComponent
     ]
 })

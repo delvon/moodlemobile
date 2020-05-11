@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 import { Component, OnDestroy } from '@angular/core';
 import { IonicPage } from 'ionic-angular';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CorePushNotificationsProvider } from '@core/pushnotifications/providers/pushnotifications';
-import { AddonMessageOutputAirnotifierProvider, AddonMessageOutputAirnotifierDevice } from '../../providers/airnotifier';
+import { AddonPushNotificationsProvider } from '@addon/pushnotifications/providers/pushnotifications';
+import { AddonMessageOutputAirnotifierProvider } from '../../providers/airnotifier';
 
 /**
  * Page that displays the list of devices.
@@ -28,13 +28,13 @@ import { AddonMessageOutputAirnotifierProvider, AddonMessageOutputAirnotifierDev
 })
 export class AddonMessageOutputAirnotifierDevicesPage implements OnDestroy {
 
-    devices: AddonMessageOutputAirnotifierDeviceFormatted[] = [];
+    devices = [];
     devicesLoaded = false;
 
     protected updateTimeout: any;
 
     constructor(private domUtils: CoreDomUtilsProvider, private airnotifierProivder: AddonMessageOutputAirnotifierProvider,
-            private pushNotificationsProvider: CorePushNotificationsProvider ) {
+            private pushNotificationsProvider: AddonPushNotificationsProvider ) {
     }
 
     /**
@@ -47,14 +47,14 @@ export class AddonMessageOutputAirnotifierDevicesPage implements OnDestroy {
     /**
      * Fetches the list of devices.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchDevices(): Promise<any> {
         return this.airnotifierProivder.getUserDevices().then((devices) => {
             const pushId = this.pushNotificationsProvider.getPushId();
 
             // Convert enabled to boolean and search current device.
-            devices.forEach((device: AddonMessageOutputAirnotifierDeviceFormatted) => {
+            devices.forEach((device) => {
                 device.enable = !!device.enable;
                 device.current = pushId && pushId == device.pushid;
             });
@@ -94,7 +94,7 @@ export class AddonMessageOutputAirnotifierDevicesPage implements OnDestroy {
     /**
      * Refresh the list of devices.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshDevices(refresher: any): void {
         this.airnotifierProivder.invalidateUserDevices().finally(() => {
@@ -107,12 +107,11 @@ export class AddonMessageOutputAirnotifierDevicesPage implements OnDestroy {
     /**
      * Enable or disable a certain device.
      *
-     * @param device The device object.
-     * @param enable True to enable the device, false to disable it.
+     * @param {any} device The device object.
+     * @param {boolean} enable True to enable the device, false to disable it.
      */
-    enableDevice(device: AddonMessageOutputAirnotifierDeviceFormatted, enable: boolean): void {
+    enableDevice(device: any, enable: boolean): void {
         device.updating = true;
-
         this.airnotifierProivder.enableDevice(device.id, enable).then(() => {
             // Update the list of devices since it was modified.
             this.updateDevicesAfterDelay();
@@ -136,11 +135,3 @@ export class AddonMessageOutputAirnotifierDevicesPage implements OnDestroy {
         }
     }
 }
-
-/**
- * User device with some calculated data.
- */
-type AddonMessageOutputAirnotifierDeviceFormatted = AddonMessageOutputAirnotifierDevice & {
-    current?: boolean; // Calculated in the app. Whether it's the current device.
-    updating?: boolean; // Calculated in the app. Whether the device enable is being updated right now.
-};

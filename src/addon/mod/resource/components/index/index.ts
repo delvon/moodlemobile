@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,9 +14,6 @@
 
 import { Component, Injector } from '@angular/core';
 import { CoreAppProvider } from '@providers/app';
-import { CoreFilepoolProvider } from '@providers/filepool';
-import { CoreSitesProvider } from '@providers/sites';
-import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreCourseProvider } from '@core/course/providers/course';
 import { CoreCourseModuleMainResourceComponent } from '@core/course/classes/main-resource-component';
 import { AddonModResourceProvider } from '../../providers/resource';
@@ -37,17 +34,10 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
     mode: string;
     src: string;
     contentText: string;
-    displayDescription = true;
 
-    constructor(injector: Injector,
-            protected resourceProvider: AddonModResourceProvider,
-            protected courseProvider: CoreCourseProvider,
-            protected appProvider: CoreAppProvider,
-            protected prefetchHandler: AddonModResourcePrefetchHandler,
-            protected resourceHelper: AddonModResourceHelperProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected utils: CoreUtilsProvider,
-            protected filepoolProvider: CoreFilepoolProvider) {
+    constructor(injector: Injector, private resourceProvider: AddonModResourceProvider, private courseProvider: CoreCourseProvider,
+            private appProvider: CoreAppProvider, private prefetchHandler: AddonModResourcePrefetchHandler,
+            private resourceHelper: AddonModResourceHelperProvider) {
         super(injector);
     }
 
@@ -60,10 +50,8 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
         this.canGetResource = this.resourceProvider.isGetResourceWSAvailable();
 
         this.loadContent().then(() => {
-            this.resourceProvider.logView(this.module.instance, this.module.name).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-            }).catch(() => {
-                // Ignore errors.
+            this.resourceProvider.logView(this.module.instance).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             });
         });
     }
@@ -71,7 +59,7 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         return this.resourceProvider.invalidateContent(this.module.id, this.courseId);
@@ -80,14 +68,14 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
     /**
      * Download resource contents.
      *
-     * @param refresh Whether we're refreshing data.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh] Whether we're refreshing data.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh?: boolean): Promise<any> {
         // Load module contents if needed. Passing refresh is needed to force reloading contents.
         return this.courseProvider.loadModuleContents(this.module, this.courseId, null, false, refresh).then(() => {
             if (!this.module.contents || !this.module.contents.length) {
-                return Promise.reject(this.utils.createFakeWSError('core.filenotfound', true));
+                return Promise.reject(null);
             }
 
             // Get the resource instance to get the latest name/description and to know if it's embedded.
@@ -103,19 +91,15 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
         }).then((resource) => {
             if (resource) {
                 this.description = resource.intro || resource.description;
-                const options = this.textUtils.unserialize(resource.displayoptions) || {};
-                this.displayDescription = typeof options.printintro == 'undefined' || !!options.printintro;
                 this.dataRetrieved.emit(resource);
             }
 
             if (this.resourceHelper.isDisplayedInIframe(this.module)) {
                 let downloadFailed = false;
-                let downloadFailError;
 
-                return this.prefetchHandler.download(this.module, this.courseId).catch((error) => {
+                return this.prefetchHandler.download(this.module, this.courseId).catch(() => {
                     // Mark download as failed but go on since the main files could have been downloaded.
                     downloadFailed = true;
-                    downloadFailError = error;
                 }).then(() => {
                     return this.resourceHelper.getIframeSrc(this.module).then((src) => {
                         this.mode = 'iframe';
@@ -133,7 +117,7 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
 
                         if (downloadFailed && this.appProvider.isOnline()) {
                             // We could load the main file but the download failed. Show error message.
-                            this.showErrorDownloadingSomeFiles(downloadFailError);
+                            this.domUtils.showErrorModal('core.errordownloadingsomefiles', true);
                         }
                     });
                 });
@@ -142,36 +126,20 @@ export class AddonModResourceIndexComponent extends CoreCourseModuleMainResource
 
                 return this.resourceHelper.getEmbeddedHtml(this.module, this.courseId).then((html) => {
                     this.contentText = html;
-
-                    this.mode = this.contentText.length > 0 ? 'embedded' : 'external';
                 });
             } else {
                 this.mode = 'external';
             }
-        }).finally(() => {
+        }).then(() => {
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
         });
     }
 
     /**
      * Opens a file.
-     *
-     * @return Promise resolved when done.
      */
-    async open(): Promise<void> {
-        let downloadable = await this.prefetchHandler.isDownloadable(this.module, this.courseId);
-
-        if (downloadable) {
-            // Check if the main file is downloadle.
-            // This isn't done in "isDownloadable" to prevent extra WS calls in the course page.
-            downloadable = await this.resourceHelper.isMainFileDownloadable(this.module);
-
-            if (downloadable) {
-                return this.resourceHelper.openModuleFile(this.module, this.courseId);
-            }
-        }
-
-        // The resource cannot be downloaded, open the activity in browser.
-        return this.sitesProvider.getCurrentSite().openInBrowserWithAutoLoginIfSameSite(this.module.url);
+    open(): void {
+        this.resourceHelper.openModuleFile(this.module, this.courseId);
     }
 }

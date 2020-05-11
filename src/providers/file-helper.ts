@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import { CoreAppProvider } from './app';
 import { CoreFileProvider } from './file';
 import { CoreFilepoolProvider } from './filepool';
 import { CoreSitesProvider } from './sites';
-import { CoreWSProvider } from './ws';
 import { CoreUtilsProvider } from './utils/utils';
 import { CoreConstants } from '@core/constants';
 
@@ -30,18 +29,18 @@ export class CoreFileHelperProvider {
 
     constructor(private fileProvider: CoreFileProvider, private filepoolProvider: CoreFilepoolProvider,
             private sitesProvider: CoreSitesProvider, private appProvider: CoreAppProvider, private translate: TranslateService,
-            private utils: CoreUtilsProvider, private wsProvider: CoreWSProvider) { }
+            private utils: CoreUtilsProvider) { }
 
     /**
      * Convenience function to open a file, downloading it if needed.
      *
-     * @param file The file to download.
-     * @param component The component to link the file to.
-     * @param componentId An ID to use in conjunction with the component.
-     * @param state The file's state. If not provided, it will be calculated.
-     * @param onProgress Function to call on progress.
-     * @param siteId The site ID. If not defined, current site.
-     * @return Resolved on success.
+     * @param {any} file The file to download.
+     * @param {string} [component] The component to link the file to.
+     * @param {string|number} [componentId] An ID to use in conjunction with the component.
+     * @param {string} [state] The file's state. If not provided, it will be calculated.
+     * @param {Function} [onProgress] Function to call on progress.
+     * @param {string} [siteId] The site ID. If not defined, current site.
+     * @return {Promise<any>} Resolved on success.
      */
     downloadAndOpenFile(file: any, component: string, componentId: string | number, state?: string,
             onProgress?: (event: any) => any, siteId?: string): Promise<any> {
@@ -105,23 +104,22 @@ export class CoreFileHelperProvider {
     /**
      * Download a file if it needs to be downloaded.
      *
-     * @param file The file to download.
-     * @param fileUrl The file URL.
-     * @param component The component to link the file to.
-     * @param componentId An ID to use in conjunction with the component.
-     * @param timemodified The time this file was modified.
-     * @param state The file's state. If not provided, it will be calculated.
-     * @param onProgress Function to call on progress.
-     * @param siteId The site ID. If not defined, current site.
-     * @return Resolved with the URL to use on success.
+     * @param {any} file The file to download.
+     * @param {string} fileUrl The file URL.
+     * @param {string} [component] The component to link the file to.
+     * @param {string|number} [componentId] An ID to use in conjunction with the component.
+     * @param {number} [timemodified] The time this file was modified.
+     * @param {string} [state] The file's state. If not provided, it will be calculated.
+     * @param {Function} [onProgress] Function to call on progress.
+     * @param {string} [siteId] The site ID. If not defined, current site.
+     * @return {Promise<string>} Resolved with the URL to use on success.
      */
     protected downloadFileIfNeeded(file: any, fileUrl: string, component?: string, componentId?: string | number,
             timemodified?: number, state?: string, onProgress?: (event: any) => any, siteId?: string): Promise<string> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
 
         return this.sitesProvider.getSite(siteId).then((site) => {
-            return site.checkAndFixPluginfileURL(fileUrl);
-        }).then((fixedUrl) => {
+            const fixedUrl = site.fixPluginfileURL(fileUrl);
 
             if (this.fileProvider.isAvailable()) {
                 let promise;
@@ -134,7 +132,7 @@ export class CoreFileHelperProvider {
 
                 return promise.then((state) => {
                     // The file system is available.
-                    const isWifi = this.appProvider.isWifi(),
+                    const isWifi = !this.appProvider.isNetworkAccessLimited(),
                         isOnline = this.appProvider.isOnline();
 
                     if (state == CoreConstants.DOWNLOADED) {
@@ -162,7 +160,7 @@ export class CoreFileHelperProvider {
                             return this.downloadFile(fileUrl, component, componentId, timemodified, onProgress, file, siteId);
                         }, () => {
                             // Start the download if in wifi, but return the URL right away so the file is opened.
-                            if (isWifi) {
+                            if (isWifi && isOnline) {
                                 this.downloadFile(fileUrl, component, componentId, timemodified, onProgress, file, siteId);
                             }
 
@@ -187,14 +185,14 @@ export class CoreFileHelperProvider {
     /**
      * Download the file.
      *
-     * @param fileUrl The file URL.
-     * @param component The component to link the file to.
-     * @param componentId An ID to use in conjunction with the component.
-     * @param timemodified The time this file was modified.
-     * @param onProgress Function to call on progress.
-     * @param file The file to download.
-     * @param siteId The site ID. If not defined, current site.
-     * @return Resolved with internal URL on success, rejected otherwise.
+     * @param {string} fileUrl The file URL.
+     * @param {string} [component] The component to link the file to.
+     * @param {string|number} [componentId] An ID to use in conjunction with the component.
+     * @param {number} [timemodified] The time this file was modified.
+     * @param {Function} [onProgress] Function to call on progress.
+     * @param {any} [file] The file to download.
+     * @param {string} [siteId] The site ID. If not defined, current site.
+     * @return {Promise<string>} Resolved with internal URL on success, rejected otherwise.
      */
     downloadFile(fileUrl: string, component?: string, componentId?: string | number, timemodified?: number,
             onProgress?: (event: any) => any, file?: any, siteId?: string): Promise<string> {
@@ -224,7 +222,7 @@ export class CoreFileHelperProvider {
     /**
      * Get the file's URL.
      *
-     * @param file The file.
+     * @param {any} file The file.
      */
     getFileUrl(file: any): string {
         return file.fileurl || file.url;
@@ -233,7 +231,7 @@ export class CoreFileHelperProvider {
     /**
      * Get the file's timemodified.
      *
-     * @param file The file.
+     * @param {any} file The file.
      */
     getFileTimemodified(file: any): number {
         return file.timemodified || 0;
@@ -242,7 +240,7 @@ export class CoreFileHelperProvider {
     /**
      * Check if a state is downloaded or outdated.
      *
-     * @param state The state to check.
+     * @param {string} state The state to check.
      */
     isStateDownloaded(state: string): boolean {
         return state === CoreConstants.DOWNLOADED || state === CoreConstants.OUTDATED;
@@ -252,8 +250,8 @@ export class CoreFileHelperProvider {
      * Whether the file has to be opened in browser (external repository).
      * The file must have a mimetype attribute.
      *
-     * @param file The file to check.
-     * @return Whether the file should be opened in browser.
+     * @param {any} file The file to check.
+     * @return {boolean} Whether the file should be opened in browser.
      */
     shouldOpenInBrowser(file: any): boolean {
         if (!file || !file.isexternalfile || !file.mimetype) {
@@ -274,64 +272,4 @@ export class CoreFileHelperProvider {
 
         return false;
     }
-
-    /**
-     * Calculate the total size of the given files.
-     *
-     * @param files The files to check.
-     * @return Total files size.
-     */
-    async getTotalFilesSize(files: any[]): Promise<number> {
-        let totalSize = 0;
-
-        for (const file of files) {
-            totalSize += await this.getFileSize(file);
-        }
-
-        return totalSize;
-    }
-
-    /**
-     * Calculate the file size.
-     *
-     * @param file The file to check.
-     * @return File size.
-     */
-    async getFileSize(file: any): Promise<number> {
-        if (file.filesize) {
-            return file.filesize;
-        }
-
-        // If it's a remote file. First check if we have the file downloaded since it's more reliable.
-        if (file.filename && !file.name) {
-            try {
-                const siteId = this.sitesProvider.getCurrentSiteId();
-
-                const path = await this.filepoolProvider.getFilePathByUrl(siteId, file.fileurl);
-                const fileEntry = await this.fileProvider.getFile(path);
-                const fileObject = await this.fileProvider.getFileObjectFromFileEntry(fileEntry);
-
-                return fileObject.size;
-            } catch (error) {
-                // Error getting the file, maybe it's not downloaded. Get remote size.
-                const size = await this.wsProvider.getRemoteFileSize(file.fileurl);
-
-                if (size === -1) {
-                    throw new Error('Couldn\'t determine file size: ' + file.fileurl);
-                }
-
-                return size;
-            }
-        }
-
-        // If it's a local file, get its size.
-        if (file.name) {
-            const fileObject = await this.fileProvider.getFileObjectFromFileEntry(file);
-
-            return fileObject.size;
-        }
-
-        throw new Error('Couldn\'t determine file size: ' + file.fileurl);
-    }
-
 }

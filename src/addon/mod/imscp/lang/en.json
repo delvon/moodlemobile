@@ -1,6 +1,4 @@
 {
     "deploymenterror": "Content package error!",
-    "modulenameplural": "IMS content packages",
-    "showmoduledescription": "Show description",
-    "toc": "TOC"
+    "showmoduledescription": "Show description"
 }

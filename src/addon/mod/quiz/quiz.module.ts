@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ import { CoreCronDelegate } from '@providers/cron';
 import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate';
 import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
 import { AddonModQuizAccessRuleDelegate } from './providers/access-rules-delegate';
 import { AddonModQuizProvider } from './providers/quiz';
 import { AddonModQuizOfflineProvider } from './providers/quiz-offline';
@@ -29,9 +28,8 @@ import { AddonModQuizSyncCronHandler } from './providers/sync-cron-handler';
 import { AddonModQuizIndexLinkHandler } from './providers/index-link-handler';
 import { AddonModQuizGradeLinkHandler } from './providers/grade-link-handler';
 import { AddonModQuizReviewLinkHandler } from './providers/review-link-handler';
-import { AddonModQuizListLinkHandler } from './providers/list-link-handler';
-import { AddonModQuizPushClickHandler } from './providers/push-click-handler';
 import { AddonModQuizComponentsModule } from './components/components.module';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // Access rules.
 import { AddonModQuizAccessDelayBetweenAttemptsModule } from './accessrules/delaybetweenattempts/delaybetweenattempts.module';
@@ -79,9 +77,7 @@ export const ADDON_MOD_QUIZ_PROVIDERS: any[] = [
         AddonModQuizSyncCronHandler,
         AddonModQuizIndexLinkHandler,
         AddonModQuizGradeLinkHandler,
-        AddonModQuizReviewLinkHandler,
-        AddonModQuizListLinkHandler,
-        AddonModQuizPushClickHandler
+        AddonModQuizReviewLinkHandler
     ]
 })
 export class AddonModQuizModule {
@@ -89,9 +85,7 @@ export class AddonModQuizModule {
             prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModQuizPrefetchHandler,
             cronDelegate: CoreCronDelegate, syncHandler: AddonModQuizSyncCronHandler, linksDelegate: CoreContentLinksDelegate,
             indexHandler: AddonModQuizIndexLinkHandler, gradeHandler: AddonModQuizGradeLinkHandler,
-            reviewHandler: AddonModQuizReviewLinkHandler,
-            listLinkHandler: AddonModQuizListLinkHandler,
-            pushNotificationsDelegate: CorePushNotificationsDelegate, pushClickHandler: AddonModQuizPushClickHandler) {
+            reviewHandler: AddonModQuizReviewLinkHandler, updateManager: CoreUpdateManagerProvider) {
 
         moduleDelegate.registerHandler(moduleHandler);
         prefetchDelegate.registerHandler(prefetchHandler);
@@ -99,7 +93,21 @@ export class AddonModQuizModule {
         linksDelegate.registerHandler(indexHandler);
         linksDelegate.registerHandler(gradeHandler);
         linksDelegate.registerHandler(reviewHandler);
-        linksDelegate.registerHandler(listLinkHandler);
-        pushNotificationsDelegate.registerClickHandler(pushClickHandler);
+
+        // Allow migrating the tables from the old app to the new schema.
+        updateManager.registerSiteTableMigration({
+            name: 'mod_quiz_attempts',
+            newName: AddonModQuizOfflineProvider.ATTEMPTS_TABLE,
+            fields: [
+                {
+                    name: 'quizAndUser',
+                    delete: true
+                },
+                {
+                    name: 'finished',
+                    type: 'boolean'
+                }
+            ]
+        });
     }
 }

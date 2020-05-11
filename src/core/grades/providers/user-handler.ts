@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,8 +35,8 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
      * Clear view grades cache.
      * If a courseId and userId are specified, it will only delete the entry for that user and course.
      *
-     * @param courseId Course ID.
-     * @param userId User ID.
+     * @param  {number} [courseId] Course ID.
+     * @param  {number} [userId]   User ID.
      */
     clearViewGradesCache(courseId?: number, userId?: number): void {
         if (courseId && userId) {
@@ -49,9 +49,9 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
     /**
      * Get a cache key to identify a course and a user.
      *
-     * @param courseId Course ID.
-     * @param userId User ID.
-     * @return Cache key.
+     * @param  {number} courseId Course ID.
+     * @param  {number} userId   User ID.
+     * @return {string}          Cache key.
      */
     protected getCacheKey(courseId: number, userId: number): string {
         return courseId + '#' + userId;
@@ -60,7 +60,7 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
     /**
      * Check if handler is enabled.
      *
-     * @return Always enabled.
+     * @return {boolean} Always enabled.
      */
     isEnabled(): boolean {
         return true;
@@ -69,11 +69,11 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
     /**
      * Check if handler is enabled for this user in this context.
      *
-     * @param user User to check.
-     * @param courseId Course ID.
-     * @param navOptions Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
-     * @param admOptions Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
-     * @return Promise resolved with true if enabled, resolved with false otherwise.
+     * @param {any} user     User to check.
+     * @param {number} courseId Course ID.
+     * @param  {any} [navOptions] Course navigation options for current user. See CoreCoursesProvider.getUserNavigationOptions.
+     * @param  {any} [admOptions] Course admin options for current user. See CoreCoursesProvider.getUserAdministrationOptions.
+     * @return  {boolean|Promise<boolean>}   Promise resolved with true if enabled, resolved with false otherwise.
      */
     isEnabledForUser(user: any, courseId: number, navOptions?: any, admOptions?: any): boolean | Promise<boolean> {
         const cacheKey = this.getCacheKey(courseId, user.id),
@@ -98,7 +98,7 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreUserProfileHandlerData} Data needed to render the handler.
      */
     getDisplayData(user: any, courseId: number): CoreUserProfileHandlerData {
         return {
@@ -112,6 +112,7 @@ export class CoreGradesUserHandler implements CoreUserProfileHandler {
                     courseId: courseId,
                     userId: user.id
                 };
+                // Always use redirect to make it the new history root (to avoid "loops" in history).
                 this.linkHelper.goInSite(navCtrl, 'CoreGradesCoursePage', pageParams);
             }
         };

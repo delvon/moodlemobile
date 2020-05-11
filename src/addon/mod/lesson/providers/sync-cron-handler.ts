@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,18 +29,17 @@ export class AddonModLessonSyncCronHandler implements CoreCronHandler {
      * Execute the process.
      * Receives the ID of the site affected, undefined for all sites.
      *
-     * @param siteId ID of the site affected, undefined for all sites.
-     * @param force Wether the execution is forced (manual sync).
-     * @return Promise resolved when done, rejected if failure.
+     * @param  {string} [siteId] ID of the site affected, undefined for all sites.
+     * @return {Promise<any>}         Promise resolved when done, rejected if failure.
      */
-    execute(siteId?: string, force?: boolean): Promise<any> {
-        return this.lessonSync.syncAllLessons(siteId, force);
+    execute(siteId?: string): Promise<any> {
+        return this.lessonSync.syncAllLessons(siteId);
     }
 
     /**
      * Get the time between consecutive executions.
      *
-     * @return Time between consecutive executions (in ms).
+     * @return {number} Time between consecutive executions (in ms).
      */
     getInterval(): number {
         return this.lessonSync.syncInterval;

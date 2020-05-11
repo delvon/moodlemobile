@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ import { Component, ViewChild, Input } from '@angular/core';
 import { Content, NavController } from 'ionic-angular';
 import { CoreAppProvider } from '@providers/app';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { AddonCompetencyProvider, AddonCompetencyDataForCourseCompetenciesPageResult } from '../../providers/competency';
+import { AddonCompetencyProvider } from '../../providers/competency';
 import { AddonCompetencyHelperProvider } from '../../providers/helper';
 
 /**
@@ -33,7 +33,7 @@ export class AddonCompetencyCourseComponent {
     @Input() userId: number;
 
     competenciesLoaded = false;
-    competencies: AddonCompetencyDataForCourseCompetenciesPageResult;
+    competencies: any;
     user: any;
 
     constructor(private navCtrl: NavController, private appProvider: CoreAppProvider, private domUtils: CoreDomUtilsProvider,
@@ -52,7 +52,7 @@ export class AddonCompetencyCourseComponent {
     /**
      * Fetches the competencies and updates the view.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<void>} Promise resolved when done.
      */
     protected fetchCourseCompetencies(): Promise<void> {
         return this.competencyProvider.getCourseCompetencies(this.courseId, this.userId).then((competencies) => {
@@ -70,7 +70,7 @@ export class AddonCompetencyCourseComponent {
     /**
      * Opens a competency.
      *
-     * @param competencyId
+     * @param {number} competencyId
      */
     openCompetency(competencyId: number): void {
         if (this.appProvider.isWide()) {
@@ -83,20 +83,16 @@ export class AddonCompetencyCourseComponent {
     /**
      * Opens the summary of a competency.
      *
-     * @param competencyId
+     * @param {number} competencyId
      */
     openCompetencySummary(competencyId: number): void {
-        this.navCtrl.push('AddonCompetencyCompetencySummaryPage', {
-            competencyId,
-            contextLevel: 'course',
-            contextInstanceId: this.courseId
-        });
+        this.navCtrl.push('AddonCompetencyCompetencySummaryPage', {competencyId});
     }
 
     /**
      * Refreshes the competencies.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshCourseCompetencies(refresher: any): void {
         this.competencyProvider.invalidateCourseCompetencies(this.courseId, this.userId).finally(() => {

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
-import { CoreWSProvider } from '@providers/ws';
-import { CoreAppProvider } from '@providers/app';
+import { Http } from '@angular/http';
 import { CoreFileProvider } from '@providers/file';
 import { CoreFilepoolProvider } from '@providers/filepool';
 import { CoreLoggerProvider } from '@providers/logger';
@@ -30,26 +29,20 @@ import { Md5 } from 'ts-md5/dist/md5';
 export class AddonRemoteThemesProvider {
     static COMPONENT = 'mmaRemoteStyles';
     protected SEPARATOR_35 = /\/\*\*? *3\.5(\.0)? *styles? *\*\//i; // A comment like "/* 3.5 styles */".
-    protected TMP_SITE_ID = 'tmpsite';
 
     protected logger;
     protected stylesEls: {[siteId: string]: {element: HTMLStyleElement, hash: string}} = {};
 
-    constructor(logger: CoreLoggerProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected fileProvider: CoreFileProvider,
-            protected filepoolProvider: CoreFilepoolProvider,
-            protected wsProvider: CoreWSProvider,
-            protected utils: CoreUtilsProvider,
-            protected appProvider: CoreAppProvider) {
+    constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private fileProvider: CoreFileProvider,
+            private filepoolProvider: CoreFilepoolProvider, private http: Http, private utils: CoreUtilsProvider) {
         this.logger = logger.getInstance('AddonRemoteThemesProvider');
     }
 
     /**
      * Add a style element for a site and load the styles for that element. The style will be disabled.
      *
-     * @param siteId Site ID.
-     * @return Promise resolved when added and loaded.
+     * @param {string} siteId Site ID.
+     * @return {Promise<any>} Promise resolved when added and loaded.
      */
     addSite(siteId: string): Promise<any> {
         if (!siteId || this.stylesEls[siteId]) {
@@ -58,11 +51,17 @@ export class AddonRemoteThemesProvider {
         }
 
         // Create the style and add it to the header.
-        this.initSiteStyleElement(siteId, true);
+        const styleEl = document.createElement('style');
+        styleEl.setAttribute('id', 'mobilecssurl-' + siteId);
+        this.disableElement(styleEl, true);
 
-        return this.load(siteId, true).catch((error) => {
-            this.logger.error('Error loading site after site init', error);
-        });
+        document.head.appendChild(styleEl);
+        this.stylesEls[siteId] = {
+            element: styleEl,
+            hash: ''
+        };
+
+        return this.load(siteId, true);
     }
 
     /**
@@ -70,33 +69,17 @@ export class AddonRemoteThemesProvider {
      */
     clear(): void {
         // Disable all the styles.
-        this.disableElementsBySelector('style[id*=mobilecssurl]');
-
-        // Set StatusBar properties.
-        this.appProvider.setStatusBarColor();
-    }
-
-    /**
-     * Create a style element.
-     *
-     * @param id ID to set to the element.
-     * @param disabled Whether the element should be disabled.
-     * @return New element.
-     */
-    protected createStyleElement(id: string, disabled: boolean): HTMLStyleElement {
-        const styleEl = document.createElement('style');
-
-        styleEl.setAttribute('id', id);
-        this.disableElement(styleEl, disabled);
-
-        return styleEl;
+        const styles = <HTMLStyleElement[]> Array.from(document.querySelectorAll('style[id*=mobilecssurl]'));
+        styles.forEach((style) => {
+            this.disableElement(style, true);
+        });
     }
 
     /**
      * Enabled or disable a certain style element.
      *
-     * @param element The element to enable or disable.
-     * @param disable Whether to disable or enable the element.
+     * @param {HTMLStyleElement} element The element to enable or disable.
+     * @param {boolean} disable Whether to disable or enable the element.
      */
     disableElement(element: HTMLStyleElement, disable: boolean): void {
         // Setting disabled should be enough, but we also set the attribute so it can be seen in the DOM which ones are disabled.
@@ -106,32 +89,15 @@ export class AddonRemoteThemesProvider {
         } else {
             element.disabled = false;
             element.removeAttribute('disabled');
-
-            if (element.innerHTML != '') {
-                this.appProvider.resetStatusBarColor();
-            }
         }
-    }
-
-    /**
-     * Disable all the style elements based on a query selector.
-     *
-     * @param selector The selector to get the style elements.
-     */
-    protected disableElementsBySelector(selector: string): void {
-        const styles = <HTMLStyleElement[]> Array.from(document.querySelectorAll(selector));
-
-        styles.forEach((style) => {
-            this.disableElement(style, true);
-        });
     }
 
     /**
      * Downloads a CSS file and remove old files if needed.
      *
-     * @param siteId Site ID.
-     * @param url File URL.
-     * @return Promise resolved when the file is downloaded.
+     * @param {string} siteId Site ID.
+     * @param {string} url File URL.
+     * @return {Promise<any>} Promise resolved when the file is downloaded.
      */
     protected downloadFileAndRemoveOld(siteId: string, url: string): Promise<any> {
         // Check if the file is downloaded.
@@ -153,7 +119,7 @@ export class AddonRemoteThemesProvider {
     /**
      * Enable the styles of a certain site.
      *
-     * @param siteId Site ID. If not defined, current site.
+     * @param {string} [siteId] Site ID. If not defined, current site.
      */
     enable(siteId?: string): void {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -166,9 +132,9 @@ export class AddonRemoteThemesProvider {
     /**
      * Get remote styles of a certain site.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the styles and the URL of the CSS file,
-     *         resolved with undefined if no styles to load.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<{fileUrl: string, styles: string}>} Promise resolved with the styles and the URL of the CSS file,
+     *                                                      resolved with undefined if no styles to load.
      */
     get(siteId?: string): Promise<{fileUrl: string, styles: string}> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -197,13 +163,18 @@ export class AddonRemoteThemesProvider {
                 return;
             }
 
-            return promise.then(async (url) => {
+            return promise.then((url) => {
                 this.logger.debug('Loading styles from: ', url);
 
                 // Get the CSS content using HTTP because we will treat the styles before saving them in the file.
-                const text = await this.wsProvider.getText(url);
-
-                return {fileUrl: fileUrl, styles: this.get35Styles(text)};
+                return this.http.get(url).toPromise();
+            }).then((response): any => {
+                const text = response && response.text();
+                if (typeof text == 'string') {
+                    return {fileUrl: fileUrl, styles: this.get35Styles(text)};
+                } else {
+                    return Promise.reject(null);
+                }
             });
         });
     }
@@ -211,8 +182,8 @@ export class AddonRemoteThemesProvider {
     /**
      * Check if the CSS code has a separator for 3.5 styles. If it does, get only the styles after the separator.
      *
-     * @param cssCode The CSS code to check.
-     * @return The filtered styles.
+     * @param {string} cssCode The CSS code to check.
+     * @return {string} The filtered styles.
      */
     protected get35Styles(cssCode: string): string {
         const separatorPos = cssCode.search(this.SEPARATOR_35);
@@ -224,33 +195,11 @@ export class AddonRemoteThemesProvider {
     }
 
     /**
-     * Init the style element for a site.
-     *
-     * @param siteId Site ID.
-     * @param disabled Whether the element should be disabled.
-     */
-    protected initSiteStyleElement(siteId: string, disabled: boolean): void {
-        if (this.stylesEls[siteId]) {
-            // Already initialized, ignore.
-            return;
-        }
-
-        // Create the style and add it to the header.
-        const styleEl = this.createStyleElement('mobilecssurl-' + siteId, disabled);
-
-        document.head.appendChild(styleEl);
-        this.stylesEls[siteId] = {
-            element: styleEl,
-            hash: ''
-        };
-    }
-
-    /**
      * Load styles for a certain site.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @param disabled Whether loaded styles should be disabled.
-     * @return Promise resolved when styles are loaded.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @param {boolean} [disabled] Whether loaded styles should be disabled.
+     * @return {Promise<any>} Promise resolved when styles are loaded.
      */
     load(siteId?: string, disabled?: boolean): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -295,36 +244,38 @@ export class AddonRemoteThemesProvider {
     /**
      * Load styles for a temporary site. These styles aren't prefetched.
      *
-     * @param url URL to get the styles from.
-     * @return Promise resolved when loaded.
+     * @param {string} url URL to get the styles from.
+     * @return {Promise<any>} Promise resolved when loaded.
      */
     loadTmpStyles(url: string): Promise<any> {
         if (!url) {
             return Promise.resolve();
         }
 
-        return this.wsProvider.getText(url).then((text) => {
-            text = this.get35Styles(text);
+        return this.http.get(url).toPromise().then((response) => {
+            let text = response && response.text();
+            if (typeof text == 'string') {
+                text = this.get35Styles(text);
 
-            this.initSiteStyleElement(this.TMP_SITE_ID, false);
-            this.stylesEls[this.TMP_SITE_ID].element.innerHTML = text;
+                const styleEl = document.createElement('style');
+                styleEl.setAttribute('id', 'mobilecssurl-tmpsite');
+                styleEl.innerHTML = text;
+
+                document.head.appendChild(styleEl);
+                this.stylesEls.tmpsite = {
+                    element: styleEl,
+                    hash: ''
+                };
+            } else {
+                return Promise.reject(null);
+            }
         });
-    }
-
-    /**
-     * Load styles for a temporary site, given its public config. These styles aren't prefetched.
-     *
-     * @param config Site public config.
-     * @return Promise resolved when loaded.
-     */
-    loadTmpStylesForSiteConfig(config: any): Promise<any> {
-        return this.loadTmpStyles(config.mobilecssurl);
     }
 
     /**
      * Preload the styles of the current site (stored in DB).
      *
-     * @return Promise resolved when loaded.
+     * @return {Promise<any>} Promise resolved when loaded.
      */
     preloadCurrentSite(): Promise<any> {
         return this.sitesProvider.getStoredCurrentSiteId().then((siteId) => {
@@ -337,7 +288,7 @@ export class AddonRemoteThemesProvider {
     /**
      * Preload the styles of all the stored sites.
      *
-     * @return Promise resolved when loaded.
+     * @return {Promise<any>} Promise resolved when loaded.
      */
     preloadSites(): Promise<any> {
         return this.sitesProvider.getSitesIds().then((ids) => {
@@ -353,7 +304,7 @@ export class AddonRemoteThemesProvider {
     /**
      * Remove the styles of a certain site.
      *
-     * @param siteId Site ID.
+     * @param {string} siteId Site ID.
      */
     removeSite(siteId: string): void {
         if (siteId && this.stylesEls[siteId]) {
@@ -366,6 +317,6 @@ export class AddonRemoteThemesProvider {
      * Unload styles for a temporary site.
      */
     unloadTmpStyles(): void {
-        return this.removeSite(this.TMP_SITE_ID);
+        return this.removeSite('tmpsite');
     }
 }

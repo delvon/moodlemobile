@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 
 import { NgModule } from '@angular/core';
 import { CoreSiteHomeProvider } from './providers/sitehome';
+import { CoreSiteHomeMainMenuHandler } from './providers/mainmenu-handler';
 import { CoreSiteHomeIndexLinkHandler } from './providers/index-link-handler';
+import { CoreMainMenuDelegate } from '@core/mainmenu/providers/delegate';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
 
 // List of providers (without handlers).
@@ -28,12 +30,15 @@ export const CORE_SITEHOME_PROVIDERS: any[] = [
     ],
     providers: [
         CoreSiteHomeProvider,
+        CoreSiteHomeMainMenuHandler,
         CoreSiteHomeIndexLinkHandler
     ],
     exports: []
 })
 export class CoreSiteHomeModule {
-    constructor(contentLinksDelegate: CoreContentLinksDelegate, indexLinkHandler: CoreSiteHomeIndexLinkHandler) {
+    constructor(mainMenuDelegate: CoreMainMenuDelegate, contentLinksDelegate: CoreContentLinksDelegate,
+            mainMenuHandler: CoreSiteHomeMainMenuHandler, indexLinkHandler: CoreSiteHomeIndexLinkHandler) {
+        mainMenuDelegate.registerHandler(mainMenuHandler);
         contentLinksDelegate.registerHandler(indexLinkHandler);
     }
 }

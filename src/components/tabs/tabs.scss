@@ -10,40 +10,29 @@ ion-app.app-root .core-tabs-bar {
         width: 100%;
     }
 
-    .tab-slide {
+    a.tab-slide {
         @extend .tab-button;
 
         background: $core-top-tabs-background;
         color: $core-top-tabs-color !important;
         font-size: 1.6rem;
-        border-bottom: 2px solid transparent !important;
-        padding: 0 2px 0 2px !important;
-        margin: 0 auto !important;
-        display: flex;
-        flex: none;
-        min-width: 100px;
+        border: 0;
+        padding: 0 !important;
 
-        div {
+        span {
             text-overflow: ellipsis;
             white-space: nowrap;
             overflow: hidden;
             word-wrap: break-word;
-            max-width: 100%;
+            display: block;
+            width: 100%;
             line-height: 1.2em;
-        }
-
-        ion-icon {
-            @include margin(null, 5px, null, null);
         }
 
         &[aria-selected=true] {
             color: $core-top-tabs-color-active !important;
-            border-bottom-color: $core-top-tabs-border-active !important;
-        }
-
-        .slide-zoom {
-            display: flex;
-            flex-direction: column;
+            border: 0 !important;
+            border-bottom: 2px solid $core-top-tabs-color-active !important;
         }
     }
 
@@ -59,9 +48,21 @@ ion-app.app-root .core-tabs-bar {
 
         }
     }
+
+    @include rtl() {
+        .swiper-container-horizontal {
+            transform: scaleX(-1);
+            .swiper-wrapper {
+                flex-direction: row-reverse;
+                ion-slide {
+                    transform: scaleX(-1);
+                }
+            }
+        }
+    }
 }
 
-ion-app.app-root.md .core-tabs-bar .tab-slide {
+ion-app.app-root.md .core-tabs-bar a.tab-slide {
     // @extend .tabs-md .tab-button;
     min-height: $tabs-md-tab-min-height;
 
@@ -69,14 +70,27 @@ ion-app.app-root.md .core-tabs-bar .tab-slide {
     color: $tabs-md-tab-text-color;
 }
 
-ion-app.app-root.ios .core-tabs-bar .tab-slide {
+ion-app.app-root.ios .core-tabs-bar a.tab-slide {
     // @extend .tabs-ios .tab-button;
     max-width: $tabs-ios-tab-max-width;
     min-height: $tabs-ios-tab-min-height;
 
-    font-size: $tabs-ios-tab-font-size;
+    font-size: $tabs-ios-tab-font-size + 4;
     font-weight: $tabs-ios-tab-font-weight;
     color: $tabs-ios-tab-text-color;
+}
+
+ion-app.app-root.wp .core-tabs-bar a.tab-slide {
+    //@extend .tabs-wp .tab-button;
+    @include border-radius(0);
+
+    min-height: $tabs-wp-tab-min-height;
+
+    border-bottom: $tabs-wp-tab-border;
+    font-size: $tabs-wp-tab-font-size;
+    font-weight: $tabs-wp-tab-font-weight;
+    color: $tabs-wp-tab-color;
+    box-shadow: none;
 }
 
 ion-app.app-root core-tabs {
@@ -89,6 +103,7 @@ ion-app.app-root core-tabs {
 
             .scroll-content {
                 overflow: hidden !important;
+                contain: initial;
                 position: relative;
             }
         }
@@ -97,10 +112,8 @@ ion-app.app-root core-tabs {
     &.tabs-hidden {
         .core-tabs-bar {
             display: none !important;
-            transform: translateY(0) !important;
         }
         .core-tabs-content-container {
-            transform: translateY(0) !important;
             padding-bottom: 0 !important;
         }
     }
@@ -109,7 +122,6 @@ ion-app.app-root core-tabs {
         display: none;
         height: 100%;
         position: relative;
-        z-index: 1;
 
         &.selected {
             display: block;
@@ -144,7 +156,7 @@ ion-app.app-root.md .core-tabs-bar::after {
     @extend .header-md::after;
 }
 
-ion-app.app-root.ios, ion-app.app-root.md {
+ion-app.app-root.ios, ion-app.app-root.md, ion-app.app-root.wp {
     .core-avoid-header ion-content core-tabs core-tab ion-content {
         top: 0 !important;
         height: 100% !important;

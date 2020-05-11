@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreEmulatorHelperProvider } from '@core/emulator/providers/helper';
 import { AddonNotificationsProvider } from './notifications';
-import { AddonNotificationsHelperProvider } from './helper';
 
 /**
  * Notifications cron handler.
@@ -33,12 +32,12 @@ export class AddonNotificationsCronHandler implements CoreCronHandler {
     constructor(private appProvider: CoreAppProvider, private eventsProvider: CoreEventsProvider,
             private sitesProvider: CoreSitesProvider, private localNotifications: CoreLocalNotificationsProvider,
             private notificationsProvider: AddonNotificationsProvider, private textUtils: CoreTextUtilsProvider,
-            private emulatorHelper: CoreEmulatorHelperProvider, private notificationsHelper: AddonNotificationsHelperProvider) {}
+            private emulatorHelper: CoreEmulatorHelperProvider) {}
 
     /**
      * Get the time between consecutive executions.
      *
-     * @return Time between consecutive executions (in ms).
+     * @return {number} Time between consecutive executions (in ms).
      */
     getInterval(): number {
         return this.appProvider.isDesktop() ? 60000 : 600000; // 1 or 10 minutes.
@@ -47,7 +46,7 @@ export class AddonNotificationsCronHandler implements CoreCronHandler {
     /**
      * Check whether it's a synchronization process or not. True if not defined.
      *
-     * @return Whether it's a synchronization process or not.
+     * @return {boolean} Whether it's a synchronization process or not.
      */
     isSync(): boolean {
         // This is done to use only wifi if using the fallback function.
@@ -58,7 +57,7 @@ export class AddonNotificationsCronHandler implements CoreCronHandler {
     /**
      * Check whether the sync can be executed manually. Call isSync if not defined.
      *
-     * @return Whether the sync can be executed manually.
+     * @return {boolean} Whether the sync can be executed manually.
      */
     canManualSync(): boolean {
         return true;
@@ -66,14 +65,12 @@ export class AddonNotificationsCronHandler implements CoreCronHandler {
 
     /**
      * Execute the process.
-     * Receives the ID of the site affected, undefined for all sites.
      *
-     * @param siteId ID of the site affected, undefined for all sites.
-     * @param force Wether the execution is forced (manual sync).
-     * @return Promise resolved when done, rejected if failure. If the promise is rejected, this function
-     *         will be called again often, it shouldn't be abused.
+     * @param {string} [siteId] ID of the site affected. If not defined, all sites.
+     * @return {Promise<any>} Promise resolved when done. If the promise is rejected, this function will be called again often,
+     *                        it shouldn't be abused.
      */
-    execute(siteId?: string, force?: boolean): Promise<any> {
+    execute(siteId?: string): Promise<any> {
         if (this.sitesProvider.isCurrentSite(siteId)) {
             this.eventsProvider.trigger(AddonNotificationsProvider.READ_CRON_EVENT, {}, this.sitesProvider.getCurrentSiteId());
         }
@@ -90,24 +87,22 @@ export class AddonNotificationsCronHandler implements CoreCronHandler {
     /**
      * Get the latest unread notifications from a site.
      *
-     * @param siteId Site ID.
-     * @return Promise resolved with the notifications.
+     * @param  {string} siteId  Site ID.
+     * @return {Promise<any[]>} Promise resolved with the notifications.
      */
     protected fetchNotifications(siteId: string): Promise<any[]> {
-        return this.notificationsHelper.getNotifications([], undefined, true, false, true, siteId).then((result) => {
-            return result.notifications;
-        });
+        return this.notificationsProvider.getUnreadNotifications(0, undefined, true, false, true, siteId);
     }
 
     /**
      * Given a notification, return the title and the text for the notification.
      *
-     * @param notification Notification.
-     * @return Promise resvoled with an object with title and text.
+     * @param  {any} notification Notification.
+     * @return {Promise<any>} Promise resvoled with an object with title and text.
      */
     protected getTitleAndText(notification: any): Promise<any> {
         const data = {
-            title: notification.subject || notification.userfromfullname,
+            title: notification.userfromfullname,
             text: notification.mobiletext.replace(/-{4,}/ig, '')
         };
         data.text = this.textUtils.replaceNewLines(data.text, '<br>');

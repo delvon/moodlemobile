@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ export class FileTransferMock extends FileTransfer {
 
     /**
      * Creates a new FileTransferObjectMock object.
+     *
+     * @return {FileTransferObjectMock}
      */
     create(): FileTransferObjectMock {
         return new FileTransferObjectMock(this.appProvider, this.fileProvider);
@@ -78,11 +80,11 @@ export class FileTransferObjectMock extends FileTransferObject {
     /**
      * Downloads a file from server.
      *
-     * @param source URL of the server to download the file, as encoded by encodeURI().
-     * @param target Filesystem url representing the file on the device.
-     * @param trustAllHosts If set to true, it accepts all security certificates.
-     * @param options Optional parameters, currently only supports headers.
-     * @return Returns a Promise that resolves to a FileEntry object.
+     * @param {string} source URL of the server to download the file, as encoded by encodeURI().
+     * @param {string} target Filesystem url representing the file on the device.
+     * @param {boolean} [trustAllHosts] If set to true, it accepts all security certificates.
+     * @param {object} [options] Optional parameters, currently only supports headers.
+     * @returns {Promise<any>} Returns a Promise that resolves to a FileEntry object.
      */
     download(source: string, target: string, trustAllHosts?: boolean, options?: { [s: string]: any; }): Promise<any> {
         return new Promise((resolve, reject): void => {
@@ -128,18 +130,7 @@ export class FileTransferObjectMock extends FileTransferObject {
 
             xhr.onload = (): void => {
                 // Finished dowloading the file.
-                let response = xhr.response || xhr.responseText;
-
-                const status = Math.max(xhr.status === 1223 ? 204 : xhr.status, 0);
-                if (status < 200 || status >= 300) {
-                    // Request failed. Try to get the error message.
-                    this.parseResponse(response).then((response) => {
-                        reject(new FileTransferErrorMock(-1, source, target, xhr.status, response || xhr.statusText, null));
-                    });
-
-                    return;
-                }
-
+                let response = xhr.response;
                 if (!response) {
                     reject();
                 } else {
@@ -163,8 +154,8 @@ export class FileTransferObjectMock extends FileTransferObject {
      * Given a URL, check if it has a credentials in it and, if so, return them in a header object.
      * This code is extracted from Cordova FileTransfer plugin.
      *
-     * @param urlString The URL to get the credentials from.
-     * @return The header with the credentials, null if no credentials.
+     * @param {string} urlString The URL to get the credentials from.
+     * @return {any} The header with the credentials, null if no credentials.
      */
     protected getBasicAuthHeader(urlString: string): any {
         let header = null;
@@ -189,8 +180,8 @@ export class FileTransferObjectMock extends FileTransferObject {
     /**
      * Given an instance of XMLHttpRequest, get the response headers as an object.
      *
-     * @param xhr XMLHttpRequest instance.
-     * @return Object with the headers.
+     * @param {XMLHttpRequest} xhr XMLHttpRequest instance.
+     * @return {{[s: string]: any}} Object with the headers.
      */
     protected getHeadersAsObject(xhr: XMLHttpRequest): { [s: string]: any } {
         const headersString = xhr.getAllResponseHeaders(),
@@ -214,8 +205,8 @@ export class FileTransferObjectMock extends FileTransferObject {
      * Get the credentials from a URL.
      * This code is extracted from Cordova FileTransfer plugin.
      *
-     * @param urlString The URL to get the credentials from.
-     * @return Retrieved credentials.
+     * @param {string} urlString The URL to get the credentials from.
+     * @return {string} Retrieved credentials.
      */
     protected getUrlCredentials(urlString: string): string {
         const credentialsPattern = /^https?\:\/\/(?:(?:(([^:@\/]*)(?::([^@\/]*))?)?@)?([^:\/?#]*)(?::(\d*))?).*$/,
@@ -227,65 +218,20 @@ export class FileTransferObjectMock extends FileTransferObject {
     /**
      * Registers a listener that gets called whenever a new chunk of data is transferred.
      *
-     * @param listener Listener that takes a progress event.
+     * @param {Function} listener Listener that takes a progress event.
      */
     onProgress(listener: (event: ProgressEvent) => any): void {
         this.progressListener = listener;
     }
 
     /**
-     * Same as Javascript's JSON.parse, but it will handle errors.
-     *
-     * @param json JSON text.
-     * @return JSON parsed as object or what it gets.
-     */
-    protected parseJSON(json: string): any {
-        try {
-            return JSON.parse(json);
-        } catch (ex) {
-            // Error.
-        }
-
-        return json;
-    }
-
-    /**
-     * Parse a response, converting it into text and the into an object if needed.
-     *
-     * @param response The response to parse.
-     * @return Promise resolved with the parsed response.
-     */
-    protected parseResponse(response: any): Promise<any> {
-        return new Promise((resolve, reject): void => {
-            if (!response) {
-                resolve('');
-            } else if (response.toString && response.toString() == '[object Blob]') {
-                // Convert the Blob into text.
-                const reader = new FileReader();
-                reader.onloadend = (): void => {
-                    resolve(reader.result);
-                };
-                reader.readAsText(response);
-
-            } else if (response.toString && response.toString() == '[object ArrayBuffer]') {
-                // Convert the ArrayBuffer into text.
-                resolve(String.fromCharCode.apply(null, new Uint8Array(response)));
-            } else {
-                resolve(response);
-            }
-        }).then((response: any) => {
-            return this.parseJSON(response);
-        });
-    }
-
-    /**
      * Sends a file to a server.
      *
-     * @param fileUrl Filesystem URL representing the file on the device or a data URI.
-     * @param url URL of the server to receive the file, as encoded by encodeURI().
-     * @param options Optional parameters.
-     * @param trustAllHosts If set to true, it accepts all security certificates.
-     * @return Promise that resolves to a FileUploadResult and rejects with FileTransferError.
+     * @param {string} fileUrl Filesystem URL representing the file on the device or a data URI.
+     * @param {string} url URL of the server to receive the file, as encoded by encodeURI().
+     * @param {FileUploadOptions} [options] Optional parameters.
+     * @param {boolean} [trustAllHosts] If set to true, it accepts all security certificates.
+     * @returns {Promise<FileUploadResult>} Promise that resolves to a FileUploadResult and rejects with FileTransferError.
      */
     upload(fileUrl: string, url: string, options?: FileUploadOptions, trustAllHosts?: boolean): Promise<FileUploadResult> {
         return new Promise((resolve, reject): void => {
@@ -378,7 +324,7 @@ export class FileTransferObjectMock extends FileTransferObject {
                 for (const name in params) {
                     fd.append(name, params[name]);
                 }
-                fd.append('file', file, fileName);
+                fd.append('file', file);
 
                 xhr.send(fd);
             }).catch(reject);

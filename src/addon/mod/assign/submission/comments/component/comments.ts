@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,18 +27,14 @@ import { AddonModAssignSubmissionPluginComponent } from '../../../classes/submis
 export class AddonModAssignSubmissionCommentsComponent extends AddonModAssignSubmissionPluginComponent {
     @ViewChild(CoreCommentsCommentsComponent) commentsComponent: CoreCommentsCommentsComponent;
 
-    commentsEnabled: boolean;
-
     constructor(protected commentsProvider: CoreCommentsProvider) {
         super();
-
-        this.commentsEnabled = !commentsProvider.areCommentsDisabledInSite();
     }
 
     /**
      * Invalidate the data.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidate(): Promise<any> {
         return this.commentsProvider.invalidateCommentsData('module', this.assign.cmid, 'assignsubmission_comments',
@@ -48,7 +44,7 @@ export class AddonModAssignSubmissionCommentsComponent extends AddonModAssignSub
     /**
      * Show the comments.
      */
-    showComments(e?: Event): void {
-        this.commentsComponent && this.commentsComponent.openComments(e);
+    showComments(): void {
+        this.commentsComponent && this.commentsComponent.openComments();
     }
 }

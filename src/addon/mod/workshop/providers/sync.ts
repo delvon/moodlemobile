@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreSyncProvider } from '@providers/sync';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
-import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
 import { AddonModWorkshopProvider } from './workshop';
 import { AddonModWorkshopHelperProvider } from './helper';
 import { AddonModWorkshopOfflineProvider } from './offline';
@@ -48,15 +46,12 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
             sitesProvider: CoreSitesProvider,
             syncProvider: CoreSyncProvider,
             textUtils: CoreTextUtilsProvider,
-            timeUtils: CoreTimeUtilsProvider,
             private utils: CoreUtilsProvider,
             private workshopProvider: AddonModWorkshopProvider,
             private workshopHelper: AddonModWorkshopHelperProvider,
-            private workshopOffline: AddonModWorkshopOfflineProvider,
-            private logHelper: CoreCourseLogHelperProvider) {
+            private workshopOffline: AddonModWorkshopOfflineProvider) {
 
-        super('AddonModWorkshopSyncProvider', loggerProvider, sitesProvider, appProvider, syncProvider, textUtils, translate,
-                timeUtils);
+        super('AddonModWorkshopSyncProvider', loggerProvider, sitesProvider, appProvider, syncProvider, textUtils, translate);
 
         this.componentTranslate = courseProvider.translateModuleName('workshop');
     }
@@ -64,9 +59,9 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Check if an workshop has data to synchronize.
      *
-     * @param workshopId Workshop ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean: true if has data to sync, false otherwise.
+     * @param  {number} workshopId Workshop ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved with boolean: true if has data to sync, false otherwise.
      */
     hasDataToSync(workshopId: number, siteId?: string): Promise<any> {
         return this.workshopOffline.hasWorkshopOfflineData(workshopId, siteId);
@@ -75,28 +70,26 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Try to synchronize all workshops that need it and haven't been synchronized in a while.
      *
-     * @param siteId Site ID to sync. If not defined, sync all sites.
-     * @param force Wether to force sync not depending on last execution.
-     * @return Promise resolved when the sync is done.
+     * @param  {string} [siteId] Site ID to sync. If not defined, sync all sites.
+     * @return {Promise<any>}    Promise resolved when the sync is done.
      */
-    syncAllWorkshops(siteId?: string, force?: boolean): Promise<any> {
-        return this.syncOnSites('all workshops', this.syncAllWorkshopsFunc.bind(this), [force], siteId);
+    syncAllWorkshops(siteId?: string): Promise<any> {
+        return this.syncOnSites('all workshops', this.syncAllWorkshopsFunc.bind(this), [], siteId);
     }
 
     /**
      * Sync all workshops on a site.
      *
-     * @param siteId Site ID to sync.
-     * @param force Wether to force sync not depending on last execution.
-     * @return Promise resolved if sync is successful, rejected if sync fails.
+     * @param  {string} [siteId] Site ID to sync. If not defined, sync all sites.
+     * @return {Promise<any>}    Promise resolved if sync is successful, rejected if sync fails.
      */
-    protected syncAllWorkshopsFunc(siteId: string, force?: boolean): Promise<any> {
+    protected syncAllWorkshopsFunc(siteId?: string): Promise<any> {
         return this.workshopOffline.getAllWorkshops(siteId).then((workshopIds) => {
-            // Sync all workshops that haven't been synced for a while.
-            const promises = workshopIds.map((workshopId) => {
-                const promise = force ? this.syncWorkshop(workshopId, siteId) : this.syncWorkshopIfNeeded(workshopId, siteId);
+            const promises = [];
 
-                return promise.then((data) => {
+            // Sync all workshops that haven't been synced for a while.
+            workshopIds.forEach((workshopId) => {
+                promises.push(this.syncWorkshopIfNeeded(workshopId, siteId).then((data) => {
                     if (data && data.updated) {
                         // Sync done. Send event.
                         this.eventsProvider.trigger(AddonModWorkshopSyncProvider.AUTO_SYNCED, {
@@ -104,7 +97,7 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                             warnings: data.warnings
                         }, siteId);
                     }
-                });
+                }));
             });
 
             return Promise.all(promises);
@@ -114,9 +107,9 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Sync a workshop only if a certain time has passed since the last time.
      *
-     * @param workshopId Workshop ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the workshop is synced or if it doesn't need to be synced.
+     * @param  {number} workshopId Workshop ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved when the workshop is synced or if it doesn't need to be synced.
      */
     syncWorkshopIfNeeded(workshopId: number, siteId?: string): Promise<any> {
         return this.isSyncNeeded(workshopId, siteId).then((needed) => {
@@ -129,9 +122,9 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Try to synchronize a workshop.
      *
-     * @param workshopId Workshop ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if sync is successful, rejected otherwise.
+     * @param  {number} workshopId  Workshop ID.
+     * @param  {string} [siteId]    Site ID. If not defined, current site.
+     * @return {Promise<any>}       Promise resolved if sync is successful, rejected otherwise.
      */
     syncWorkshop(workshopId: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -175,9 +168,6 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
             // No offline data found, return empty array.
             return [];
         }));
-
-        // Sync offline logs.
-        syncPromises.push(this.logHelper.syncIfNeeded(AddonModWorkshopProvider.COMPONENT, workshopId, siteId));
 
         const result = {
             warnings: [],
@@ -269,11 +259,11 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Synchronize a submission.
      *
-     * @param workshop Workshop.
-     * @param submissionActions Submission actions offline data.
-     * @param result Object with the result of the sync.
-     * @param siteId Site ID.
-     * @return Promise resolved if success, rejected otherwise.
+     * @param  {any}    workshop          Workshop.
+     * @param  {any[]}  submissionActions Submission actions offline data.
+     * @param  {any}    result            Object with the result of the sync.
+     * @param  {string} siteId            Site ID.
+     * @return {Promise<any>}             Promise resolved if success, rejected otherwise.
      */
     protected syncSubmission(workshop: any, submissionActions: any, result: any, siteId: string): Promise<any> {
         let discardError;
@@ -328,10 +318,6 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                     }
 
                     return fileProm.then((attachmentsId) => {
-                        if (workshop.submissiontypefile == AddonModWorkshopProvider.SUBMISSION_TYPE_DISABLED) {
-                            attachmentsId = null;
-                        }
-
                         // Perform the action.
                         switch (action.action) {
                             case 'add':
@@ -350,7 +336,7 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                     }).catch((error) => {
                         if (error && this.utils.isWebServiceError(error)) {
                             // The WebService has thrown an error, this means it cannot be performed. Discard.
-                            discardError = this.textUtils.getErrorMessageFromError(error);
+                            discardError = error.message || error.error;
                         } else {
                             // Couldn't connect to server, reject.
                             return Promise.reject(error);
@@ -360,15 +346,7 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                         result.updated = true;
 
                         return this.workshopOffline.deleteSubmissionAction(action.workshopid, action.submissionid, action.action,
-                                siteId).then(() => {
-                            // Delete stored files.
-                            if (action.action == 'add' || action.action == 'update') {
-                                const editing = action.action == 'update';
-
-                                return this.workshopHelper.deleteSubmissionStoredFiles(action.workshopid,
-                                        action.submissionid, editing, siteId);
-                            }
-                        });
+                                siteId);
                     });
                 });
             });
@@ -393,11 +371,11 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Synchronize an assessment.
      *
-     * @param workshop Workshop.
-     * @param assessment Assessment offline data.
-     * @param result Object with the result of the sync.
-     * @param siteId Site ID.
-     * @return Promise resolved if success, rejected otherwise.
+     * @param  {any}    workshop   Workshop.
+     * @param  {any}    assessment Assessment offline data.
+     * @param  {any}    result     Object with the result of the sync.
+     * @param  {string} siteId     Site ID.
+     * @return {Promise<any>}      Promise resolved if success, rejected otherwise.
      */
     protected syncAssessment(workshop: any, assessmentData: any, result: any, siteId: string): Promise<any> {
         let discardError;
@@ -439,7 +417,7 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
             }).catch((error) => {
                 if (error && this.utils.isWebServiceError(error)) {
                     // The WebService has thrown an error, this means it cannot be performed. Discard.
-                    discardError = this.textUtils.getErrorMessageFromError(error);
+                    discardError = error.message || error.error;
                 } else {
                     // Couldn't connect to server, reject.
                     return Promise.reject(error);
@@ -448,9 +426,7 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                 // Delete the offline data.
                 result.updated = true;
 
-                return this.workshopOffline.deleteAssessment(workshop.id, assessmentId, siteId).then(() => {
-                    this.workshopHelper.deleteAssessmentStoredFiles(workshop.id, assessmentId, siteId);
-                });
+                return this.workshopOffline.deleteAssessment(workshop.id, assessmentId, siteId);
             });
         }).then(() => {
             if (discardError) {
@@ -471,11 +447,11 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Synchronize a submission evaluation.
      *
-     * @param workshop Workshop.
-     * @param evaluate Submission evaluation offline data.
-     * @param result Object with the result of the sync.
-     * @param siteId Site ID.
-     * @return Promise resolved if success, rejected otherwise.
+     * @param  {any}    workshop Workshop.
+     * @param  {any}    evaluate Submission evaluation offline data.
+     * @param  {any}    result   Object with the result of the sync.
+     * @param  {string} siteId   Site ID.
+     * @return {Promise<any>}    Promise resolved if success, rejected otherwise.
      */
     protected syncEvaluateSubmission(workshop: any, evaluate: any, result: any, siteId: string): Promise<any> {
         let discardError;
@@ -500,10 +476,10 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                 evaluate.gradeover, siteId).catch((error) => {
                 if (error && this.utils.isWebServiceError(error)) {
                     // The WebService has thrown an error, this means it cannot be performed. Discard.
-                    discardError = this.textUtils.getErrorMessageFromError(error);
+                    discardError = error.message || error.error;
                 } else {
                     // Couldn't connect to server, reject.
-                    return Promise.reject(error);
+                    return Promise.reject(error && error.error);
                 }
             }).then(() => {
                 // Delete the offline data.
@@ -530,11 +506,11 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
     /**
      * Synchronize a assessment evaluation.
      *
-     * @param workshop Workshop.
-     * @param evaluate Assessment evaluation offline data.
-     * @param result Object with the result of the sync.
-     * @param siteId Site ID.
-     * @return Promise resolved if success, rejected otherwise.
+     * @param  {any}    workshop Workshop.
+     * @param  {any}    evaluate Assessment evaluation offline data.
+     * @param  {any}    result   Object with the result of the sync.
+     * @param  {string} siteId   Site ID.
+     * @return {Promise<any>}    Promise resolved if success, rejected otherwise.
      */
     protected syncEvaluateAssessment(workshop: any, evaluate: any, result: any, siteId: string): Promise<any> {
         let discardError;
@@ -559,10 +535,10 @@ export class AddonModWorkshopSyncProvider extends CoreSyncBaseProvider {
                 evaluate.gradinggradeover, siteId).catch((error) => {
                 if (error && this.utils.isWebServiceError(error)) {
                     // The WebService has thrown an error, this means it cannot be performed. Discard.
-                    discardError = this.textUtils.getErrorMessageFromError(error);
+                    discardError = error.message || error.error;
                 } else {
                     // Couldn't connect to server, reject.
-                    return Promise.reject(error);
+                    return Promise.reject(error && error.error);
                 }
             }).then(() => {
                 // Delete the offline data.

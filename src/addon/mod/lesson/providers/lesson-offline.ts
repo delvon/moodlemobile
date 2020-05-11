@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import { Injectable } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
@@ -31,119 +31,114 @@ export class AddonModLessonOfflineProvider {
     // Variables for database. We use lowercase in the names to match the WS responses.
     static RETAKES_TABLE = 'addon_mod_lesson_retakes';
     static PAGE_ATTEMPTS_TABLE = 'addon_mod_lesson_page_attempts';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'AddonModLessonOfflineProvider',
-        version: 1,
-        tables: [
-            {
-                name: AddonModLessonOfflineProvider.RETAKES_TABLE,
-                columns: [
-                    {
-                        name: 'lessonid',
-                        type: 'INTEGER',
-                        primaryKey: true // Only 1 offline retake per lesson.
-                    },
-                    {
-                        name: 'retake', // Retake number.
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'finished',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'outoftime',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'lastquestionpage',
-                        type: 'INTEGER'
-                    },
-                ]
-            },
-            {
-                name: AddonModLessonOfflineProvider.PAGE_ATTEMPTS_TABLE,
-                columns: [
-                    {
-                        name: 'lessonid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'retake', // Retake number.
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'pageid',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'timemodified',
-                        type: 'INTEGER',
-                        notNull: true
-                    },
-                    {
-                        name: 'courseid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'data',
-                        type: 'TEXT'
-                    },
-                    {
-                        name: 'type',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'newpageid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'correct',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'answerid',
-                        type: 'INTEGER'
-                    },
-                    {
-                        name: 'useranswer',
-                        type: 'TEXT'
-                    },
-                ],
-                // A user can attempt several times per page and retake.
-                primaryKeys: ['lessonid', 'retake', 'pageid', 'timemodified']
-            }
-        ]
-    };
+    protected tablesSchema = [
+        {
+            name: AddonModLessonOfflineProvider.RETAKES_TABLE,
+            columns: [
+                {
+                    name: 'lessonid',
+                    type: 'INTEGER',
+                    primaryKey: true // Only 1 offline retake per lesson.
+                },
+                {
+                    name: 'retake', // Retake number.
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'finished',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'outoftime',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'lastquestionpage',
+                    type: 'INTEGER'
+                },
+            ]
+        },
+        {
+            name: AddonModLessonOfflineProvider.PAGE_ATTEMPTS_TABLE,
+            columns: [
+                {
+                    name: 'lessonid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'retake', // Retake number.
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'pageid',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'timemodified',
+                    type: 'INTEGER',
+                    notNull: true
+                },
+                {
+                    name: 'courseid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'data',
+                    type: 'TEXT'
+                },
+                {
+                    name: 'type',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'newpageid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'correct',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'answerid',
+                    type: 'INTEGER'
+                },
+                {
+                    name: 'useranswer',
+                    type: 'TEXT'
+                },
+            ],
+            primaryKeys: ['lessonid', 'retake', 'pageid', 'timemodified'] // A user can attempt several times per page and retake.
+        }
+    ];
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private timeUtils: CoreTimeUtilsProvider,
             private textUtils: CoreTextUtilsProvider, private utils: CoreUtilsProvider) {
         this.logger = logger.getInstance('AddonModLessonOfflineProvider');
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTablesFromSchema(this.tablesSchema);
     }
 
     /**
      * Delete an offline attempt.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Lesson retake number.
-     * @param pageId Page ID.
-     * @param timemodified The timemodified of the attempt.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Lesson retake number.
+     * @param {number} pageId Page ID.
+     * @param {number} timemodified The timemodified of the attempt.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     deleteAttempt(lessonId: number, retake: number, pageId: number, timemodified: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -159,9 +154,9 @@ export class AddonModLessonOfflineProvider {
     /**
      * Delete offline lesson retake.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     deleteRetake(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -172,11 +167,11 @@ export class AddonModLessonOfflineProvider {
     /**
      * Delete offline attempts for a retake and page.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Lesson retake number.
-     * @param pageId Page ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Lesson retake number.
+     * @param {number} pageId Page ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
     deleteRetakeAttemptsForPage(lessonId: number, retake: number, pageId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -188,13 +183,13 @@ export class AddonModLessonOfflineProvider {
     /**
      * Mark a retake as finished.
      *
-     * @param lessonId Lesson ID.
-     * @param courseId Course ID the lesson belongs to.
-     * @param retake Retake number.
-     * @param finished Whether retake is finished.
-     * @param outOfTime If the user ran out of time.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {number} retake Retake number.
+     * @param {boolean} finished  Whether retake is finished.
+     * @param {boolean} outOfTime If the user ran out of time.
+     * @param {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}           Promise resolved in success, rejected otherwise.
      */
     finishRetake(lessonId: number, courseId: number, retake: number, finished?: boolean, outOfTime?: boolean, siteId?: string)
             : Promise<any> {
@@ -214,8 +209,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Get all the offline page attempts in a certain site.
      *
-     * @param siteId Site ID. If not set, use current site.
-     * @return Promise resolved when the offline attempts are retrieved.
+     * @param {string} [siteId] Site ID. If not set, use current site.
+     * @return {Promise<any>} Promise resolved when the offline attempts are retrieved.
      */
     getAllAttempts(siteId?: string): Promise<any> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -228,8 +223,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Get all the lessons that have offline data in a certain site.
      *
-     * @param siteId Site ID. If not set, use current site.
-     * @return Promise resolved with an object containing the lessons.
+     * @param {string} [siteId] Site ID. If not set, use current site.
+     * @return {Promise<any>} Promise resolved with an object containing the lessons.
      */
     getAllLessonsWithData(siteId?: string): Promise<any> {
         const promises = [],
@@ -257,8 +252,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Get all the offline retakes in a certain site.
      *
-     * @param siteId Site ID. If not set, use current site.
-     * @return Promise resolved when the offline retakes are retrieved.
+     * @param {string} [siteId] Site ID. If not set, use current site.
+     * @return {Promise<any>} Promise resolved when the offline retakes are retrieved.
      */
     getAllRetakes(siteId?: string): Promise<any> {
         return this.sitesProvider.getSiteDb(siteId).then((db) => {
@@ -269,10 +264,10 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve the last offline attempt stored in a retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the attempt (undefined if no attempts).
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the attempt (undefined if no attempts).
      */
     getLastQuestionPageAttempt(lessonId: number, retake: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -297,9 +292,9 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve all offline attempts for a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the attempts.
      */
     getLessonAttempts(lessonId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -312,8 +307,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Given a list of DB entries (either retakes or page attempts), get the list of lessons.
      *
-     * @param lessons Object where to store the lessons.
-     * @param entries List of DB entries.
+     * @param {any} lessons Object where to store the lessons.
+     * @param {any[]} entries List of DB entries.
      */
     protected getLessonsFromEntries(lessons: any, entries: any[]): void {
         entries.forEach((entry) => {
@@ -329,12 +324,12 @@ export class AddonModLessonOfflineProvider {
     /**
      * Get attempts for question pages and retake in a lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param correct True to only fetch correct attempts, false to get them all.
-     * @param pageId If defined, only get attempts on this page.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {boolean} [correct] True to only fetch correct attempts, false to get them all.
+     * @param {number} [pageId] If defined, only get attempts on this page.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>}  Promise resolved with the attempts.
      */
     getQuestionsAttempts(lessonId: number, retake: number, correct?: boolean, pageId?: number, siteId?: string): Promise<any[]> {
         let promise;
@@ -361,9 +356,9 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve a retake from site DB.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the retake.
      */
     getRetake(lessonId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -374,10 +369,10 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve all offline attempts for a retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake   Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any[]>} Promise resolved with the retake attempts.
      */
     getRetakeAttempts(lessonId: number, retake: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -390,11 +385,11 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve offline attempts for a retake and page.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Lesson retake number.
-     * @param pageId Page ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake   Lesson retake number.
+     * @param {number} pageId   Page ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved with the retake attempts.
      */
     getRetakeAttemptsForPage(lessonId: number, retake: number, pageId: number, siteId?: string): Promise<any[]> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -408,11 +403,11 @@ export class AddonModLessonOfflineProvider {
     /**
      * Retrieve offline attempts for certain pages for a retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param type Type of the pages to get: TYPE_QUESTION or TYPE_STRUCTURE.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake attempts.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake   Retake number.
+     * @param {number} type     Type of the pages to get: TYPE_QUESTION or TYPE_STRUCTURE.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved with the retake attempts.
      */
     getRetakeAttemptsForType(lessonId: number, retake: number, type: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -426,11 +421,11 @@ export class AddonModLessonOfflineProvider {
     /**
      * Get stored retake. If not found or doesn't match the retake number, return a new one.
      *
-     * @param lessonId Lesson ID.
-     * @param courseId Course ID the lesson belongs to.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the retake.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the retake.
      */
     protected getRetakeWithFallback(lessonId: number, courseId: number, retake: number, siteId?: string): Promise<any> {
         // Get current stored retake.
@@ -455,9 +450,9 @@ export class AddonModLessonOfflineProvider {
     /**
      * Check if there is a finished retake for a certain lesson.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with boolean.
      */
     hasFinishedRetake(lessonId: number, siteId?: string): Promise<boolean> {
         return this.getRetake(lessonId, siteId).then((retake) => {
@@ -470,9 +465,9 @@ export class AddonModLessonOfflineProvider {
     /**
      * Check if a lesson has offline data.
      *
-     * @param lessonId Lesson ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with boolean.
+     * @param {number} lessonId Lesson ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with boolean.
      */
     hasOfflineData(lessonId: number, siteId?: string): Promise<boolean> {
         const promises = [];
@@ -498,10 +493,10 @@ export class AddonModLessonOfflineProvider {
     /**
      * Check if there are offline attempts for a retake.
      *
-     * @param lessonId Lesson ID.
-     * @param retake Retake number.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with a boolean.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} retake Retake number.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with a boolean.
      */
     hasRetakeAttempts(lessonId: number, retake: number, siteId?: string): Promise<boolean> {
         return this.getRetakeAttempts(lessonId, retake, siteId).then((list) => {
@@ -514,8 +509,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Parse some properties of a page attempt.
      *
-     * @param attempt The attempt to treat.
-     * @return The treated attempt.
+     * @param {any} attempt The attempt to treat.
+     * @return {any} The treated attempt.
      */
     protected parsePageAttempt(attempt: any): any {
         attempt.data = this.textUtils.parseJSON(attempt.data);
@@ -527,8 +522,8 @@ export class AddonModLessonOfflineProvider {
     /**
      * Parse some properties of some page attempts.
      *
-     * @param attempts The attempts to treat.
-     * @return The treated attempts.
+     * @param {any[]} attempts The attempts to treat.
+     * @return {any[]} The treated attempts.
      */
     protected parsePageAttempts(attempts: any[]): any[] {
         attempts.forEach((attempt) => {
@@ -541,17 +536,17 @@ export class AddonModLessonOfflineProvider {
     /**
      * Process a lesson page, saving its data.
      *
-     * @param lessonId Lesson ID.
-     * @param courseId Course ID the lesson belongs to.
-     * @param retake Retake number.
-     * @param page Page.
-     * @param data Data to save.
-     * @param newPageId New page ID (calculated).
-     * @param answerId The answer ID that the user answered.
-     * @param correct If answer is correct. Only for question pages.
-     * @param userAnswer The user's answer (userresponse from checkAnswer).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {number} retake Retake number.
+     * @param {any} page Page.
+     * @param {any} data Data to save.
+     * @param {number} newPageId New page ID (calculated).
+     * @param {number} [answerId] The answer ID that the user answered.
+     * @param {boolean} [correct] If answer is correct. Only for question pages.
+     * @param {any} [userAnswer] The user's answer (userresponse from checkAnswer).
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     processPage(lessonId: number, courseId: number, retake: number, page: any, data: any, newPageId: number, answerId?: number,
             correct?: boolean, userAnswer?: any, siteId?: string): Promise<any> {
@@ -583,12 +578,12 @@ export class AddonModLessonOfflineProvider {
     /**
      * Set the last question page attempted in a retake.
      *
-     * @param lessonId Lesson ID.
-     * @param courseId Course ID the lesson belongs to.
-     * @param retake Retake number.
-     * @param lastPage ID of the last question page attempted.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved in success, rejected otherwise.
+     * @param {number} lessonId Lesson ID.
+     * @param {number} courseId Course ID the lesson belongs to.
+     * @param {number} retake Retake number.
+     * @param {number} lastPage ID of the last question page attempted.
+     * @param {string} [siteId]  Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved in success, rejected otherwise.
      */
     setLastQuestionPageAttempted(lessonId: number, courseId: number, retake: number, lastPage: number, siteId?: string)
             : Promise<any> {

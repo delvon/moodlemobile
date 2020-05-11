@@ -5,13 +5,11 @@ const path = require('path');
 const url = require('url');
 const fs = require('fs');
 const os = require('os');
-const userAgent = 'MoodleMobile';
-const isMac = os.platform().indexOf('darwin') != -1;
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow,
-    appName = 'Moodle Desktop', // Default value.
+    appName = 'Agora Offline', // Default value.
     isReady = false,
     configRead = false;
 
@@ -66,38 +64,7 @@ function createWindow() {
     mainWindow.on('focus', () => {
         mainWindow.webContents.send('coreAppFocused'); // Send an event to the main window.
     });
-
-    // Append some text to the user agent.
-    mainWindow.webContents.setUserAgent(mainWindow.webContents.getUserAgent() + ' ' + userAgent);
-
-    // Add shortcut to open dev tools: Cmd + Option + I in MacOS, Ctrl + Shift + I in Windows/Linux.
-    mainWindow.webContents.on('before-input-event', function(e, input) {
-        if (input.type == 'keyDown' && !input.isAutoRepeat && input.code == 'KeyI' &&
-                ((isMac && input.alt && input.meta) || (!isMac && input.shift && input.control))) {
-            mainWindow.webContents.toggleDevTools();
-        }
-    }, true)
 }
-
-// Make sure that only a single instance of the app is running.
-// For some reason, gotTheLock is always false in signed Mac apps so we should ingore it.
-// See https://github.com/electron/electron/issues/15958
-var gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock && !isMac) {
-    // It's not the main instance of the app, kill it.
-    app.exit();
-    return;
-}
-
-app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // Another instance was launched. If it was launched with a URL, it should be in the second param.
-    if (commandLine && commandLine[1]) {
-        appLaunched(commandLine[1]);
-    } else {
-        focusApp();
-    }
-});
 
 // This method will be called when Electron has finished initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -129,7 +96,7 @@ fs.readFile(path.join(__dirname, 'config.json'), 'utf8', (err, data) => {
 
     // Default values.
     var ssoScheme = 'moodlemobile',
-        appId = 'com.moodle.moodlemobile';
+        appId = 'org.unicef.agora';
 
     if (!err) {
         try {
@@ -150,6 +117,23 @@ fs.readFile(path.join(__dirname, 'config.json'), 'utf8', (err, data) => {
         setAppMenu();
     }
 });
+
+// Make sure that only a single instance of the app is running.
+var shouldQuit = app.makeSingleInstance((argv, workingDirectory) => {
+    // Another instance was launched. If it was launched with a URL, it should be in the second param.
+    if (argv && argv[1]) {
+        appLaunched(argv[1]);
+    } else {
+        focusApp();
+    }
+});
+
+// For some reason, shouldQuit is always true in signed Mac apps so we should ingore it.
+if (shouldQuit && os.platform().indexOf('darwin') == -1) {
+    // It's not the main instance of the app, kill it.
+    app.exit();
+    return;
+}
 
 // Listen for open-url events (Mac OS only).
 app.on('open-url', (event, url) => {
@@ -230,35 +214,39 @@ function setAppMenu() {
             submenu: [
                 {
                     label: 'Cut',
+                    accelerator: 'CmdOrCtrl+X',
                     role: 'cut'
                 },
                 {
                     label: 'Copy',
+                    accelerator: 'CmdOrCtrl+C',
                     role: 'copy'
                 },
                 {
                     label: 'Paste',
+                    accelerator: 'CmdOrCtrl+V',
                     role: 'paste'
                 },
                 {
                     label: 'Select All',
+                    accelerator: 'CmdOrCtrl+A',
                     role: 'selectall'
                 }
             ]
-        },
-        {
-            label: 'Help',
-            role: 'help',
-            submenu: [
-                {
-                    label: 'Docs',
-                    accelerator: 'CmdOrCtrl+H',
-                    click() {
-                        shell.openExternal('https://docs.moodle.org/en/Moodle_Mobile');
-                    }
-                }
-            ]
         }
+        // ,{
+        //     label: 'Help',
+        //     role: 'help',
+        //     submenu: [
+        //         {
+        //             label: 'Docs',
+        //             accelerator: 'CmdOrCtrl+H',
+        //             click() {
+        //                 shell.openExternal('https://docs.moodle.org/en/Moodle_Mobile');
+        //             }
+        //         }
+        //     ]
+        // }
     ];
 
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));

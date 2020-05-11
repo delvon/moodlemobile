@@ -20,8 +20,8 @@
     <p *ngIf="issue">
         {{ 'core.login.contactyouradministratorissue' | translate:{$a: ''} }}
     </p>
-    <p *ngIf="issue" margin-bottom>
-        <core-format-text [text]="issue" [filter]="false"></core-format-text>
+    <p *ngIf="issue">
+        <core-format-text [text]="issue"></core-format-text>
     </p>
 </ion-content>
 

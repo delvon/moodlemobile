@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { IonicPage, ViewController, NavParams } from 'ionic-angular';
 import { CoreAppProvider } from '@providers/app';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { AddonNotesProvider } from '../../providers/notes';
 
@@ -29,46 +27,30 @@ import { AddonNotesProvider } from '../../providers/notes';
     templateUrl: 'add.html',
 })
 export class AddonNotesAddPage {
-
-    @ViewChild('itemEdit') formElement: ElementRef;
-
     userId: number;
     courseId: number;
-    type = 'personal';
+    publishState = 'personal';
     text = '';
     processing = false;
 
-    constructor(params: NavParams,
-            protected viewCtrl: ViewController,
-            protected appProvider: CoreAppProvider,
-            protected domUtils: CoreDomUtilsProvider,
-            protected notesProvider: AddonNotesProvider,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider) {
+    constructor(params: NavParams, private viewCtrl: ViewController, private appProvider: CoreAppProvider,
+            private domUtils: CoreDomUtilsProvider, private notesProvider: AddonNotesProvider) {
         this.userId = params.get('userId');
         this.courseId = params.get('courseId');
-        this.type = params.get('type') || 'personal';
     }
 
     /**
      * Send the note or store it offline.
-     *
-     * @param e Event.
      */
-    addNote(e: Event): void {
-        e.preventDefault();
-        e.stopPropagation();
-
+    addNote(): void {
         this.appProvider.closeKeyboard();
         const loadingModal = this.domUtils.showModalLoading('core.sending', true);
         // Freeze the add note button.
         this.processing = true;
-        this.notesProvider.addNote(this.userId, this.courseId, this.type, this.text).then((sent) => {
-
-            this.domUtils.triggerFormSubmittedEvent(this.formElement, sent, this.sitesProvider.getCurrentSiteId());
-
-            this.viewCtrl.dismiss({type: this.type, sent: true}).finally(() => {
-                this.domUtils.showToast(sent ? 'addon.notes.eventnotecreated' : 'core.datastoredoffline', true, 3000);
+        this.notesProvider.addNote(this.userId, this.courseId, this.publishState, this.text).then((sent) => {
+            this.viewCtrl.dismiss().finally(() => {
+                const message = sent ? 'addon.notes.eventnotecreated' : 'core.datastoredoffline';
+                this.domUtils.showAlertTranslated('core.success', message);
             });
         }).catch((error) => {
             this.domUtils.showErrorModal(error);
@@ -82,8 +64,6 @@ export class AddonNotesAddPage {
      * Close modal.
      */
     closeModal(): void {
-        this.domUtils.triggerFormCancelledEvent(this.formElement, this.sitesProvider.getCurrentSiteId());
-
-        this.viewCtrl.dismiss({type: this.type});
+        this.viewCtrl.dismiss();
     }
 }

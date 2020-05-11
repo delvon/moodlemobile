@@ -1,5 +1,5 @@
 
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 // limitations under the License.
 import { Injectable, Injector } from '@angular/core';
 import { CoreUserProfileFieldHandler, CoreUserProfileFieldHandlerData } from '@core/user/providers/user-profile-field-delegate';
-import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { AddonUserProfileFieldDatetimeComponent } from '../component/datetime';
 
 /**
@@ -25,14 +24,14 @@ export class AddonUserProfileFieldDatetimeHandler implements CoreUserProfileFiel
     name = 'AddonUserProfileFieldDatetime';
     type = 'datetime';
 
-    constructor(protected timeUtils: CoreTimeUtilsProvider) {
+    constructor() {
         // Nothing to do.
     }
 
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -41,20 +40,22 @@ export class AddonUserProfileFieldDatetimeHandler implements CoreUserProfileFiel
     /**
      * Get the data to send for the field based on the input data.
      *
-     * @param field User field to get the data for.
-     * @param signup True if user is in signup page.
-     * @param registerAuth Register auth method. E.g. 'email'.
-     * @param formValues Form Values.
-     * @return Data to send for the field.
+     * @param  {any}     field          User field to get the data for.
+     * @param  {boolean} signup         True if user is in signup page.
+     * @param  {string}  [registerAuth] Register auth method. E.g. 'email'.
+     * @param  {any}     formValues     Form Values.
+     * @return {CoreUserProfileFieldHandlerData}  Data to send for the field.
      */
     getData(field: any, signup: boolean, registerAuth: string, formValues: any): CoreUserProfileFieldHandlerData {
         const name = 'profile_field_' + field.shortname;
 
         if (formValues[name]) {
+            const milliseconds = new Date(formValues[name]).getTime();
+
             return {
                 type: 'datetime',
                 name: 'profile_field_' + field.shortname,
-                value: this.timeUtils.convertToTimestamp(formValues[name])
+                value: Math.round(milliseconds / 1000)
             };
         }
     }
@@ -63,8 +64,8 @@ export class AddonUserProfileFieldDatetimeHandler implements CoreUserProfileFiel
      * Return the Component to use to display the user profile field.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector): any | Promise<any> {
         return AddonUserProfileFieldDatetimeComponent;

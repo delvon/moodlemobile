@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ export class AddonModGlossaryIndexPage {
     /**
      * Update some data based on the glossary instance.
      *
-     * @param glossary Glossary instance.
+     * @param {any} glossary Glossary instance.
      */
     updateData(glossary: any): void {
         this.title = glossary.name || this.title;

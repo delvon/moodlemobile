@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { IonicPage, NavController, NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreEventsProvider } from '@providers/events';
-import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreLoginHelperProvider } from '../../providers/helper';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -30,20 +28,11 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
     templateUrl: 'forgotten-password.html',
 })
 export class CoreLoginForgottenPasswordPage {
-
-    @ViewChild('resetPasswordForm') formElement: ElementRef;
-
     myForm: FormGroup;
     siteUrl: string;
 
-    constructor(protected navCtrl: NavController,
-            navParams: NavParams,
-            fb: FormBuilder,
-            protected translate: TranslateService,
-            protected loginHelper: CoreLoginHelperProvider,
-            protected domUtils: CoreDomUtilsProvider,
-            protected eventsProvider: CoreEventsProvider,
-            protected sitesProvider: CoreSitesProvider) {
+    constructor(private navCtrl: NavController, navParams: NavParams, fb: FormBuilder, private translate: TranslateService,
+            private loginHelper: CoreLoginHelperProvider, private domUtils: CoreDomUtilsProvider) {
 
         this.siteUrl = navParams.get('siteUrl');
         this.myForm = fb.group({
@@ -54,13 +43,8 @@ export class CoreLoginForgottenPasswordPage {
 
     /**
      * Request to reset the password.
-     *
-     * @param e Event.
      */
-    resetPassword(e: Event): void {
-        e.preventDefault();
-        e.stopPropagation();
-
+    resetPassword(): void {
         const field = this.myForm.value.field,
             value = this.myForm.value.value;
 
@@ -82,13 +66,11 @@ export class CoreLoginForgottenPasswordPage {
                 this.domUtils.showErrorModal(response.notice);
             } else {
                 // Success.
-                this.domUtils.triggerFormSubmittedEvent(this.formElement, true);
-
                 this.domUtils.showAlert(this.translate.instant('core.success'), response.notice);
                 this.navCtrl.pop();
             }
         }).catch((error) => {
-            this.domUtils.showErrorModal(error);
+            this.domUtils.showErrorModal(error.error);
         }).finally(() => {
             modal.dismiss();
         });

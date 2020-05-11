@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,18 +27,15 @@ import { CoreTextUtilsProvider } from '@providers/utils/text';
 })
 export class CoreCourseUnsupportedModulePage {
     module: any;
-    courseId: number;
 
     constructor(navParams: NavParams, private translate: TranslateService, private textUtils: CoreTextUtilsProvider) {
         this.module = navParams.get('module') || {};
-        this.courseId = navParams.get('courseId');
     }
 
     /**
      * Expand the description.
      */
     expandDescription(): void {
-        this.textUtils.expandText(this.translate.instant('core.description'), this.module.description, undefined, undefined,
-                [], true, 'module', this.module.id, this.courseId);
+        this.textUtils.expandText(this.translate.instant('core.description'), this.module.description);
     }
 }

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ export class CoreLoginSitePolicyPage {
     /**
      * Fetch the site policy URL.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchSitePolicy(): Promise<any> {
         return this.loginHelper.getSitePolicy(this.siteId).then((sitePolicy) => {
@@ -88,7 +88,7 @@ export class CoreLoginSitePolicyPage {
                 this.policyLoaded = true;
             });
         }).catch((error) => {
-            this.domUtils.showErrorModalDefault(error, 'Error getting site policy.');
+            this.domUtils.showErrorModalDefault(error && error.error, 'Error getting site policy.');
             this.cancel();
         });
     }
@@ -118,7 +118,7 @@ export class CoreLoginSitePolicyPage {
                 return this.loginHelper.goToSiteInitialPage();
             });
         }).catch((error) => {
-            this.domUtils.showErrorModalDefault(error, 'Error accepting site policy.');
+            this.domUtils.showErrorModalDefault(error.message, 'Error accepting site policy.');
         }).finally(() => {
             modal.dismiss();
         });

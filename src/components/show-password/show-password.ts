@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import { Component, OnInit, AfterViewInit, Input, ElementRef } from '@angular/core';
-import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreUtilsProvider } from '@providers/utils/utils';
-import { Platform } from 'ionic-angular';
 
 /**
  * Component to allow showing and hiding a password. The affected input MUST have a name to identify it.
@@ -47,8 +45,7 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
     protected input: HTMLInputElement; // Input affected.
     protected element: HTMLElement; // Current element.
 
-    constructor(element: ElementRef, private utils: CoreUtilsProvider, private domUtils: CoreDomUtilsProvider,
-            private platform: Platform) {
+    constructor(element: ElementRef, private utils: CoreUtilsProvider) {
         this.element = element.nativeElement;
     }
 
@@ -103,22 +100,13 @@ export class CoreShowPasswordComponent implements OnInit, AfterViewInit {
     /**
      * Toggle show/hide password.
      *
-     * @param event The mouse event.
+     * @param {Event} event The mouse event.
      */
     toggle(event: Event): void {
         event.preventDefault();
         event.stopPropagation();
 
-        const isFocused = document.activeElement === this.input;
-
         this.shown = !this.shown;
         this.setData();
-
-        if (isFocused && this.platform.is('android')) {
-            // In Android, the keyboard is closed when the input type changes. Focus it again.
-            setTimeout(() => {
-                this.domUtils.focusElement(this.input);
-            }, 400);
-        }
     }
 }

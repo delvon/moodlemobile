@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ export class CoreSitePluginsCallWSBaseDirective implements OnInit, OnDestroy {
     @Input() name: string; // The name of the WS to call.
     @Input() params: any; // The params for the WS call.
     @Input() preSets: any; // The preSets for the WS call.
-    @Input() useOtherDataForWS: any; // Whether to include other data in the params for the WS.
-                                     // @see CoreSitePluginsProvider.loadOtherDataInArgs.
+    @Input() useOtherDataForWS: any[]; // Whether to include other data in the params for the WS.
+                                       // @see CoreSitePluginsProvider.loadOtherDataInArgs.
     @Input() form: string; // ID or name to identify a form. The form will be obtained from document.forms.
                            // If supplied and form is found, the form data will be retrieved and sent to the WS.
     @Output() onSuccess: EventEmitter<any> = new EventEmitter<any>(); // Sends the result when the WS call succeeds.
@@ -57,7 +57,7 @@ export class CoreSitePluginsCallWSBaseDirective implements OnInit, OnDestroy {
     /**
      * Call a WS.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected callWS(): Promise<any> {
         const params = this.getParamsForWS();
@@ -78,7 +78,7 @@ export class CoreSitePluginsCallWSBaseDirective implements OnInit, OnDestroy {
     /**
      * Get the params for the WS call.
      *
-     * @return Params.
+     * @return {any} Params.
      */
     protected getParamsForWS(): any {
         let params = this.params || {};
@@ -97,7 +97,7 @@ export class CoreSitePluginsCallWSBaseDirective implements OnInit, OnDestroy {
     /**
      * Function called when the WS call is successful.
      *
-     * @param result Result of the WS call.
+     * @param {any} result Result of the WS call.
      */
     protected wsCallSuccess(result: any): void {
         // Function to be overridden.
@@ -106,7 +106,7 @@ export class CoreSitePluginsCallWSBaseDirective implements OnInit, OnDestroy {
     /**
      * Invalidate the WS call.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     invalidate(): Promise<any> {
         const params = this.getParamsForWS();

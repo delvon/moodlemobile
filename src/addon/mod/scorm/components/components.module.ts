@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,12 @@ import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
 import { CoreCourseComponentsModule } from '@core/course/components/components.module';
 import { AddonModScormIndexComponent } from './index/index';
+import { AddonModScormTocPopoverComponent } from './toc-popover/toc-popover';
 
 @NgModule({
     declarations: [
-        AddonModScormIndexComponent
+        AddonModScormIndexComponent,
+        AddonModScormTocPopoverComponent
     ],
     imports: [
         CommonModule,
@@ -36,10 +38,12 @@ import { AddonModScormIndexComponent } from './index/index';
     providers: [
     ],
     exports: [
-        AddonModScormIndexComponent
+        AddonModScormIndexComponent,
+        AddonModScormTocPopoverComponent
     ],
     entryComponents: [
-        AddonModScormIndexComponent
+        AddonModScormIndexComponent,
+        AddonModScormTocPopoverComponent
     ]
 })
 export class AddonModScormComponentsModule {}

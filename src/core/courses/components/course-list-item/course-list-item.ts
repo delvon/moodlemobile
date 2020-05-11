@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ import { Component, Input, OnInit, Optional } from '@angular/core';
 import { NavController } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreCoursesProvider } from '../../providers/courses';
-import { CoreCourseHelperProvider } from '@core/course/providers/helper';
+import { CoreCourseFormatDelegate } from '@core/course/providers/format-delegate';
 
 /**
  * This directive is meant to display an item for a list of courses.
@@ -33,7 +33,7 @@ export class CoreCoursesCourseListItemComponent implements OnInit {
     @Input() course: any; // The course to render.
 
     constructor(@Optional() private navCtrl: NavController, private translate: TranslateService,
-            private coursesProvider: CoreCoursesProvider, private courseHelper: CoreCourseHelperProvider) {
+            private coursesProvider: CoreCoursesProvider, private courseFormatDelegate: CoreCourseFormatDelegate) {
     }
 
     /**
@@ -78,11 +78,11 @@ export class CoreCoursesCourseListItemComponent implements OnInit {
     /**
      * Open a course.
      *
-     * @param course The course to open.
+     * @param {any} course The course to open.
      */
     openCourse(course: any): void {
         if (course.isEnrolled) {
-            this.courseHelper.openCourse(this.navCtrl, course);
+            this.courseFormatDelegate.openCourse(this.navCtrl, course);
         } else {
             this.navCtrl.push('CoreCoursesCoursePreviewPage', {course: course});
         }

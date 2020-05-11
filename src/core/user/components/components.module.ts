@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,17 +18,14 @@ import { IonicModule } from 'ionic-angular';
 import { TranslateModule } from '@ngx-translate/core';
 import { CoreUserParticipantsComponent } from './participants/participants';
 import { CoreUserProfileFieldComponent } from './user-profile-field/user-profile-field';
-import { CoreUserTagAreaComponent } from './tag-area/tag-area';
 import { CoreComponentsModule } from '@components/components.module';
 import { CoreDirectivesModule } from '@directives/directives.module';
 import { CorePipesModule } from '@pipes/pipes.module';
-import { CoreSearchComponentsModule } from '@core/search/components/components.module';
 
 @NgModule({
     declarations: [
         CoreUserParticipantsComponent,
-        CoreUserProfileFieldComponent,
-        CoreUserTagAreaComponent
+        CoreUserProfileFieldComponent
     ],
     imports: [
         CommonModule,
@@ -36,19 +33,16 @@ import { CoreSearchComponentsModule } from '@core/search/components/components.m
         TranslateModule.forChild(),
         CoreComponentsModule,
         CoreDirectivesModule,
-        CorePipesModule,
-        CoreSearchComponentsModule,
+        CorePipesModule
     ],
     providers: [
     ],
     exports: [
         CoreUserParticipantsComponent,
-        CoreUserProfileFieldComponent,
-        CoreUserTagAreaComponent
+        CoreUserProfileFieldComponent
     ],
     entryComponents: [
-        CoreUserParticipantsComponent,
-        CoreUserTagAreaComponent
+        CoreUserParticipantsComponent
     ]
 })
 export class CoreUserComponentsModule {}

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-    Component, OnInit, Input, Output, EventEmitter, Optional, DoCheck, KeyValueDiffers, ViewChild, ElementRef
-} from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, Optional, DoCheck, KeyValueDiffers } from '@angular/core';
 import { NavController } from 'ionic-angular';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreSitePluginsProvider } from '../../providers/siteplugins';
@@ -28,16 +26,11 @@ import { Subject } from 'rxjs';
     templateUrl: 'core-siteplugins-plugin-content.html',
 })
 export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
-    // Get the compile element. Don't set the right type to prevent circular dependencies.
-    @ViewChild('compile') compileComponent: ElementRef;
-
     @Input() component: string;
     @Input() method: string;
     @Input() args: any;
     @Input() initResult: any; // Result of the init WS call of the handler.
     @Input() data: any; // Data to pass to the component.
-    @Input() preSets: any; // The preSets for the WS call.
-    @Input() pageTitle: string; // Current page title. It can be used by the "new-content" directives.
     @Output() onContentLoaded?: EventEmitter<boolean>; // Emits an event when the content is loaded.
     @Output() onLoadingContent?: EventEmitter<boolean>; // Emits an event when starts to load the content.
 
@@ -47,7 +40,6 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
     dataLoaded: boolean;
     invalidateObservable: Subject<void>; // An observable to notify observers when to invalidate data.
     jsData: any; // Data to pass to the component.
-    forceCompile: boolean; // Force compilation on PTR.
 
     protected differ: any; // To detect changes in the data input.
 
@@ -84,35 +76,27 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
     /**
      * Fetches the content to render.
      *
-     * @param refresh Whether the user is refreshing.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh] Whether the user is refreshing.
+     * @return {Promise<any>} Promise resolved when done.
      */
     fetchContent(refresh?: boolean): Promise<any> {
         this.onLoadingContent.emit(refresh);
 
-        this.forceCompile = false;
-
-        return this.sitePluginsProvider.getContent(this.component, this.method, this.args, this.preSets).then((result) => {
+        return this.sitePluginsProvider.getContent(this.component, this.method, this.args).then((result) => {
             this.content = result.templates.length ? result.templates[0].html : ''; // Load first template.
             this.javascript = result.javascript;
             this.otherData = result.otherdata;
             this.data = this.data || {};
-            this.forceCompile = true;
 
             this.jsData = Object.assign(this.data, this.sitePluginsProvider.createDataForJS(this.initResult, result));
 
             // Pass some methods as jsData so they can be called from the template too.
-            this.jsData.fetchContent = this.fetchContent.bind(this);
             this.jsData.openContent = this.openContent.bind(this);
             this.jsData.refreshContent = this.refreshContent.bind(this);
             this.jsData.updateContent = this.updateContent.bind(this);
 
             this.onContentLoaded.emit(refresh);
         }).catch((error) => {
-            // Make it think it's loaded - otherwise it sticks on 'loading' and stops navigation working.
-            this.content = '<div></div>';
-            this.onContentLoaded.emit(refresh);
-
             this.domUtils.showErrorModalDefault(error, 'core.errorloadingcontent', true);
         }).finally(() => {
             this.dataLoaded = true;
@@ -122,15 +106,14 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
     /**
      * Open a new page with a new content.
      *
-     * @param title The title to display with the new content.
-     * @param args New params.
-     * @param component New component. If not provided, current component
-     * @param method New method. If not provided, current method
-     * @param jsData JS variables to pass to the new view so they can be used in the template or JS.
-     *               If true is supplied instead of an object, all initial variables from current page will be copied.
-     * @param preSets The preSets for the WS call of the new content.
+     * @param {string} title The title to display with the new content.
+     * @param {any} args New params.
+     * @param {string} [component] New component. If not provided, current component
+     * @param {string} [method] New method. If not provided, current method
+     * @param {any} [jsData] JS variables to pass to the new view so they can be used in the template or JS.
+     *                       If true is supplied instead of an object, all initial variables from current page will be copied.
      */
-    openContent(title: string, args: any, component?: string, method?: string, jsData?: any, preSets?: any): void {
+    openContent(title: string, args: any, component?: string, method?: string, jsData?: any): void {
         if (jsData === true) {
             jsData = this.data;
         }
@@ -141,15 +124,14 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
             method: method || this.method,
             args: args,
             initResult: this.initResult,
-            jsData: jsData,
-            preSets: preSets
+            jsData: jsData
         });
     }
 
     /**
      * Refresh the data.
      *
-     * @param showSpinner Whether to show spinner while refreshing.
+     * @param {boolean} [showSpinner=true] Whether to show spinner while refreshing.
      */
     refreshContent(showSpinner: boolean = true): Promise<any> {
         if (showSpinner) {
@@ -166,35 +148,20 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
     /**
      * Update the content, usually with a different method or params.
      *
-     * @param args New params.
-     * @param component New component. If not provided, current component
-     * @param method New method. If not provided, current method
-     * @param jsData JS variables to pass to the new view so they can be used in the template or JS.
-     * @param preSets New preSets to use. If not provided, use current preSets.
+     * @param {any} args New params.
+     * @param {string} [component] New component. If not provided, current component
+     * @param {string} [method] New method. If not provided, current method
+     * @param {string} [jsData] JS variables to pass to the new view so they can be used in the template or JS.
      */
-    updateContent(args: any, component?: string, method?: string, jsData?: any, preSets?: any): void {
+    updateContent(args: any, component?: string, method?: string, jsData?: any): void {
         this.component = component || this.component;
         this.method = method || this.method;
         this.args = args;
         this.dataLoaded = false;
-        this.preSets = preSets || this.preSets;
         if (jsData) {
             Object.assign(this.data, jsData);
         }
 
         this.fetchContent();
-    }
-
-    /**
-     * Call a certain function on the component instance.
-     *
-     * @param name Name of the function to call.
-     * @param params List of params to send to the function.
-     * @return Result of the call. Undefined if no component instance or the function doesn't exist.
-     */
-    callComponentFunction(name: string, params?: any[]): any {
-        if (this.compileComponent) {
-            return (<any> this.compileComponent).callComponentFunction(name, params);
-        }
     }
 }

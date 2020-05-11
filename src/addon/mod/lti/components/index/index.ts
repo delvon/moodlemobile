@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import { Component, Optional, Injector } from '@angular/core';
 import { Content } from 'ionic-angular';
 import { CoreCourseModuleMainActivityComponent } from '@core/course/classes/main-activity-component';
-import { AddonModLtiProvider, AddonModLtiLti } from '../../providers/lti';
+import { AddonModLtiProvider } from '../../providers/lti';
 
 /**
  * Component that displays an LTI entry page.
@@ -28,7 +28,7 @@ export class AddonModLtiIndexComponent extends CoreCourseModuleMainActivityCompo
     component = AddonModLtiProvider.COMPONENT;
     moduleName = 'lti';
 
-    lti: AddonModLtiLti; // The LTI object.
+    lti: any; // The LTI object.
 
     protected fetchContentDefaultError = 'addon.mod_lti.errorgetlti';
 
@@ -51,23 +51,24 @@ export class AddonModLtiIndexComponent extends CoreCourseModuleMainActivityCompo
      * Check the completion.
      */
     protected checkCompletion(): void {
-        this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+        this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
     }
 
     /**
      * Get the LTI data.
      *
-     * @param refresh If it's refreshing content.
-     * @param sync If it should try to sync.
-     * @param showErrors If show errors to the user of hide them.
-     * @return Promise resolved when done.
+     * @param {boolean} [refresh=false] If it's refreshing content.
+     * @param {boolean} [sync=false] If the refresh is needs syncing.
+     * @param {boolean} [showErrors=false] If show errors to the user of hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
         return this.ltiProvider.getLti(this.courseId, this.module.id).then((ltiData) => {
             this.lti = ltiData;
-            this.description = this.lti.intro;
+            this.description = this.lti.intro || this.description;
             this.dataRetrieved.emit(this.lti);
-        }).finally(() => {
+        }).then(() => {
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
         });
     }
@@ -75,7 +76,7 @@ export class AddonModLtiIndexComponent extends CoreCourseModuleMainActivityCompo
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -94,7 +95,7 @@ export class AddonModLtiIndexComponent extends CoreCourseModuleMainActivityCompo
     launch(): void {
         this.ltiProvider.getLtiLaunchData(this.lti.id).then((launchData) => {
             // "View" LTI.
-            this.ltiProvider.logView(this.lti.id, this.lti.name).then(() => {
+            this.ltiProvider.logView(this.lti.id).then(() => {
                 this.checkCompletion();
             }).catch((error) => {
                 // Ignore errors.

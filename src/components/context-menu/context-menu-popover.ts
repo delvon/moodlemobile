@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,47 +26,49 @@ import { CoreLoggerProvider } from '@providers/logger';
 })
 export class CoreContextMenuPopoverComponent {
     title: string;
-    uniqueId: string;
     items: CoreContextMenuItemComponent[];
     protected logger: any;
 
     constructor(navParams: NavParams, private viewCtrl: ViewController, logger: CoreLoggerProvider) {
         this.title = navParams.get('title');
         this.items = navParams.get('items') || [];
-        this.uniqueId = navParams.get('id');
         this.logger = logger.getInstance('CoreContextMenuPopoverComponent');
     }
 
     /**
      * Close the popover.
      */
-    closeMenu(item?: CoreContextMenuItemComponent): void {
-        this.viewCtrl.dismiss(item);
+    closeMenu(): void {
+        this.viewCtrl.dismiss();
     }
 
     /**
      * Function called when an item is clicked.
      *
-     * @param event Click event.
-     * @param item Item clicked.
-     * @return Return true if success, false if error.
+     * @param {Event} event Click event.
+     * @param {CoreContextMenuItemComponent} item Item clicked.
+     * @return {boolean} Return true if success, false if error.
      */
     itemClicked(event: Event, item: CoreContextMenuItemComponent): boolean {
         if (item.action.observers.length > 0) {
             event.preventDefault();
             event.stopPropagation();
 
-            if (item.iconAction == 'spinner') {
+            if (!item.iconAction) {
+                this.logger.warn('Items with action must have an icon action to work', item);
+
+                return false;
+            } else if (item.iconAction == 'spinner') {
                 return false;
             }
 
             if (item.closeOnClick) {
-                this.closeMenu(item);
+                this.closeMenu();
             }
 
-            item.action.emit(this.closeMenu.bind(this, item));
-        } else if (item.closeOnClick && (item.href || item.onClosed.observers.length > 0)) {
-            this.closeMenu(item);
+            item.action.emit(this.closeMenu.bind(this));
+        } else if (item.href && item.closeOnClick) {
+            this.closeMenu();
         }
 
         return true;

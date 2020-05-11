@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import { AddonMessagesProvider } from '../../providers/messages';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreAppProvider } from '@providers/app';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
+import { AddonPushNotificationsDelegate } from '@addon/pushnotifications/providers/delegate';
 
 /**
  * Component that displays the list of discussions.
@@ -53,8 +53,8 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
 
     constructor(private eventsProvider: CoreEventsProvider, sitesProvider: CoreSitesProvider, translate: TranslateService,
             private messagesProvider: AddonMessagesProvider, private domUtils: CoreDomUtilsProvider, navParams: NavParams,
-            private appProvider: CoreAppProvider, platform: Platform, private utils: CoreUtilsProvider,
-            pushNotificationsDelegate: CorePushNotificationsDelegate) {
+            private appProvider: CoreAppProvider, platform: Platform, utils: CoreUtilsProvider,
+            pushNotificationsDelegate: AddonPushNotificationsDelegate) {
 
         this.search.loading =  translate.instant('core.searching');
         this.loadingMessages = translate.instant('core.loading');
@@ -62,7 +62,7 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
 
         // Update discussions when new message is received.
         this.newMessagesObserver = eventsProvider.on(AddonMessagesProvider.NEW_MESSAGE_EVENT, (data) => {
-            if (data.userId && this.discussions) {
+            if (data.userId) {
                 const discussion = this.discussions.find((disc) => {
                     return disc.message.user == data.userId;
                 });
@@ -82,7 +82,7 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
 
         // Update discussions when a message is read.
         this.readChangedObserver = eventsProvider.on(AddonMessagesProvider.READ_CHANGED_EVENT, (data) => {
-            if (data.userId && this.discussions) {
+            if (data.userId) {
                 const discussion = this.discussions.find((disc) => {
                     return disc.message.user == data.userId;
                 });
@@ -91,11 +91,15 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
                     // A discussion has been read reset counter.
                     discussion.unread = false;
 
-                    // Conversations changed, invalidate them and refresh unread counts.
-                    this.messagesProvider.invalidateConversations(this.siteId);
-                    this.messagesProvider.refreshUnreadConversationCounts(this.siteId);
+                    // Discussions changed, invalidate them.
+                    this.messagesProvider.invalidateDiscussionsCache();
                 }
             }
+        }, this.siteId);
+
+        // Update discussions when cron read is executed.
+        this.cronObserver = eventsProvider.on(AddonMessagesProvider.READ_CRON_EVENT, (data) => {
+            this.refreshData();
         }, this.siteId);
 
         // Refresh the view when the app is resumed.
@@ -113,8 +117,7 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
         this.pushObserver = pushNotificationsDelegate.on('receive').subscribe((notification) => {
             // New message received. If it's from current site, refresh the data.
             if (utils.isFalseOrZero(notification.notif) && notification.site == this.siteId) {
-                // Don't refresh unread counts, it's refreshed from the main menu handler in this case.
-                this.refreshData(null, false);
+                this.refreshData();
             }
         });
     }
@@ -139,21 +142,15 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
     /**
      * Refresh the data.
      *
-     * @param refresher Refresher.
-     * @param refreshUnreadCounts Whteher to refresh unread counts.
-     * @return Promise resolved when done.
+     * @param {any} [refresher] Refresher.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    refreshData(refresher?: any, refreshUnreadCounts: boolean = true): Promise<any> {
-        const promises = [];
-        promises.push(this.messagesProvider.invalidateDiscussionsCache(this.siteId));
-
-        if (refreshUnreadCounts) {
-            promises.push(this.messagesProvider.invalidateUnreadConversationCounts(this.siteId));
-        }
-
-        return this.utils.allPromises(promises).finally(() => {
+    refreshData(refresher?: any): Promise<any> {
+        return this.messagesProvider.invalidateDiscussionsCache().then(() => {
             return this.fetchData().finally(() => {
                 if (refresher) {
+                    // Actions to take if refresh comes from the user.
+                    this.eventsProvider.trigger(AddonMessagesProvider.READ_CHANGED_EVENT, undefined, this.siteId);
                     refresher.complete();
                 }
             });
@@ -163,15 +160,13 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
     /**
      * Fetch discussions.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchData(): Promise<any> {
         this.loadingMessage = this.loadingMessages;
         this.search.enabled = this.messagesProvider.isSearchMessagesEnabled();
 
-        const promises = [];
-
-        promises.push(this.messagesProvider.getDiscussions(this.siteId).then((discussions) => {
+        return this.messagesProvider.getDiscussions().then((discussions) => {
             // Convert to an array for sorting.
             const discussionsSorted = [];
             for (const userId in discussions) {
@@ -182,11 +177,7 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
             this.discussions = discussionsSorted.sort((a, b) => {
                 return b.message.timecreated - a.message.timecreated;
             });
-        }));
-
-        promises.push(this.messagesProvider.getUnreadConversationCounts(this.siteId));
-
-        return Promise.all(promises).catch((error) => {
+        }).catch((error) => {
             this.domUtils.showErrorModalDefault(error, 'addon.messages.errorwhileretrievingdiscussions', true);
         }).finally(() => {
             this.loaded = true;
@@ -208,17 +199,17 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
     /**
      * Search messages cotaining text.
      *
-     * @param query Text to search for.
-     * @return Resolved when done.
+     * @param  {string}       query Text to search for.
+     * @return {Promise<any>}       Resolved when done.
      */
     searchMessage(query: string): Promise<any> {
         this.appProvider.closeKeyboard();
         this.loaded = false;
         this.loadingMessage = this.search.loading;
 
-        return this.messagesProvider.searchMessages(query, undefined, undefined, undefined, this.siteId).then((searchResults) => {
+        return this.messagesProvider.searchMessages(query).then((searchResults) => {
             this.search.showResults = true;
-            this.search.results = searchResults.messages;
+            this.search.results = searchResults;
         }).catch((error) => {
             this.domUtils.showErrorModalDefault(error, 'addon.messages.errorwhileretrievingmessages', true);
         }).finally(() => {
@@ -229,9 +220,9 @@ export class AddonMessagesDiscussionsComponent implements OnDestroy {
     /**
      * Navigate to a particular discussion.
      *
-     * @param discussionUserId Discussion Id to load.
-     * @param messageId Message to scroll after loading the discussion. Used when searching.
-     * @param onlyWithSplitView Only go to Discussion if split view is on.
+     * @param {number} discussionUserId Discussion Id to load.
+     * @param {number} [messageId]      Message to scroll after loading the discussion. Used when searching.
+     * @param {boolean} [onlyWithSplitView=false]  Only go to Discussion if split view is on.
      */
     gotoDiscussion(discussionUserId: number, messageId?: number, onlyWithSplitView: boolean = false): void {
         this.discussionUserId = discussionUserId;

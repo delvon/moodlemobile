@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 import { Injector } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { AddonModAssignFeedbackHandler } from '../providers/feedback-delegate';
-import { AddonModAssignAssign, AddonModAssignSubmission, AddonModAssignPlugin } from '../providers/assign';
 
 /**
  * Base handler for feedback plugins.
@@ -32,10 +31,10 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
     /**
      * Discard the draft data of the feedback plugin.
      *
-     * @param assignId The assignment ID.
-     * @param userId User ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return If the function is async, it should return a Promise resolved when done.
+     * @param {number} assignId The assignment ID.
+     * @param {number} userId User ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {void|Promise<any>} If the function is async, it should return a Promise resolved when done.
      */
     discardDraft(assignId: number, userId: number, siteId?: string): void | Promise<any> {
         // Nothing to do.
@@ -45,21 +44,21 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param plugin The plugin object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} plugin The plugin object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
-    getComponent(injector: Injector, plugin: AddonModAssignPlugin): any | Promise<any> {
+    getComponent(injector: Injector, plugin: any): any | Promise<any> {
         // Nothing to do.
     }
 
     /**
      * Return the draft saved data of the feedback plugin.
      *
-     * @param assignId The assignment ID.
-     * @param userId User ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Data (or promise resolved with the data).
+     * @param {number} assignId The assignment ID.
+     * @param {number} userId User ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {any|Promise<any>} Data (or promise resolved with the data).
      */
     getDraft(assignId: number, userId: number, siteId?: string): any | Promise<any> {
         // Nothing to do.
@@ -69,24 +68,23 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
      * Get files used by this plugin.
      * The files returned by this function will be prefetched when the user prefetches the assign.
      *
-     * @param assign The assignment.
-     * @param submission The submission.
-     * @param plugin The plugin object.
-     * @param siteId Site ID. If not defined, current site.
-     * @return The files (or promise resolved with the files).
+     * @param {any} assign The assignment.
+     * @param {any} submission The submission.
+     * @param {any} plugin The plugin object.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {any[]|Promise<any[]>} The files (or promise resolved with the files).
      */
-    getPluginFiles(assign: AddonModAssignAssign, submission: AddonModAssignSubmission,
-            plugin: AddonModAssignPlugin, siteId?: string): any[] | Promise<any[]> {
+    getPluginFiles(assign: any, submission: any, plugin: any, siteId?: string): any[] | Promise<any[]> {
         return [];
     }
 
     /**
      * Get a readable name to use for the plugin.
      *
-     * @param plugin The plugin object.
-     * @return The plugin name.
+     * @param {any} plugin The plugin object.
+     * @return {string} The plugin name.
      */
-    getPluginName(plugin: AddonModAssignPlugin): string {
+    getPluginName(plugin: any): string {
         // Check if there's a translated string for the plugin.
         const translationId = 'addon.mod_assign_feedback_' + plugin.type + '.pluginname',
             translation = this.translate.instant(translationId);
@@ -105,24 +103,23 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
     /**
      * Check if the feedback data has changed for this plugin.
      *
-     * @param assign The assignment.
-     * @param submission The submission.
-     * @param plugin The plugin object.
-     * @param inputData Data entered by the user for the feedback.
-     * @return Boolean (or promise resolved with boolean): whether the data has changed.
+     * @param {any} assign The assignment.
+     * @param {any} submission The submission.
+     * @param {any} plugin The plugin object.
+     * @param {any} inputData Data entered by the user for the feedback.
+     * @return {boolean|Promise<boolean>} Boolean (or promise resolved with boolean): whether the data has changed.
      */
-    hasDataChanged(assign: AddonModAssignAssign, submission: AddonModAssignSubmission,
-            plugin: AddonModAssignPlugin, inputData: any, userId: number): boolean | Promise<boolean> {
+    hasDataChanged(assign: any, submission: any, plugin: any, inputData: any): boolean | Promise<boolean> {
         return false;
     }
 
     /**
      * Check whether the plugin has draft data stored.
      *
-     * @param assignId The assignment ID.
-     * @param userId User ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Boolean or promise resolved with boolean: whether the plugin has draft data.
+     * @param {number} assignId The assignment ID.
+     * @param {number} userId User ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {boolean|Promise<boolean>} Boolean or promise resolved with boolean: whether the plugin has draft data.
      */
     hasDraftData(assignId: number, userId: number, siteId?: string): boolean | Promise<boolean> {
         return false;
@@ -131,7 +128,7 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -141,44 +138,41 @@ export class AddonModAssignBaseFeedbackHandler implements AddonModAssignFeedback
      * Prefetch any required data for the plugin.
      * This should NOT prefetch files. Files to be prefetched should be returned by the getPluginFiles function.
      *
-     * @param assign The assignment.
-     * @param submission The submission.
-     * @param plugin The plugin object.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
+     * @param {any} assign The assignment.
+     * @param {any} submission The submission.
+     * @param {any} plugin The plugin object.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    prefetch(assign: AddonModAssignAssign, submission: AddonModAssignSubmission,
-            plugin: AddonModAssignPlugin, siteId?: string): Promise<any> {
+    prefetch(assign: any, submission: any, plugin: any, siteId?: string): Promise<any> {
         return Promise.resolve();
     }
 
     /**
      * Prepare and add to pluginData the data to send to the server based on the draft data saved.
      *
-     * @param assignId The assignment ID.
-     * @param userId User ID.
-     * @param plugin The plugin object.
-     * @param pluginData Object where to store the data to send.
-     * @param siteId Site ID. If not defined, current site.
-     * @return If the function is async, it should return a Promise resolved when done.
+     * @param {number} assignId The assignment ID.
+     * @param {number} userId User ID.
+     * @param {any} plugin The plugin object.
+     * @param {any} pluginData Object where to store the data to send.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {void|Promise<any>} If the function is async, it should return a Promise resolved when done.
      */
-    prepareFeedbackData(assignId: number, userId: number, plugin: AddonModAssignPlugin, pluginData: any,
-            siteId?: string): void | Promise<any> {
+    prepareFeedbackData(assignId: number, userId: number, plugin: any, pluginData: any, siteId?: string): void | Promise<any> {
         // Nothing to do.
     }
 
     /**
      * Save draft data of the feedback plugin.
      *
-     * @param assignId The assignment ID.
-     * @param userId User ID.
-     * @param plugin The plugin object.
-     * @param data The data to save.
-     * @param siteId Site ID. If not defined, current site.
-     * @return If the function is async, it should return a Promise resolved when done.
+     * @param {number} assignId The assignment ID.
+     * @param {number} userId User ID.
+     * @param {any} plugin The plugin object.
+     * @param {any} data The data to save.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {void|Promise<any>} If the function is async, it should return a Promise resolved when done.
      */
-    saveDraft(assignId: number, userId: number, plugin: AddonModAssignPlugin, data: any, siteId?: string)
-            : void | Promise<any> {
+    saveDraft(assignId: number, userId: number, plugin: any, data: any, siteId?: string): void | Promise<any> {
         // Nothing to do.
     }
 }

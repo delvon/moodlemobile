@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import { CoreEventsProvider } from '@providers/events';
 import { CoreFileProvider } from '@providers/file';
 import { CoreFilepoolProvider } from '@providers/filepool';
 import { CoreLoggerProvider } from '@providers/logger';
-import { CoreSitesProvider, CoreSiteSchema } from '@providers/sites';
+import { CoreSitesProvider } from '@providers/sites';
 import { CoreTimeUtilsProvider } from '@providers/utils/time';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreCourseProvider } from './course';
@@ -27,7 +27,6 @@ import { CoreConstants } from '../../constants';
 import { Md5 } from 'ts-md5/dist/md5';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { CoreDelegate, CoreDelegateHandler } from '@classes/delegate';
-import { CoreFileHelperProvider } from '@providers/file-helper';
 
 /**
  * Progress of downloading a list of modules.
@@ -35,11 +34,13 @@ import { CoreFileHelperProvider } from '@providers/file-helper';
 export type CoreCourseModulesProgress = {
     /**
      * Number of modules downloaded so far.
+     * @type {number}
      */
     count: number;
 
     /**
      * Toal of modules to download.
+     * @type {number}
      */
     total: number;
 };
@@ -47,7 +48,7 @@ export type CoreCourseModulesProgress = {
 /**
  * Progress function for downloading a list of modules.
  *
- * @param data Progress data.
+ * @param {CoreCourseModulesProgress} data Progress data.
  */
 export type CoreCourseModulesProgressFunction = (data: CoreCourseModulesProgress) => void;
 
@@ -56,61 +57,53 @@ export type CoreCourseModulesProgressFunction = (data: CoreCourseModulesProgress
  */
 export interface CoreCourseModulePrefetchHandler extends CoreDelegateHandler {
     /**
-     * Name of the handler.
-     */
-    name: string;
-
-    /**
      * Name of the module. It should match the "modname" of the module returned in core_course_get_contents.
+     * @type {string}
      */
     modName: string;
 
     /**
      * The handler's component.
+     * @type {string}
      */
     component: string;
 
     /**
      * The RegExp to check updates. If a module has an update whose name matches this RegExp, the module will be marked
      * as outdated. This RegExp is ignored if hasUpdates function is defined.
+     * @type {RegExp}
      */
     updatesNames?: RegExp;
 
     /**
-     * If true, this module will be treated as not downloadable when determining the status of a list of modules. The module will
-     * still be downloaded when downloading the section/course, it only affects whether the button should be displayed.
-     */
-    skipListStatus: boolean;
-
-    /**
      * Get the download size of a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved with the size and a boolean indicating if it was able
-     *         to calculate the total size.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<{size: number, total: boolean}>} Promise resolved with the size and a boolean indicating if it was able
+     *                                                   to calculate the total size.
      */
     getDownloadSize(module: any, courseId: number, single?: boolean): Promise<{ size: number, total: boolean }>;
 
     /**
      * Prefetch a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
     prefetch(module: any, courseId?: number, single?: boolean, dirPath?: string): Promise<any>;
 
     /**
      * Download the module.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when all content is downloaded.
+     * @param {any} module The module object returned by WS.
+     * @param {number} courseId Course ID.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when all content is downloaded.
      */
     download?(module: any, courseId: number, dirPath?: string): Promise<any>;
 
@@ -119,9 +112,9 @@ export interface CoreCourseModulePrefetchHandler extends CoreDelegateHandler {
      * If not defined, it will assume all modules can be checked.
      * The modules that return false will always be shown as outdated when they're downloaded.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Whether the module can use check_updates. The promise should never be rejected.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {boolean|Promise<boolean>} Whether the module can use check_updates. The promise should never be rejected.
      */
     canUseCheckUpdates?(module: any, courseId: number): boolean | Promise<boolean>;
 
@@ -129,38 +122,38 @@ export interface CoreCourseModulePrefetchHandler extends CoreDelegateHandler {
      * Return the status to show based on current status. E.g. a module might want to show outdated instead of downloaded.
      * If not implemented, the original status will be returned.
      *
-     * @param module Module.
-     * @param status The current status.
-     * @param canCheck Whether the site allows checking for updates.
-     * @return Status to display.
+     * @param {any} module Module.
+     * @param {string} status The current status.
+     * @param {boolean} canCheck Whether the site allows checking for updates.
+     * @return {string} Status to display.
      */
     determineStatus?(module: any, status: string, canCheck: boolean): string;
 
     /**
      * Get the downloaded size of a module. If not defined, we'll use getFiles to calculate it (it can be slow).
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Size, or promise resolved with the size.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {number|Promise<number>} Size, or promise resolved with the size.
      */
     getDownloadedSize?(module: any, courseId: number): number | Promise<number>;
 
     /**
      * Get the list of files of the module. If not defined, we'll assume they are in module.contents.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return List of files, or promise resolved with the files.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {any[]|Promise<any[]>} List of files, or promise resolved with the files.
      */
     getFiles?(module: any, courseId: number): any[] | Promise<any[]>;
 
     /**
      * Check if a certain module has updates based on the result of check updates.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param moduleUpdates List of updates for the module.
-     * @return Whether the module has updates. The promise should never be rejected.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {any[]} moduleUpdates List of updates for the module.
+     * @return {boolean|Promise<boolean>} Whether the module has updates. The promise should never be rejected.
      */
     hasUpdates?(module: any, courseId: number, moduleUpdates: any[]): boolean | Promise<boolean>;
 
@@ -168,48 +161,38 @@ export interface CoreCourseModulePrefetchHandler extends CoreDelegateHandler {
      * Invalidate WS calls needed to determine module status (usually, to check if module is downloadable).
      * It doesn't need to invalidate check updates. It should NOT invalidate files nor all the prefetched data.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when invalidated.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when invalidated.
      */
     invalidateModule?(module: any, courseId: number): Promise<any>;
 
     /**
      * Check if a module can be downloaded. If the function is not defined, we assume that all modules are downloadable.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Whether the module can be downloaded. The promise should never be rejected.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {boolean|Promise<boolean>} Whether the module can be downloaded. The promise should never be rejected.
      */
     isDownloadable?(module: any, courseId: number): boolean | Promise<boolean>;
 
     /**
      * Load module contents in module.contents if they aren't loaded already. This is meant for resources.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when done.
      */
     loadContents?(module: any, courseId: number): Promise<any>;
 
     /**
      * Remove module downloaded files. If not defined, we'll use getFiles to remove them (slow).
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when done.
      */
     removeFiles?(module: any, courseId: number): Promise<any>;
-
-    /**
-     * Sync a module.
-     *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
-     */
-    sync?(module: any, courseId: number, siteId?: any): Promise<any>;
 }
 
 /**
@@ -219,24 +202,18 @@ export interface CoreCourseModulePrefetchHandler extends CoreDelegateHandler {
 export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     // Variables for database.
     protected CHECK_UPDATES_TIMES_TABLE = 'check_updates_times';
-    protected siteSchema: CoreSiteSchema = {
-        name: 'CoreCourseModulePrefetchDelegate',
-        version: 1,
-        tables: [
+    protected checkUpdatesTableSchema = {
+        name: this.CHECK_UPDATES_TIMES_TABLE,
+        columns: [
             {
-                name: this.CHECK_UPDATES_TIMES_TABLE,
-                columns: [
-                    {
-                        name: 'courseId',
-                        type: 'INTEGER',
-                        primaryKey: true
-                    },
-                    {
-                        name: 'time',
-                        type: 'INTEGER',
-                        notNull: true
-                    }
-                ]
+                name: 'courseId',
+                type: 'INTEGER',
+                primaryKey: true
+            },
+            {
+                name: 'time',
+                type: 'INTEGER',
+                notNull: true
             }
         ]
     };
@@ -259,18 +236,13 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
         }
     } = {};
 
-    constructor(loggerProvider: CoreLoggerProvider,
-            protected sitesProvider: CoreSitesProvider,
-            protected utils: CoreUtilsProvider,
-            protected courseProvider: CoreCourseProvider,
-            protected filepoolProvider: CoreFilepoolProvider,
-            protected timeUtils: CoreTimeUtilsProvider,
-            protected fileProvider: CoreFileProvider,
-            protected eventsProvider: CoreEventsProvider,
-            protected fileHelper: CoreFileHelperProvider) {
+    constructor(loggerProvider: CoreLoggerProvider, protected sitesProvider: CoreSitesProvider, private utils: CoreUtilsProvider,
+            private courseProvider: CoreCourseProvider, private filepoolProvider: CoreFilepoolProvider,
+            private timeUtils: CoreTimeUtilsProvider, private fileProvider: CoreFileProvider,
+            protected eventsProvider: CoreEventsProvider) {
         super('CoreCourseModulePrefetchDelegate', loggerProvider, sitesProvider, eventsProvider);
 
-        this.sitesProvider.registerSiteSchema(this.siteSchema);
+        this.sitesProvider.createTableFromSchema(this.checkUpdatesTableSchema);
 
         eventsProvider.on(CoreEventsProvider.LOGOUT, this.clearStatusCache.bind(this));
         eventsProvider.on(CoreEventsProvider.PACKAGE_STATUS_CHANGED, (data) => {
@@ -281,7 +253,7 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check if current site can check updates using core_course_check_updates.
      *
-     * @return True if can check updates, false otherwise.
+     * @return {boolean} True if can check updates, false otherwise.
      */
     canCheckUpdates(): boolean {
         return this.sitesProvider.wsAvailableInCurrentSite('core_course_check_updates');
@@ -290,9 +262,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check if a certain module can use core_course_check_updates.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved with boolean: whether the module can use check updates WS.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether the module can use check updates WS.
      */
     canModuleUseCheckUpdates(module: any, courseId: number): Promise<boolean> {
         const handler = this.getPrefetchHandlerFor(module);
@@ -320,9 +292,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Creates the list of modules to check for get course updates.
      *
-     * @param modules List of modules.
-     * @param courseId Course ID the modules belong to.
-     * @return Promise resolved with the lists.
+     * @param {any[]} modules List of modules.
+     * @param {number} courseId Course ID the modules belong to.
+     * @return {Promise<{toCheck: any[], cannotUse: any[]}>} Promise resolved with the lists.
      */
     protected createToCheckList(modules: any[], courseId: number): Promise<{ toCheck: any[], cannotUse: any[] }> {
         const result = {
@@ -367,10 +339,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Determines a module status based on current status, restoring downloads if needed.
      *
-     * @param module Module.
-     * @param status Current status.
-     * @param canCheck True if updates can be checked using core_course_check_updates.
-     * @return Module status.
+     * @param {any} module Module.
+     * @param {string} status Current status.
+     * @param {boolean} [canCheck] True if updates can be checked using core_course_check_updates.
+     * @return {string} Module status.
      */
     determineModuleStatus(module: any, status: string, canCheck?: boolean): string {
         const handler = this.getPrefetchHandlerFor(module),
@@ -386,8 +358,6 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
                 }
             } else if (handler.determineStatus) {
                 // The handler implements a determineStatus function. Apply it.
-                canCheck = canCheck || this.canCheckUpdates();
-
                 return handler.determineStatus(module, status, canCheck);
             }
         }
@@ -398,10 +368,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check for updates in a course.
      *
-     * @param modules List of modules.
-     * @param courseId Course ID the modules belong to.
-     * @return Promise resolved with the updates. If a module is set to false, it means updates cannot be
-     *         checked for that module in the current site.
+     * @param {any[]} modules List of modules.
+     * @param {number} courseId  Course ID the modules belong to.
+     * @return {Promise<any>} Promise resolved with the updates. If a module is set to false, it means updates cannot be
+     *                        checked for that module in the current site.
      */
     getCourseUpdates(modules: any[], courseId: number): Promise<any> {
         if (!this.canCheckUpdates()) {
@@ -490,8 +460,8 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check for updates in a course.
      *
-     * @param courseId Course ID the modules belong to.
-     * @return Promise resolved with the updates.
+     * @param {number} courseId Course ID the modules belong to.
+     * @return {Promise<any>} Promise resolved with the updates.
      */
     getCourseUpdatesByCourseId(courseId: number): Promise<any> {
         if (!this.canCheckUpdates()) {
@@ -507,8 +477,8 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get cache key for course updates WS calls.
      *
-     * @param courseId Course ID.
-     * @return Cache key.
+     * @param {number} courseId Course ID.
+     * @return {string} Cache key.
      */
     protected getCourseUpdatesCacheKey(courseId: number): string {
         return this.ROOT_CACHE_KEY + 'courseUpdates:' + courseId;
@@ -517,10 +487,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get modules download size. Only treat the modules with status not downloaded or outdated.
      *
-     * @param modules List of modules.
-     * @param courseId Course ID the modules belong to.
-     * @return Promise resolved with the size and a boolean indicating if it was able
-     *         to calculate the total size.
+     * @param {any[]} modules List of modules.
+     * @param {number} courseId Course ID the modules belong to.
+     * @return {Promise<{size: number, total: boolean}>} Promise resolved with the size and a boolean indicating if it was able
+     *                                                   to calculate the total size.
      */
     getDownloadSize(modules: any[], courseId: number): Promise<{ size: number, total: boolean }> {
         // Get the status of each module.
@@ -548,11 +518,11 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get the download size of a module.
      *
-     * @param module Module to get size.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved with the size and a boolean indicating if it was able
-     *         to calculate the total size.
+     * @param {any} module Module to get size.
+     * @param {Number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<{size: number, total: boolean}>} Promise resolved with the size and a boolean indicating if it was able
+     *                                                   to calculate the total size.
      */
     getModuleDownloadSize(module: any, courseId: number, single?: boolean): Promise<{ size: number, total: boolean }> {
         const handler = this.getPrefetchHandlerFor(module);
@@ -591,9 +561,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get the download size of a module.
      *
-     * @param module Module to get size.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved with the size.
+     * @param {any} module Module to get size.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<number>} Promise resolved with the size.
      */
     getModuleDownloadedSize(module: any, courseId: number): Promise<number> {
         const handler = this.getPrefetchHandlerFor(module);
@@ -663,9 +633,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get module files.
      *
-     * @param module Module to get the files.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved with the list of files.
+     * @param {any} module Module to get the files.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<any[]>} Promise resolved with the list of files.
      */
     getModuleFiles(module: any, courseId: number): Promise<any[]> {
         const handler = this.getPrefetchHandlerFor(module);
@@ -686,13 +656,13 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Get the module status.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param updates Result of getCourseUpdates for all modules in the course. If not provided, it will be
-     *                calculated (slower). If it's false it means the site doesn't support check updates.
-     * @param refresh True if it should ignore the cache.
-     * @param sectionId ID of the section the module belongs to.
-     * @return Promise resolved with the status.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {any} [updates] Result of getCourseUpdates for all modules in the course. If not provided, it will be
+     *                        calculated (slower). If it's false it means the site doesn't support check updates.
+     * @param {boolean} [refresh] True if it should ignore the cache.
+     * @param {number} [sectionId] ID of the section the module belongs to.
+     * @return {Promise<string>} Promise resolved with the status.
      */
     getModuleStatus(module: any, courseId: number, updates?: any, refresh?: boolean, sectionId?: number): Promise<string> {
         const handler = this.getPrefetchHandlerFor(module),
@@ -789,29 +759,24 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
      * Get the status of a list of modules, along with the lists of modules for each status.
      * @see {@link CoreFilepoolProvider.determinePackagesStatus}
      *
-     * @param modules List of modules to prefetch.
-     * @param courseId Course ID the modules belong to.
-     * @param sectionId ID of the section the modules belong to.
-     * @param refresh True if it should always check the DB (slower).
-     * @param onlyToDisplay True if the status will only be used to determine which button should be displayed.
-     * @param checkUpdates Whether to use the WS to check updates. Defaults to true.
-     * @return Promise resolved with an object with the following properties:
-     *         - status (string) Status of the module.
-     *         - total (number) Number of modules.
-     *         - CoreConstants.NOT_DOWNLOADED (any[]) Modules with state NOT_DOWNLOADED.
-     *         - CoreConstants.DOWNLOADED (any[]) Modules with state DOWNLOADED.
-     *         - CoreConstants.DOWNLOADING (any[]) Modules with state DOWNLOADING.
-     *         - CoreConstants.OUTDATED (any[]) Modules with state OUTDATED.
+     * @param {any[]} modules List of modules to prefetch.
+     * @param {number} courseId Course ID the modules belong to.
+     * @param {number} [sectionId] ID of the section the modules belong to.
+     * @param {boolean} [refresh] True if it should always check the DB (slower).
+     * @return {Promise<any>} Promise resolved with an object with the following properties:
+     *                                - status (string) Status of the module.
+     *                                - total (number) Number of modules.
+     *                                - CoreConstants.NOT_DOWNLOADED (any[]) Modules with state NOT_DOWNLOADED.
+     *                                - CoreConstants.DOWNLOADED (any[]) Modules with state DOWNLOADED.
+     *                                - CoreConstants.DOWNLOADING (any[]) Modules with state DOWNLOADING.
+     *                                - CoreConstants.OUTDATED (any[]) Modules with state OUTDATED.
      */
-    getModulesStatus(modules: any[], courseId: number, sectionId?: number, refresh?: boolean, onlyToDisplay?: boolean,
-            checkUpdates: boolean = true): any {
-
+    getModulesStatus(modules: any[], courseId: number, sectionId?: number, refresh?: boolean): any {
         const promises = [],
             result: any = {
                 total: 0
             };
-        let status = CoreConstants.NOT_DOWNLOADABLE,
-            promise;
+        let status = CoreConstants.NOT_DOWNLOADABLE;
 
         // Init result.
         result[CoreConstants.NOT_DOWNLOADED] = [];
@@ -819,27 +784,16 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
         result[CoreConstants.DOWNLOADING] = [];
         result[CoreConstants.OUTDATED] = [];
 
-        if (checkUpdates) {
-            // Check updates in course. Don't use getCourseUpdates because the list of modules might not be the whole course list.
-            promise = this.getCourseUpdatesByCourseId(courseId).catch(() => {
-                // Cannot get updates.
-                return false;
-            });
-        } else {
-            promise = Promise.resolve(false);
-        }
-
-        return promise.then((updates) => {
+        // Check updates in course. Don't use getCourseUpdates because the list of modules might not be the whole course list.
+        return this.getCourseUpdatesByCourseId(courseId).catch(() => {
+            // Cannot get updates.
+            return false;
+        }).then((updates) => {
 
             modules.forEach((module) => {
                 // Check if the module has a prefetch handler.
                 const handler = this.getPrefetchHandlerFor(module);
                 if (handler) {
-                    if (onlyToDisplay && handler.skipListStatus) {
-                        // Skip this module.
-                        return;
-                    }
-
                     const packageId = this.filepoolProvider.getPackageId(handler.component, module.id);
 
                     promises.push(this.getModuleStatus(module, courseId, updates, refresh).then((modStatus) => {
@@ -872,11 +826,11 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     }
 
     /**
-     * Get a module status and download time. It will only return the download time if the module is downloaded or outdated.
+     * Get a module status and download time. It will only return the download time if the module is downloaded and not outdated.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved with the data.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<{status: string, downloadTime?: number}>} Promise resolved with the data.
      */
     protected getModuleStatusAndDownloadTime(module: any, courseId: number): Promise<{ status: string, downloadTime?: number }> {
         const handler = this.getPrefetchHandlerFor(module),
@@ -887,8 +841,8 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
             const packageId = this.filepoolProvider.getPackageId(handler.component, module.id),
                 status = this.statusCache.getValue(packageId, 'status');
 
-            if (typeof status != 'undefined' && !this.fileHelper.isStateDownloaded(status)) {
-                // Module isn't downloaded, just return the status.
+            if (typeof status != 'undefined' && status != CoreConstants.DOWNLOADED) {
+                // Status is different than downloaded, just return the status.
                 return Promise.resolve({
                     status: status
                 });
@@ -919,79 +873,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     }
 
     /**
-     * Get updates for a certain module.
-     * It will only return the updates if the module can use check updates and it's downloaded or outdated.
-     *
-     * @param module Module to check.
-     * @param courseId Course the module belongs to.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the updates.
-     */
-    getModuleUpdates(module: any, courseId: number, ignoreCache?: boolean, siteId?: string): Promise<any> {
-
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            // Get the status and download time of the module.
-            return this.getModuleStatusAndDownloadTime(module, courseId).then((data) => {
-                if (!this.fileHelper.isStateDownloaded(data.status)) {
-                    // Not downloaded, no updates.
-                    return {};
-                }
-
-                // Module is downloaded. Check if it can check updates.
-                return this.canModuleUseCheckUpdates(module, courseId).then((canUse) => {
-                    if (!canUse) {
-                        // Can't use check updates, no updates.
-                        return {};
-                    }
-
-                    const params = {
-                            courseid: courseId,
-                            tocheck: [
-                                {
-                                    contextlevel: 'module',
-                                    id: module.id,
-                                    since: data.downloadTime || 0
-                                }
-                            ]
-                        },
-                        preSets: CoreSiteWSPreSets = {
-                            cacheKey: this.getModuleUpdatesCacheKey(courseId, module.id),
-                        };
-
-                    if (ignoreCache) {
-                        preSets.getFromCache = false;
-                        preSets.emergencyCache = false;
-                    }
-
-                    return site.read('core_course_check_updates', params, preSets).then((response) => {
-                        if (!response || !response.instances || !response.instances[0]) {
-                            return Promise.reject(null);
-                        }
-
-                        return response.instances[0];
-                    });
-                });
-            });
-        });
-    }
-
-    /**
-     * Get cache key for module updates WS calls.
-     *
-     * @param courseId Course ID.
-     * @param moduleId Module ID.
-     * @return Cache key.
-     */
-    protected getModuleUpdatesCacheKey(courseId: number, moduleId: number): string {
-        return this.getCourseUpdatesCacheKey(courseId) + ':' + moduleId;
-    }
-
-    /**
      * Get a prefetch handler.
      *
-     * @param module The module to work on.
-     * @return Prefetch handler.
+     * @param {any} module The module to work on.
+     * @return {CoreCourseModulePrefetchHandler} Prefetch handler.
      */
     getPrefetchHandlerFor(module: any): CoreCourseModulePrefetchHandler {
         return <CoreCourseModulePrefetchHandler> this.getHandler(module.modname, true);
@@ -1000,8 +885,8 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Invalidate check updates WS call.
      *
-     * @param courseId Course ID.
-     * @return Promise resolved when data is invalidated.
+     * @param {number} courseId Course ID.
+     * @return {Promise<any>} Promise resolved when data is invalidated.
      */
     invalidateCourseUpdates(courseId: number): Promise<any> {
         return this.sitesProvider.getCurrentSite().invalidateWsCacheForKey(this.getCourseUpdatesCacheKey(courseId));
@@ -1010,9 +895,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Invalidate a list of modules in a course. This should only invalidate WS calls, not downloaded files.
      *
-     * @param modules List of modules.
-     * @param courseId Course ID.
-     * @return Promise resolved when modules are invalidated.
+     * @param {any[]} modules List of modules.
+     * @param {number} courseId Course ID.
+     * @return {Promise<any>} Promise resolved when modules are invalidated.
      */
     invalidateModules(modules: any[], courseId: number): Promise<any> {
         const promises = [];
@@ -1039,7 +924,7 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Invalidates the cache for a given module.
      *
-     * @param module Module to be invalidated.
+     * @param {any} module Module to be invalidated.
      */
     invalidateModuleStatusCache(module: any): void {
         const handler = this.getPrefetchHandlerFor(module);
@@ -1049,24 +934,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     }
 
     /**
-     * Invalidate check updates WS call for a certain module.
-     *
-     * @param courseId Course ID.
-     * @param moduleId Module ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when data is invalidated.
-     */
-    invalidateModuleUpdates(courseId: number, moduleId: number, siteId?: string): Promise<any> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            return site.invalidateWsCacheForKey(this.getModuleUpdatesCacheKey(courseId, moduleId));
-        });
-    }
-
-    /**
      * Check if a list of modules is being downloaded.
      *
-     * @param id An ID to identify the download.
-     * @return True if it's being downloaded, false otherwise.
+     * @param {string} id An ID to identify the download.
+     * @return {boolean} True if it's being downloaded, false otherwise.
      */
     isBeingDownloaded(id: string): boolean {
         const siteId = this.sitesProvider.getCurrentSiteId();
@@ -1077,9 +948,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check if a module is downloadable.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved with true if downloadable, false otherwise.
+     * @param {any} module Module.
+     * @param {Number} courseId Course ID the module belongs to.
+     * @return {Promise<boolean>} Promise resolved with true if downloadable, false otherwise.
      */
     isModuleDownloadable(module: any, courseId: number): Promise<boolean> {
         if (module.uservisible === false) {
@@ -1117,10 +988,10 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Check if a module has updates based on the result of getCourseUpdates.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param updates Result of getCourseUpdates.
-     * @return Promise resolved with boolean: whether the module has updates.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {any} updates Result of getCourseUpdates.
+     * @return {Promise<boolean>} Promise resolved with boolean: whether the module has updates.
      */
     moduleHasUpdates(module: any, courseId: number, updates: any): Promise<boolean> {
         const handler = this.getPrefetchHandlerFor(module),
@@ -1150,61 +1021,17 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Prefetch a module.
      *
-     * @param module Module to prefetch.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved when finished.
+     * @param {any} module Module to prefetch.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<any>} Promise resolved when finished.
      */
     prefetchModule(module: any, courseId: number, single?: boolean): Promise<any> {
         const handler = this.getPrefetchHandlerFor(module);
 
         // Check if the module has a prefetch handler.
         if (handler) {
-            return this.syncModule(module, courseId).then(() => {
-                return handler.prefetch(module, courseId, single);
-            });
-        }
-
-        return Promise.resolve();
-    }
-
-    /**
-     * Sync a group of modules.
-     *
-     * @param modules Array of modules to sync.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when finished.
-     */
-    syncModules(modules: any[], courseId: number): Promise<any> {
-        return Promise.all(modules.map((module) => {
-            return this.syncModule(module, courseId).then(() => {
-                // Invalidate course updates.
-                return this.invalidateCourseUpdates(courseId).catch(() => {
-                    // Ignore errors.
-                });
-            });
-        }));
-    }
-
-    /**
-     * Sync a module.
-     *
-     * @param module Module to sync.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when finished.
-     */
-    syncModule(module: any, courseId: number): Promise<any> {
-        const handler = this.getPrefetchHandlerFor(module);
-
-        if (handler && handler.sync) {
-            return handler.sync(module, courseId).then((result) => {
-                // Always invalidate status cache for this module. We cannot know if data was sent to server or not.
-                this.invalidateModuleStatusCache(module);
-
-                return result;
-            }).catch(() => {
-                // Ignore errors.
-            });
+            return handler.prefetch(module, courseId, single);
         }
 
         return Promise.resolve();
@@ -1214,11 +1041,11 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
      * Prefetches a list of modules using their prefetch handlers.
      * If a prefetch already exists for this site and id, returns the current promise.
      *
-     * @param id An ID to identify the download. It can be used to retrieve the download promise.
-     * @param modules List of modules to prefetch.
-     * @param courseId Course ID the modules belong to.
-     * @param onProgress Function to call everytime a module is downloaded.
-     * @return Promise resolved when all modules have been prefetched.
+     * @param {string} id An ID to identify the download. It can be used to retrieve the download promise.
+     * @param {any[]} modules List of modules to prefetch.
+     * @param {number} courseId Course ID the modules belong to.
+     * @param {CoreCourseModulesProgressFunction} [onProgress] Function to call everytime a module is downloaded.
+     * @return {Promise<any>} Promise resolved when all modules have been prefetched.
      */
     prefetchModules(id: string, modules: any[], courseId: number, onProgress?: CoreCourseModulesProgressFunction): Promise<any> {
 
@@ -1273,7 +1100,7 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
         });
 
         // Set the promise.
-        prefetchData.promise = this.utils.allPromises(promises).finally(() => {
+        prefetchData.promise = Promise.all(promises).finally(() => {
             // Unsubscribe all observers.
             prefetchData.subscriptions.forEach((subscription: Subscription) => {
                 subscription.unsubscribe();
@@ -1293,9 +1120,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Remove module Files from handler.
      *
-     * @param module Module to remove the files.
-     * @param courseId Course ID the module belongs to.
-     * @return Promise resolved when done.
+     * @param {any} module Module to remove the files.
+     * @param {number} courseId Course ID the module belongs to.
+     * @return {Promise<void>} Promise resolved when done.
      */
     removeModuleFiles(module: any, courseId: number): Promise<void> {
         const handler = this.getPrefetchHandlerFor(module),
@@ -1333,8 +1160,8 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Set an on progress function for the download of a list of modules.
      *
-     * @param id An ID to identify the download.
-     * @param onProgress Function to call everytime a module is downloaded.
+     * @param {string} id An ID to identify the download.
+     * @param {CoreCourseModulesProgressFunction} onProgress Function to call everytime a module is downloaded.
      */
     setOnProgress(id: string, onProgress: CoreCourseModulesProgressFunction): void {
         const siteId = this.sitesProvider.getCurrentSiteId(),
@@ -1349,9 +1176,9 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * If courseId or sectionId is set, save them in the cache.
      *
-     * @param packageId The package ID.
-     * @param courseId Course ID.
-     * @param sectionId Section ID.
+     * @param {string} packageId The package ID.
+     * @param {number} [courseId] Course ID.
+     * @param {number} [sectionId] Section ID.
      */
     storeCourseAndSection(packageId: string, courseId?: number, sectionId?: number): void {
         if (courseId) {
@@ -1365,12 +1192,12 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Treat the result of the check updates WS call.
      *
-     * @param toCheckList List of modules to check (from createToCheckList).
-     * @param response WS call response.
-     * @param result Object where to store the result.
-     * @param previousTime Time of the previous check updates execution. If set, modules downloaded
-     *                     after this time will be ignored.
-     * @return Result.
+     * @param {any[]} toCheckList List of modules to check (from createToCheckList).
+     * @param {any} response WS call response.
+     * @param {any} result Object where to store the result.
+     * @param {number} [previousTime] Time of the previous check updates execution. If set, modules downloaded
+     *                                after this time will be ignored.
+     * @return {any} Result.
      */
     protected treatCheckUpdatesResult(toCheckList: any[], response: any, result: any, previousTime?: number): any {
         // Format the response to index it by module ID.
@@ -1398,11 +1225,11 @@ export class CoreCourseModulePrefetchDelegate extends CoreDelegate {
     /**
      * Update the status of a module in the "cache".
      *
-     * @param status New status.
-     * @param component Package's component.
-     * @param componentId An ID to use in conjunction with the component.
-     * @param courseId Course ID of the module.
-     * @param sectionId Section ID of the module.
+     * @param {string} status New status.
+     * @param {string} component Package's component.
+     * @param {string|number} [componentId] An ID to use in conjunction with the component.
+     * @param {number} [courseId] Course ID of the module.
+     * @param {number} [sectionId] Section ID of the module.
      */
     updateStatusCache(status: string, component: string, componentId?: string | number, courseId?: number, sectionId?: number)
             : void {

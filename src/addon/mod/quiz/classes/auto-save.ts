@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,12 +38,12 @@ export class AddonModQuizAutoSave {
     /**
      * Constructor.
      *
-     * @param formName Name of the form where the answers are stored.
-     * @param buttonSelector Selector to find the button to show the connection error.
-     * @param loggerProvider CoreLoggerProvider instance.
-     * @param popoverCtrl PopoverController instance.
-     * @param questionHelper CoreQuestionHelperProvider instance.
-     * @param quizProvider AddonModQuizProvider instance.
+     * @param {string} formName Name of the form where the answers are stored.
+     * @param {string} buttonSelector Selector to find the button to show the connection error.
+     * @param {CoreLoggerProvider} loggerProvider CoreLoggerProvider instance.
+     * @param {PopoverController} popoverCtrl PopoverController instance.
+     * @param {CoreQuestionHelperProvider} questionHelper CoreQuestionHelperProvider instance.
+     * @param {AddonModQuizProvider} quizProvider AddonModQuizProvider instance.
      */
     constructor(protected formName: string, protected buttonSelector: string, loggerProvider: CoreLoggerProvider,
             protected popoverCtrl: PopoverController, protected questionHelper: CoreQuestionHelperProvider,
@@ -72,10 +72,10 @@ export class AddonModQuizAutoSave {
     /**
      * Check if the answers have changed in a page.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param preflightData Preflight data.
-     * @param offline Whether the quiz is being attempted in offline mode.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} preflightData Preflight data.
+     * @param {boolean} [offline] Whether the quiz is being attempted in offline mode.
      */
     checkChanges(quiz: any, attempt: any, preflightData: any, offline?: boolean): void {
         if (this.autoSaveTimeout) {
@@ -110,7 +110,7 @@ export class AddonModQuizAutoSave {
     /**
      * Get answers from a form.
      *
-     * @return Answers.
+     * @return {any} Answers.
      */
     protected getAnswers(): any {
         return this.questionHelper.getAnswersFromForm(document.forms[this.formName]);
@@ -128,7 +128,7 @@ export class AddonModQuizAutoSave {
      * Returns an observable that will notify when an error happens or stops.
      * It will send true when there's an error, and false when the error has been ammended.
      *
-     * @return Observable.
+     * @return {BehaviorSubject<boolean>} Observable.
      */
     onError(): BehaviorSubject<boolean> {
         return this.errorObservable;
@@ -137,10 +137,10 @@ export class AddonModQuizAutoSave {
     /**
      * Schedule an auto save process if it's not scheduled already.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param preflightData Preflight data.
-     * @param offline Whether the quiz is being attempted in offline mode.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} preflightData Preflight data.
+     * @param {boolean} [offline] Whether the quiz is being attempted in offline mode.
      */
     setAutoSaveTimer(quiz: any, attempt: any, preflightData: any, offline?: boolean): void {
         // Don't schedule if already shceduled or quiz is almost closed.
@@ -190,10 +190,10 @@ export class AddonModQuizAutoSave {
     /**
      * Start a process to periodically check changes in answers.
      *
-     * @param quiz Quiz.
-     * @param attempt Attempt.
-     * @param preflightData Preflight data.
-     * @param offline Whether the quiz is being attempted in offline mode.
+     * @param {any} quiz Quiz.
+     * @param {any} attempt Attempt.
+     * @param {any} preflightData Preflight data.
+     * @param {boolean} [offline] Whether the quiz is being attempted in offline mode.
      */
     startCheckChangesProcess(quiz: any, attempt: any, preflightData: any, offline?: boolean): void {
         if (this.checkChangesInterval || !quiz.autosaveperiod) {

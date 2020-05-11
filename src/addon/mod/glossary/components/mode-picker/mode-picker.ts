@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,10 +27,14 @@ export class AddonModGlossaryModePickerPopoverComponent {
     selectedMode: string;
 
     constructor(navParams: NavParams, private viewCtrl: ViewController) {
-        this.selectedMode = navParams.get('selectedMode') || '';
-        const browsemodes = navParams.get('browsemodes');
+        this.selectedMode = navParams.get('selectedMode');
+        const glossary = navParams.get('glossary');
 
-        browsemodes.forEach((mode) => {
+        // Preparing browse modes.
+        this.modes = [
+            {key: 'search', langkey: 'addon.mod_glossary.bysearch'}
+        ];
+        glossary.browsemodes.forEach((mode) => {
             switch (mode) {
                 case 'letter' :
                     this.modes.push({key: 'letter_all', langkey: 'addon.mod_glossary.byalphabet'});
@@ -53,9 +57,9 @@ export class AddonModGlossaryModePickerPopoverComponent {
     /**
      * Function called when a mode is clicked.
      *
-     * @param event Click event.
-     * @param key Clicked mode key.
-     * @return Return true if success, false if error.
+     * @param {Event} event Click event.
+     * @param {string} key Clicked mode key.
+     * @return {boolean} Return true if success, false if error.
      */
     modePicked(event: Event, key: string): boolean {
         this.viewCtrl.dismiss(key);

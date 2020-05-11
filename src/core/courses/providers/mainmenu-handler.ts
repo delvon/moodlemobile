@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,93 +13,59 @@
 // limitations under the License.
 
 import { Injectable } from '@angular/core';
-import { CoreSitesProvider } from '@providers/sites';
 import { CoreCoursesProvider } from './courses';
 import { CoreMainMenuHandler, CoreMainMenuHandlerData } from '@core/mainmenu/providers/delegate';
-import { CoreCoursesDashboardProvider } from '../providers/dashboard';
-import { CoreSiteHomeProvider } from '@core/sitehome/providers/sitehome';
-import { AddonBlockTimelineProvider } from '@addon/block/timeline/providers/timeline';
-import { CoreBlockDelegate } from '@core/block/providers/delegate';
+import { CoreCoursesMyOverviewProvider } from '../providers/my-overview';
 
 /**
- * Handler to add Dashboard into main menu.
+ * Handler to add My Courses or My Overview into main menu.
  */
 @Injectable()
-export class CoreDashboardMainMenuHandler implements CoreMainMenuHandler {
-    name = 'CoreHome'; // This handler contains several different features, so we use a generic name like "CoreHome".
+export class CoreCoursesMainMenuHandler implements CoreMainMenuHandler {
+    name = 'CoreCourses';
     priority = 1100;
+    isOverviewEnabled: boolean;
 
-    constructor(private coursesProvider: CoreCoursesProvider, private dashboardProvider: CoreCoursesDashboardProvider,
-        private siteHomeProvider: CoreSiteHomeProvider, private timelineProvider: AddonBlockTimelineProvider,
-        private blockDelegate: CoreBlockDelegate, private sitesProvider: CoreSitesProvider) { }
+    constructor(private coursesProvider: CoreCoursesProvider, private myOverviewProvider: CoreCoursesMyOverviewProvider) { }
 
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean | Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
-        return this.isEnabledForSite();
-    }
-
-    /**
-     * Check if the handler is enabled on a certain site.
-     *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Whether or not the handler is enabled on a site level.
-     */
-    isEnabledForSite(siteId?: string): Promise<boolean> {
-        siteId = siteId || this.sitesProvider.getCurrentSiteId();
-
-        const promises = [];
-        let blocksEnabled,
-            dashboardAvailable;
-
-        // Check if blocks and 3.6 dashboard is enabled.
-        promises.push(this.blockDelegate.areBlocksDisabled(siteId).then((disabled) => {
-            blocksEnabled = !disabled;
-        }));
-
-        promises.push(this.dashboardProvider.isAvailable().then((available) => {
-            dashboardAvailable = available;
-        }));
-
-        // Check if 3.6 dashboard is enabled.
-        return Promise.all(promises).then(() => {
-            if (dashboardAvailable && blocksEnabled) {
+        // Check if my overview is enabled.
+        return this.myOverviewProvider.isEnabled().then((enabled) => {
+            this.isOverviewEnabled = enabled;
+            if (enabled) {
                 return true;
             }
 
-            // Check if my overview is enabled.
-            return this.timelineProvider.isAvailable().then((enabled) => {
-                if (enabled && blocksEnabled) {
-                    return true;
-                }
-
-                return this.siteHomeProvider.isAvailable().then((enabled) => {
-                    // Show in case siteHome is enabled.
-                    if (enabled) {
-                        return true;
-                    }
-
-                    // My overview not enabled, check if my courses is enabled.
-                    return !this.coursesProvider.isMyCoursesDisabledInSite();
-                });
-            });
+            // My overview not enabled, check if my courses is enabled.
+            return !this.coursesProvider.isMyCoursesDisabledInSite();
         });
     }
 
     /**
      * Returns the data needed to render the handler.
      *
-     * @return Data needed to render the handler.
+     * @return {CoreMainMenuHandlerData} Data needed to render the handler.
      */
     getDisplayData(): CoreMainMenuHandlerData {
-        return {
-            icon: 'home',
-            title: 'core.courses.mymoodle',
-            page: 'CoreCoursesDashboardPage',
-            class: 'core-dashboard-handler'
-        };
+        if (this.isOverviewEnabled) {
+            return {
+                icon: 'home',
+                title: 'core.courses.courseoverview',
+                page: 'CoreCoursesMyOverviewPage',
+                class: 'core-courseoverview-handler'
+            };
+        } else {
+            return {
+                icon: 'fa-graduation-cap',
+                title: 'core.courses.mycourses',
+                page: 'CoreCoursesMyCoursesPage',
+                class: 'core-mycourses-handler'
+            };
+        }
     }
 }

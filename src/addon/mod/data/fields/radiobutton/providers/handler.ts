@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector, plugin: any): any | Promise<any> {
         return AddonModDataFieldRadiobuttonComponent;
@@ -41,9 +41,9 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
     /**
      * Get field search data in the input data.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the search form.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the search form.
+     * @return {any}            With name and value of the data to be sent.
      */
     getFieldSearchData(field: any, inputData: any): any {
         const fieldName = 'f_' + field.id;
@@ -60,26 +60,30 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
     /**
      * Get field edit data in the input data.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the edit form.
+     * @return {any}            With name and value of the data to be sent.
      */
     getFieldEditData(field: any, inputData: any, originalFieldData: any): any {
         const fieldName = 'f_' + field.id;
 
-        return [{
-            fieldid: field.id,
-            value: inputData[fieldName] || ''
-        }];
+        if (inputData[fieldName]) {
+            return [{
+                fieldid: field.id,
+                value: inputData[fieldName]
+            }];
+        }
+
+        return false;
     }
 
     /**
      * Get field data in changed.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @param originalFieldData Original field entered data.
-     * @return If the field has changes.
+     * @param  {any} field                  Defines the field to be rendered.
+     * @param  {any} inputData              Data entered in the edit form.
+     * @param  {any} originalFieldData      Original field entered data.
+     * @return {Promise<boolean> | boolean} If the field has changes.
      */
     hasFieldDataChanged(field: any, inputData: any, originalFieldData: any): Promise<boolean> | boolean {
         const fieldName = 'f_' + field.id,
@@ -92,9 +96,9 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
     /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the edit form.
+     * @return {string | false}                  String with the notification or false.
      */
     getFieldsNotifications(field: any, inputData: any): string | false {
         if (field.required && (!inputData || !inputData.length || !inputData[0].value)) {
@@ -107,10 +111,10 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
     /**
      * Override field content data with offline submission.
      *
-     * @param originalContent Original data to be overriden.
-     * @param offlineContent Array with all the offline data to override.
-     * @param offlineFiles Array with all the offline files in the field.
-     * @return Data overriden
+     * @param  {any}  originalContent    Original data to be overriden.
+     * @param  {any}  offlineContent     Array with all the offline data to override.
+     * @param  {any}  [offlineFiles]     Array with all the offline files in the field.
+     * @return {any}                     Data overriden
      */
     overrideData(originalContent: any, offlineContent: any, offlineFiles?: any): any {
         originalContent.content = offlineContent[''] || '';
@@ -121,7 +125,7 @@ export class AddonModDataFieldRadiobuttonHandler implements AddonModDataFieldHan
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;

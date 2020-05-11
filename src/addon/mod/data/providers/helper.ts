@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,18 +14,12 @@
 
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
-import { CoreEventsProvider } from '@providers/events';
 import { CoreSitesProvider } from '@providers/sites';
-import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
-import { CoreUtilsProvider } from '@providers/utils/utils';
-import { CoreCourseProvider } from '@core/course/providers/course';
 import { CoreFileUploaderProvider } from '@core/fileuploader/providers/fileuploader';
 import { AddonModDataFieldsDelegate } from './fields-delegate';
-import { AddonModDataOfflineProvider, AddonModDataOfflineAction } from './offline';
-import { AddonModDataProvider, AddonModDataEntry, AddonModDataEntryFields, AddonModDataEntries } from './data';
-import { CoreRatingInfo } from '@core/rating/providers/rating';
-import { CoreRatingOfflineProvider } from '@core/rating/providers/offline';
+import { AddonModDataOfflineProvider } from './offline';
+import { AddonModDataProvider } from './data';
 
 /**
  * Service that provides helper functions for datas.
@@ -36,26 +30,20 @@ export class AddonModDataHelperProvider {
     constructor(private sitesProvider: CoreSitesProvider, protected dataProvider: AddonModDataProvider,
         private translate: TranslateService, private fieldsDelegate: AddonModDataFieldsDelegate,
         private dataOffline: AddonModDataOfflineProvider, private fileUploaderProvider: CoreFileUploaderProvider,
-        private textUtils: CoreTextUtilsProvider, private eventsProvider: CoreEventsProvider, private utils: CoreUtilsProvider,
-        private domUtils: CoreDomUtilsProvider, private courseProvider: CoreCourseProvider,
-        private ratingOffline: CoreRatingOfflineProvider) {}
+        private textUtils: CoreTextUtilsProvider) { }
 
     /**
      * Returns the record with the offline actions applied.
      *
-     * @param record Entry to modify.
-     * @param offlineActions Offline data with the actions done.
-     * @param fields Entry defined fields indexed by fieldid.
-     * @return Promise resolved when done.
+     * @param  {any} record         Entry to modify.
+     * @param  {any} offlineActions Offline data with the actions done.
+     * @param  {any} fields         Entry defined fields indexed by fieldid.
+     * @return {any}                Modified entry.
      */
-    applyOfflineActions(record: AddonModDataEntry, offlineActions: AddonModDataOfflineAction[], fields: any[]):
-            Promise<AddonModDataEntry> {
+    applyOfflineActions(record: any, offlineActions: any[], fields: any[]): any {
         const promises  = [];
 
         offlineActions.forEach((action) => {
-            record.timemodified = action.timemodified;
-            record.hasOffline = true;
-
             switch (action.action) {
                 case 'approve':
                     record.approved = true;
@@ -68,8 +56,6 @@ export class AddonModDataHelperProvider {
                     break;
                 case 'add':
                 case 'edit':
-                    record.groupid = action.groupid;
-
                     const offlineContents = {};
 
                     action.fields.forEach((offlineContent) => {
@@ -91,12 +77,10 @@ export class AddonModDataHelperProvider {
                             promises.push(this.getStoredFiles(record.dataid, record.id, field.id).then((offlineFiles) => {
                                 record.contents[field.id] = this.fieldsDelegate.overrideData(field, record.contents[field.id],
                                         offlineContents[field.id], offlineFiles);
-                                record.contents[field.id].fieldid = field.id;
                             }));
                         } else {
                             record.contents[field.id] = this.fieldsDelegate.overrideData(field, record.contents[field.id],
                                     offlineContents[field.id]);
-                            record.contents[field.id].fieldid = field.id;
                         }
                     });
                     break;
@@ -111,59 +95,16 @@ export class AddonModDataHelperProvider {
     }
 
     /**
-     * Approve or disapprove a database entry.
-     *
-     * @param dataId Database ID.
-     * @param entryId Entry ID.
-     * @param approve True to approve, false to disapprove.
-     * @param courseId Course ID. It not defined, it will be fetched.
-     * @param siteId Site ID. If not defined, current site.
-     */
-    approveOrDisapproveEntry(dataId: number, entryId: number, approve: boolean, courseId?: number, siteId?: string): void {
-        siteId = siteId || this.sitesProvider.getCurrentSiteId();
-
-        const modal = this.domUtils.showModalLoading('core.sending', true);
-
-        this.getActivityCourseIdIfNotSet(dataId, courseId, siteId).then((courseId) => {
-            // Approve/disapprove entry.
-            return this.dataProvider.approveEntry(dataId, entryId, approve, courseId, siteId).catch((message) => {
-                this.domUtils.showErrorModalDefault(message, 'addon.mod_data.errorapproving', true);
-
-                return Promise.reject(null);
-            });
-        }).then(() => {
-            const promises = [];
-            promises.push(this.dataProvider.invalidateEntryData(dataId, entryId, siteId));
-            promises.push(this.dataProvider.invalidateEntriesData(dataId, siteId));
-
-            return Promise.all(promises).catch(() => {
-                // Ignore errors.
-            });
-        }).then(() => {
-            this.eventsProvider.trigger(AddonModDataProvider.ENTRY_CHANGED, {dataId: dataId, entryId: entryId}, siteId);
-
-            this.domUtils.showToast(approve ? 'addon.mod_data.recordapproved' : 'addon.mod_data.recorddisapproved', true, 3000);
-        }).catch(() => {
-            // Ignore error, it was already displayed.
-        }).finally(() => {
-            modal.dismiss();
-        });
-    }
-
-    /**
      * Displays fields for being shown.
      *
-     * @param template Template HMTL.
-     * @param fields Fields that defines every content in the entry.
-     * @param entry Entry.
-     * @param offset Entry offset.
-     * @param mode Mode list or show.
-     * @param actions Actions that can be performed to the record.
-     * @return Generated HTML.
+     * @param {string} template   Template HMTL.
+     * @param {any[]}  fields     Fields that defines every content in the entry.
+     * @param {any}    entry      Entry.
+     * @param {string} mode       Mode list or show.
+     * @param {any}    actions    Actions that can be performed to the record.
+     * @return {string}           Generated HTML.
      */
-    displayShowFields(template: string, fields: any[], entry: any, offset: number, mode: string,
-            actions: {[name: string]: boolean}): string {
-
+    displayShowFields(template: string, fields: any[], entry: any, mode: string, actions: any): string {
         if (!template) {
             return '';
         }
@@ -193,8 +134,8 @@ export class AddonModDataHelperProvider {
                 } else if (action == 'approvalstatus') {
                     render = this.translate.instant('addon.mod_data.' + (entry.approved ? 'approved' : 'notapproved'));
                 } else {
-                    render = '<addon-mod-data-action action="' + action + '" [entry]="entries[' + entry.id + ']" mode="' + mode +
-                    '" [database]="data" [module]="module" [offset]="' + offset + '" [group]="group" ></addon-mod-data-action>';
+                    render = '<addon-mod-data-action action="' + action + '" [entry]="entries[' + entry.id +
+                                ']" mode="' + mode + '" [database]="data"></addon-mod-data-action>';
                 }
                 template = template.replace(replace, render);
             } else {
@@ -206,161 +147,14 @@ export class AddonModDataHelperProvider {
     }
 
     /**
-     * Get online and offline entries, or search entries.
-     *
-     * @param data Database object.
-     * @param fields The fields that define the contents.
-     * @param groupId Group ID.
-     * @param search Search text. It will be used if advSearch is not defined.
-     * @param advSearch Advanced search data.
-     * @param sort Sort the records by this field id, reserved ids are:
-     *             0: timeadded
-     *             -1: firstname
-     *             -2: lastname
-     *             -3: approved
-     *             -4: timemodified.
-     *             Empty for using the default database setting.
-     * @param order The direction of the sorting: 'ASC' or 'DESC'.
-     *              Empty for using the default database setting.
-     * @param page Page of records to return.
-     * @param perPage Records per page to return. Default on PER_PAGE.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the database is retrieved.
-     */
-    fetchEntries(data: any, fields: any[], groupId: number = 0, search?: string, advSearch?: any[], sort: string = '0',
-            order: string = 'DESC', page: number = 0, perPage: number = AddonModDataProvider.PER_PAGE, siteId?: string):
-            Promise<AddonModDataEntries> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            const offlineActions = {};
-            const result: AddonModDataEntries = {
-                entries: [],
-                totalcount: 0,
-                offlineEntries: []
-            };
-
-            const offlinePromise = this.dataOffline.getDatabaseEntries(data.id, site.id).then((actions) => {
-                result.hasOfflineActions = !!actions.length;
-
-                actions.forEach((action) => {
-                    if (typeof offlineActions[action.entryid] == 'undefined') {
-                        offlineActions[action.entryid] = [];
-                    }
-                    offlineActions[action.entryid].push(action);
-
-                    // We only display new entries in the first page when not searching.
-                    if (action.action == 'add' && page == 0 && !search && !advSearch &&
-                            (!action.groupid || !groupId || action.groupid == groupId)) {
-                        result.offlineEntries.push({
-                            id: action.entryid,
-                            canmanageentry: true,
-                            approved: !data.approval || data.manageapproved,
-                            dataid: data.id,
-                            groupid: action.groupid,
-                            timecreated: -action.entryid,
-                            timemodified: -action.entryid,
-                            userid: site.getUserId(),
-                            fullname: site.getInfo().fullname,
-                            contents: {}
-                        });
-                    }
-                });
-
-                // Sort offline entries by creation time.
-                result.offlineEntries.sort((entry1, entry2) => entry2.timecreated - entry1.timecreated);
-            });
-
-            const ratingsPromise = this.ratingOffline.hasRatings('mod_data', 'entry', 'module', data.coursemodule)
-                    .then((hasRatings) => {
-                result.hasOfflineRatings = hasRatings;
-            });
-
-            let fetchPromise: Promise<void>;
-            if (search || advSearch) {
-                fetchPromise = this.dataProvider.searchEntries(data.id, groupId, search, advSearch, sort, order, page, perPage,
-                        site.id).then((fetchResult) => {
-                    result.entries = fetchResult.entries;
-                    result.totalcount = fetchResult.totalcount;
-                    result.maxcount = fetchResult.maxcount;
-                });
-            } else {
-                fetchPromise = this.dataProvider.getEntries(data.id, groupId, sort, order, page, perPage, false, false, site.id)
-                        .then((fetchResult) => {
-                    result.entries = fetchResult.entries;
-                    result.totalcount = fetchResult.totalcount;
-                });
-            }
-
-            return Promise.all([offlinePromise, ratingsPromise, fetchPromise]).then(() => {
-                // Apply offline actions to online and offline entries.
-                const promises = [];
-                result.entries.forEach((entry) => {
-                    promises.push(this.applyOfflineActions(entry, offlineActions[entry.id] || [], fields));
-                });
-                result.offlineEntries.forEach((entry) => {
-                    promises.push(this.applyOfflineActions(entry, offlineActions[entry.id] || [], fields));
-                });
-
-                return Promise.all(promises);
-            }).then(() => {
-                return result;
-            });
-        });
-    }
-
-    /**
-     * Fetch an online or offline entry.
-     *
-     * @param data Database.
-     * @param fields List of database fields.
-     * @param entryId Entry ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the entry.
-     */
-    fetchEntry(data: any, fields: any[], entryId: number, siteId?: string):
-            Promise<{entry: AddonModDataEntry, ratinginfo?: CoreRatingInfo}> {
-        return this.sitesProvider.getSite(siteId).then((site) => {
-            return this.dataOffline.getEntryActions(data.id, entryId, site.id).then((offlineActions) => {
-                let promise: Promise<{entry: AddonModDataEntry, ratinginfo?: CoreRatingInfo}>;
-
-                if (entryId > 0) {
-                    // Online entry.
-                    promise = this.dataProvider.getEntry(data.id, entryId, false, site.id);
-                } else  {
-                    // Offline entry or new entry.
-                    promise = Promise.resolve({
-                        entry: {
-                            id: entryId,
-                            userid: site.getUserId(),
-                            groupid: 0,
-                            dataid: data.id,
-                            timecreated: -entryId,
-                            timemodified: -entryId,
-                            approved: !data.approval || data.manageapproved,
-                            canmanageentry: true,
-                            fullname: site.getInfo().fullname,
-                            contents: {},
-                        }
-                    });
-                }
-
-                return promise.then((response) => {
-                    return this.applyOfflineActions(response.entry, offlineActions, fields).then(() => {
-                        return response;
-                    });
-                });
-            });
-        });
-    }
-
-    /**
      * Returns an object with all the actions that the user can do over the record.
      *
-     * @param database Database activity.
-     * @param accessInfo Access info to the activity.
-     * @param record Entry or record where the actions will be performed.
-     * @return Keyed with the action names and boolean to evalute if it can or cannot be done.
+     * @param {any}  database     Database activity.
+     * @param {any}  accessInfo   Access info to the activity.
+     * @param {any}  record       Entry or record where the actions will be performed.
+     * @return {any}              Keyed with the action names and boolean to evalute if it can or cannot be done.
      */
-    getActions(database: any, accessInfo: any, record: any): {[name: string]: boolean} {
+    getActions(database: any, accessInfo: any, record: any): any {
         return {
             more: true,
             moreurl: true,
@@ -368,7 +162,6 @@ export class AddonModDataHelperProvider {
             userpicture: true,
             timeadded: true,
             timemodified: true,
-            tags: true,
 
             edit: record.canmanageentry && !record.deleted, // This already checks capabilities and readonly period.
             delete: record.canmanageentry,
@@ -385,115 +178,38 @@ export class AddonModDataHelperProvider {
     }
 
     /**
-     * Convenience function to get the course id of the database.
+     * Fetch all entries and return it's Id
      *
-     * @param dataId Database id.
-     * @param courseId Course id, if known.
-     * @param siteId Site id, if not set, current site will be used.
-     * @return Resolved with course Id when done.
+     * @param  {number}    dataId          Data ID.
+     * @param  {number}    groupId         Group ID.
+     * @param  {boolean}   [forceCache]    True to always get the value from cache, false otherwise. Default false.
+     * @param  {boolean}   [ignoreCache]   True if it should ignore cached data (it will always fail in offline or server down).
+     * @param  {string}    [siteId]        Site ID. Current if not defined.
+     * @return {Promise<any>}              Resolved with an array of entry ID.
      */
-    protected getActivityCourseIdIfNotSet(dataId: number, courseId?: number, siteId?: string): Promise<number> {
-        if (courseId) {
-            return Promise.resolve(courseId);
-        }
-
-        return this.courseProvider.getModuleBasicInfoByInstance(dataId, 'data', siteId).then((module) => {
-            return module.course;
+    getAllEntriesIds(dataId: number, groupId: number, forceCache: boolean = false, ignoreCache: boolean = false, siteId?: string):
+            Promise<any> {
+        return this.dataProvider.fetchAllEntries(dataId, groupId, undefined, undefined, undefined, forceCache, ignoreCache, siteId)
+                .then((entries) => {
+            return entries.map((entry) => entry.id);
         });
-    }
-
-    /**
-     * Returns the default template of a certain type.
-     *
-     * Based on Moodle function data_generate_default_template.
-     *
-     * @param type Type of template.
-     * @param fields List of database fields.
-     * @return Template HTML.
-     */
-    getDefaultTemplate(type: string, fields: any[]): string {
-        if (type == 'listtemplateheader' || type == 'listtemplatefooter') {
-            return '';
-        }
-
-        const html = [];
-
-        if (type == 'listtemplate') {
-            html.push('##delcheck##<br />');
-        }
-
-        html.push(
-            '<div class="defaulttemplate">',
-            '<table class="mod-data-default-template ##approvalstatus##">',
-            '<tbody>'
-        );
-
-        fields.forEach((field) => {
-            html.push(
-                '<tr class="">',
-                '<td class="template-field cell c0" style="">', field.name, ': </td>',
-                '<td class="template-token cell c1 lastcol" style="">[[', field.name, ']]</td>',
-                '</tr>'
-            );
-        });
-
-        if (type == 'listtemplate') {
-            html.push(
-                '<tr class="lastrow">',
-                '<td class="controls template-field cell c0 lastcol" style="" colspan="2">',
-                '##edit##  ##more##  ##delete##  ##approve##  ##disapprove##  ##export##',
-                '</td>',
-                '</tr>'
-            );
-        } else if (type == 'singletemplate') {
-            html.push(
-                '<tr class="lastrow">',
-                '<td class="controls template-field cell c0 lastcol" style="" colspan="2">',
-                '##edit##  ##delete##  ##approve##  ##disapprove##  ##export##',
-                '</td>',
-                '</tr>'
-            );
-        } else if (type == 'asearchtemplate') {
-            html.push(
-                '<tr class="searchcontrols">',
-                '<td class="template-field cell c0" style="">Author first name: </td>',
-                '<td class="template-token cell c1 lastcol" style="">##firstname##</td>',
-                '</tr>',
-                '<tr class="searchcontrols lastrow">',
-                '<td class="template-field cell c0" style="">Author surname: </td>',
-                '<td class="template-token cell c1 lastcol" style="">##lastname##</td>',
-                '</tr>'
-            );
-        }
-
-        html.push(
-            '</tbody>',
-            '</table>',
-            '</div>'
-        );
-
-        if (type == 'listtemplate') {
-            html.push('<hr />');
-        }
-
-        return html.join('');
     }
 
     /**
      * Retrieve the entered data in the edit form.
      * We don't use ng-model because it doesn't detect changes done by JavaScript.
      *
-     * @param inputData Array with the entered form values.
-     * @param fields Fields that defines every content in the entry.
-     * @param dataId Database Id. If set, files will be uploaded and itemId set.
-     * @param entryId Entry Id.
-     * @param entryContents Original entry contents.
-     * @param offline True to prepare the data for an offline uploading, false otherwise.
-     * @param siteId Site ID. If not defined, current site.
-     * @return That contains object with the answers.
+     * @param  {any}     inputData    Array with the entered form values.
+     * @param  {Array}   fields       Fields that defines every content in the entry.
+     * @param  {number}  [dataId]     Database Id. If set, files will be uploaded and itemId set.
+     * @param  {number}  entryId      Entry Id.
+     * @param  {any}  entryContents   Original entry contents indexed by field id.
+     * @param  {boolean} offline      True to prepare the data for an offline uploading, false otherwise.
+     * @param  {string}  [siteId]     Site ID. If not defined, current site.
+     * @return {Promise<any>}         That contains object with the answers.
      */
-    getEditDataFromForm(inputData: any, fields: any, dataId: number, entryId: number, entryContents: AddonModDataEntryFields,
-            offline: boolean = false, siteId?: string): Promise<any> {
+    getEditDataFromForm(inputData: any, fields: any, dataId: number, entryId: number, entryContents: any, offline: boolean = false,
+            siteId?: string): Promise<any> {
         if (!inputData) {
             return Promise.resolve({});
         }
@@ -549,13 +265,13 @@ export class AddonModDataHelperProvider {
     /**
      * Retrieve the temp files to be updated.
      *
-     * @param inputData Array with the entered form values.
-     * @param fields Fields that defines every content in the entry.
-     * @param dataId Database Id. If set, fils will be uploaded and itemId set.
-     * @param entryContents Original entry contents indexed by field id.
-     * @return That contains object with the files.
+     * @param  {any}     inputData    Array with the entered form values.
+     * @param  {Array}   fields       Fields that defines every content in the entry.
+     * @param  {number}  [dataId]     Database Id. If set, fils will be uploaded and itemId set.
+     * @param  {any}   entryContents  Original entry contents indexed by field id.
+     * @return {Promise<any>}         That contains object with the files.
      */
-    getEditTmpFiles(inputData: any, fields: any[], dataId: number, entryContents: AddonModDataEntryFields): Promise<any> {
+    getEditTmpFiles(inputData: any, fields: any, dataId: number, entryContents: any): Promise<any> {
         if (!inputData) {
             return Promise.resolve([]);
         }
@@ -571,13 +287,113 @@ export class AddonModDataHelperProvider {
     }
 
     /**
+     * Get an online or offline entry.
+     *
+     * @param  {any} data             Database.
+     * @param  {number} entryId       Entry ID.
+     * @param  {any} [offlineActions] Offline data with the actions done. Required for offline entries.
+     * @param  {string} [siteId]      Site ID. If not defined, current site.
+     * @return {Promise<any>}         Promise resolved with the entry.
+     */
+    getEntry(data: any, entryId: number, offlineActions?: any, siteId?: string): Promise<any> {
+        if (entryId > 0) {
+            // It's an online entry, get it from WS.
+            return this.dataProvider.getEntry(data.id, entryId, siteId);
+        }
+
+        // It's an offline entry, search it in the offline actions.
+        return this.sitesProvider.getSite(siteId).then((site) => {
+            const offlineEntry = offlineActions.find((offlineAction) => offlineAction.action == 'add');
+
+            if (offlineEntry) {
+                const siteInfo = site.getInfo();
+
+                return {entry: {
+                        id: offlineEntry.entryid,
+                        canmanageentry: true,
+                        approved: !data.approval || data.manageapproved,
+                        dataid: offlineEntry.dataid,
+                        groupid: offlineEntry.groupid,
+                        timecreated: -offlineEntry.entryid,
+                        timemodified: -offlineEntry.entryid,
+                        userid: siteInfo.userid,
+                        fullname: siteInfo.fullname,
+                        contents: {}
+                    }
+                };
+            }
+        });
+    }
+
+    /**
+     * Get page info related to an entry.
+     *
+     * @param  {number}    dataId          Data ID.
+     * @param  {number}    entryId         Entry ID.
+     * @param  {number}    groupId         Group ID.
+     * @param  {boolean}   [forceCache]    True to always get the value from cache, false otherwise. Default false.
+     * @param  {boolean}   [ignoreCache]   True if it should ignore cached data (it will always fail in offline or server down).
+     * @param  {string}    [siteId]        Site ID. Current if not defined.
+     * @return {Promise<any>}              Containing page number, if has next and have following page.
+     */
+    getPageInfoByEntry(dataId: number, entryId: number, groupId: number, forceCache: boolean = false,
+            ignoreCache: boolean = false, siteId?: string): Promise<any> {
+        return this.getAllEntriesIds(dataId, groupId, forceCache, ignoreCache, siteId).then((entries) => {
+            const index = entries.findIndex((entry) => entry == entryId);
+
+            if (index >= 0) {
+                return {
+                    previousId: entries[index - 1] || false,
+                    nextId: entries[index + 1] || false,
+                    entryId: entryId,
+                    page: index + 1, // Parsed to natural language.
+                    numEntries: entries.length
+                };
+            }
+
+            return false;
+        });
+    }
+
+    /**
+     * Get page info related to an entry by page number.
+     *
+     * @param  {number}    dataId          Data ID.
+     * @param  {number}    page            Page number.
+     * @param  {number}    groupId         Group ID.
+     * @param  {boolean}   [forceCache]    True to always get the value from cache, false otherwise. Default false.
+     * @param  {boolean}   [ignoreCache]   True if it should ignore cached data (it will always fail in offline or server down).
+     * @param  {string}    [siteId]        Site ID. Current if not defined.
+     * @return {Promise<any>}              Containing page number, if has next and have following page.
+     */
+    getPageInfoByPage(dataId: number, page: number, groupId: number, forceCache: boolean = false,
+            ignoreCache: boolean = false, siteId?: string): Promise<any> {
+        return this.getAllEntriesIds(dataId, groupId, forceCache, ignoreCache, siteId).then((entries) => {
+            const index = page - 1,
+                entryId = entries[index];
+
+            if (entryId) {
+                return {
+                    previousId: entries[index - 1] || null,
+                    nextId: entries[index + 1] || null,
+                    entryId: entryId,
+                    page: page, // Parsed to natural language.
+                    numEntries: entries.length
+                };
+            }
+
+            return false;
+        });
+    }
+
+    /**
      * Get a list of stored attachment files for a new entry. See $mmaModDataHelper#storeFiles.
      *
-     * @param dataId Database ID.
-     * @param entryId Entry ID or, if creating, timemodified.
-     * @param fieldId Field ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the files.
+     * @param  {number} dataId     Database ID.
+     * @param  {number} entryId    Entry ID or, if creating, timemodified.
+     * @param  {number} fieldId    Field ID.
+     * @param  {string} [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved with the files.
      */
     getStoredFiles(dataId: number, entryId: number, fieldId: number, siteId?: string): Promise<any> {
         return this.dataOffline.getEntryFieldFolder(dataId, entryId, fieldId, siteId).then((folderPath) => {
@@ -589,39 +405,15 @@ export class AddonModDataHelperProvider {
     }
 
     /**
-     * Returns the template of a certain type.
-     *
-     * @param data Database object.
-     * @param type Type of template.
-     * @param fields List of database fields.
-     * @return Template HTML.
-     */
-    getTemplate(data: any, type: string, fields: any[]): string {
-        let template = data[type] || this.getDefaultTemplate(type, fields);
-
-        if (type != 'listtemplateheader' && type != 'listtemplatefooter') {
-            // Try to fix syntax errors so the template can be parsed by Angular.
-            template = this.domUtils.fixHtml(template);
-        }
-
-        // Add core-link directive to links.
-        template = template.replace(/<a ([^>]*href="[^>]*)>/ig, (match, attributes) => {
-            return '<a core-link capture="true" ' + attributes + '>';
-        });
-
-        return template;
-    }
-
-    /**
      * Check if data has been changed by the user.
      *
-     * @param inputData Object with the entered form values.
-     * @param fields Fields that defines every content in the entry.
-     * @param dataId Database Id. If set, fils will be uploaded and itemId set.
-     * @param entryContents Original entry contents indexed by field id.
-     * @return True if changed, false if not.
+     * @param  {any}    inputData     Array with the entered form values.
+     * @param  {any}  fields          Fields that defines every content in the entry.
+     * @param  {number} [dataId]      Database Id. If set, fils will be uploaded and itemId set.
+     * @param  {any}    entryContents Original entry contents indexed by field id.
+     * @return {Promise<boolean>}     True if changed, false if not.
      */
-    hasEditDataChanged(inputData: any, fields: any[], dataId: number, entryContents: AddonModDataEntryFields): Promise<boolean> {
+    hasEditDataChanged(inputData: any, fields: any, dataId: number, entryContents: any): Promise<boolean> {
         const promises = fields.map((field) => {
             return this.fieldsDelegate.hasFieldDataChanged(field, inputData, entryContents[field.id]);
         });
@@ -637,54 +429,36 @@ export class AddonModDataHelperProvider {
     }
 
     /**
-     * Displays a confirmation modal for deleting an entry.
+     * Add a prefix to all rules in a CSS string.
      *
-     * @param dataId Database ID.
-     * @param entryId Entry ID.
-     * @param courseId Course ID. It not defined, it will be fetched.
-     * @param siteId Site ID. If not defined, current site.
+     * @param {string} css      CSS code to be prefixed.
+     * @param {string} prefix   Prefix css selector.
+     * @return {string}         Prefixed CSS.
      */
-    showDeleteEntryModal(dataId: number, entryId: number, courseId?: number, siteId?: string): void {
-        siteId = siteId || this.sitesProvider.getCurrentSiteId();
+    prefixCSS(css: string, prefix: string): string {
+        if (!css) {
+            return '';
+        }
 
-        this.domUtils.showDeleteConfirm('addon.mod_data.confirmdeleterecord').then(() => {
-            const modal = this.domUtils.showModalLoading();
+        // Remove comments first.
+        let regExp = /\/\*[\s\S]*?\*\/|([^:]|^)\/\/.*$/gm;
+        css = css.replace(regExp, '');
+        // Add prefix.
+        regExp = /([^]*?)({[^]*?}|,)/g;
 
-            return this.getActivityCourseIdIfNotSet(dataId, courseId, siteId).then((courseId) => {
-                return this.dataProvider.deleteEntry(dataId, entryId, courseId, siteId);
-            }).catch((message) => {
-                this.domUtils.showErrorModalDefault(message, 'addon.mod_data.errordeleting', true);
-
-                return Promise.reject(null);
-            }).then(() => {
-                return this.utils.allPromises([
-                    this.dataProvider.invalidateEntryData(dataId, entryId, siteId),
-                    this.dataProvider.invalidateEntriesData(dataId, siteId)
-                ]).catch(() => {
-                    // Ignore errors.
-                });
-            }).then(() => {
-                this.eventsProvider.trigger(AddonModDataProvider.ENTRY_CHANGED, {dataId, entryId,  deleted: true}, siteId);
-
-                this.domUtils.showToast('addon.mod_data.recorddeleted', true, 3000);
-            }).finally(() => {
-                modal.dismiss();
-            });
-        }).catch(() => {
-            // Ignore error, it was already displayed.
-        });
+        return css.replace(regExp, prefix + ' $1 $2');
     }
 
     /**
      * Given a list of files (either online files or local files), store the local files in a local folder
      * to be submitted later.
      *
-     * @param dataId Database ID.
-     * @param entryId Entry ID or, if creating, timemodified.
-     * @param fieldId Field ID.
-     * @param files List of files.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if success, rejected otherwise.
+     * @param  {number}   dataId   Database ID.
+     * @param  {number}   entryId  Entry ID or, if creating, timemodified.
+     * @param  {number}   fieldId  Field ID.
+     * @param  {any[]}    files    List of files.
+     * @param  {string}   [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}      Promise resolved if success, rejected otherwise.
      */
     storeFiles(dataId: number, entryId: number, fieldId: number, files: any[], siteId?: string): Promise<any> {
         // Get the folder where to store the files.
@@ -696,14 +470,14 @@ export class AddonModDataHelperProvider {
     /**
      * Upload or store some files, depending if the user is offline or not.
      *
-     * @param dataId Database ID.
-     * @param itemId Draft ID to use. Undefined or 0 to create a new draft ID.
-     * @param entryId Entry ID or, if creating, timemodified.
-     * @param fieldId Field ID.
-     * @param files List of files.
-     * @param offline True if files sould be stored for offline, false to upload them.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved if success.
+     * @param  {number}   dataId     Database ID.
+     * @param  {number}   [itemId=0] Draft ID to use. Undefined or 0 to create a new draft ID.
+     * @param  {number}   entryId    Entry ID or, if creating, timemodified.
+     * @param  {number}   fieldId    Field ID.
+     * @param  {any[]}    files      List of files.
+     * @param  {boolean}  offline    True if files sould be stored for offline, false to upload them.
+     * @param  {string}   [siteId]   Site ID. If not defined, current site.
+     * @return {Promise<any>}        Promise resolved if success.
      */
     uploadOrStoreFiles(dataId: number, itemId: number = 0, entryId: number, fieldId: number, files: any[], offline: boolean,
             siteId?: string): Promise<any> {

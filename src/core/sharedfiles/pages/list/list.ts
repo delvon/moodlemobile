@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     isModal: boolean;
     manage: boolean;
     pick: boolean; // To pick a file you MUST use a modal.
-    showSitePicker: boolean;
     path = '';
     title: string;
     filesLoaded: boolean;
@@ -53,7 +52,6 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
         this.manage = !!navParams.get('manage');
         this.pick = !!navParams.get('pick');
         this.path = navParams.get('path') || '';
-        this.showSitePicker = !navParams.get('hideSitePicker');
     }
 
     /**
@@ -77,7 +75,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Load the files.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected loadFiles(): Promise<any> {
         if (this.path) {
@@ -102,7 +100,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Refresh the list of files.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshFiles(refresher: any): void {
         this.loadFiles().finally(() => {
@@ -113,7 +111,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Called when a file is deleted. Remove the file from the list.
      *
-     * @param index Position of the file.
+     * @param {number} index Position of the file.
      */
     fileDeleted(index: number): void {
         this.files.splice(index, 1);
@@ -122,8 +120,8 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Called when a file is renamed. Update the list.
      *
-     * @param index Position of the file.
-     * @param data Data containing the new FileEntry.
+     * @param {number} index Position of the file.
+     * @param {any} data Data containing the new FileEntry.
      */
     fileRenamed(index: number, data: any): void {
         this.files[index] = data.file;
@@ -132,7 +130,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Open a subfolder.
      *
-     * @param folder The folder to open.
+     * @param {any} folder The folder to open.
      */
     openFolder(folder: any): void {
         const path = this.textUtils.concatenatePaths(this.path, folder.name);
@@ -156,7 +154,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * Change site loaded.
      *
-     * @param id Site to load.
+     * @param {string} id Site to load.
      */
     changeSite(id: string): void {
         this.siteId = id;
@@ -168,7 +166,7 @@ export class CoreSharedFilesListPage implements OnInit, OnDestroy {
     /**
      * A file was picked.
      *
-     * @param file Picked file.
+     * @param {any} file Picked file.
      */
     filePicked(file: any): void {
         this.viewCtrl.dismiss(file);

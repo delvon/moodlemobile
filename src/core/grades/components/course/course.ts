@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,9 +53,7 @@ export class CoreGradesCourseComponent {
             }
 
             // Add log in Moodle.
-            return this.gradesProvider.logCourseGradesView(this.courseId, this.userId).catch(() => {
-                // Ignore errors.
-            });
+            return this.gradesProvider.logCourseGradesView(this.courseId, this.userId);
         }).finally(() => {
             this.gradesLoaded = true;
         });
@@ -64,8 +62,8 @@ export class CoreGradesCourseComponent {
     /**
      * Fetch all the data required for the view.
      *
-     * @param refresh Empty events array first.
-     * @return Resolved when done.
+     * @param {boolean} [refresh] Empty events array first.
+     * @return {Promise<any>}     Resolved when done.
      */
     fetchData(refresh: boolean = false): Promise<any> {
         return this.gradesProvider.getCourseGradesTable(this.courseId, this.userId).then((table) => {
@@ -78,7 +76,7 @@ export class CoreGradesCourseComponent {
     /**
      * Refresh data.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshGrades(refresher: any): void {
         this.gradesProvider.invalidateCourseGradesData(this.courseId, this.userId).finally(() => {
@@ -90,7 +88,7 @@ export class CoreGradesCourseComponent {
 
     /**
      * Navigate to the grade of the selected item.
-     * @param gradeId Grade item ID where to navigate.
+     * @param {number} gradeId  Grade item ID where to navigate.
      */
     gotoGrade(gradeId: number): void {
         if (gradeId) {

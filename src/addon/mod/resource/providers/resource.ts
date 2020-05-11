@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,7 @@ import { CoreLoggerProvider } from '@providers/logger';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreCourseProvider } from '@core/course/providers/course';
-import { CoreCourseLogHelperProvider } from '@core/course/providers/log-helper';
 import { CoreFilepoolProvider } from '@providers/filepool';
-import { CoreSite } from '@classes/site';
-import { CoreWSExternalWarning, CoreWSExternalFile } from '@providers/ws';
 
 /**
  * Service that provides some features for resources.
@@ -33,16 +30,15 @@ export class AddonModResourceProvider {
     protected logger;
 
     constructor(logger: CoreLoggerProvider, private sitesProvider: CoreSitesProvider, private courseProvider: CoreCourseProvider,
-            private filepoolProvider: CoreFilepoolProvider, private utils: CoreUtilsProvider,
-            private logHelper: CoreCourseLogHelperProvider) {
+            private filepoolProvider: CoreFilepoolProvider, private utils: CoreUtilsProvider) {
         this.logger = logger.getInstance('AddonModResourceProvider');
     }
 
     /**
      * Get cache key for resource data WS calls.
      *
-     * @param courseId Course ID.
-     * @return Cache key.
+     * @param {number} courseId Course ID.
+     * @return {string}         Cache key.
      */
     protected getResourceCacheKey(courseId: number): string {
         return this.ROOT_CACHE_KEY + 'resource:' + courseId;
@@ -51,25 +47,22 @@ export class AddonModResourceProvider {
     /**
      * Get a resource data.
      *
-     * @param courseId Course ID.
-     * @param key Name of the property to check.
-     * @param value Value to search.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the resource is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {string} key     Name of the property to check.
+     * @param {any}  value   Value to search.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}  Promise resolved when the resource is retrieved.
      */
-    protected getResourceDataByKey(courseId: number, key: string, value: any, siteId?: string): Promise<AddonModResourceResource> {
+    protected getResourceDataByKey(courseId: number, key: string, value: any, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
             const params = {
                     courseids: [courseId]
                 },
                 preSets = {
-                    cacheKey: this.getResourceCacheKey(courseId),
-                    updateFrequency: CoreSite.FREQUENCY_RARELY
+                    cacheKey: this.getResourceCacheKey(courseId)
                 };
 
-            return site.read('mod_resource_get_resources_by_courses', params, preSets)
-                    .then((response: AddonModResourceGetResourcesByCoursesResult): any => {
-
+            return site.read('mod_resource_get_resources_by_courses', params, preSets).then((response) => {
                 if (response && response.resources) {
                     const currentResource = response.resources.find((resource) => {
                         return resource[key] == value;
@@ -87,22 +80,22 @@ export class AddonModResourceProvider {
     /**
      * Get a resource by course module ID.
      *
-     * @param courseId Course ID.
-     * @param cmId Course module ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the resource is retrieved.
+     * @param {number} courseId Course ID.
+     * @param {number} cmId     Course module ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}   Promise resolved when the resource is retrieved.
      */
-    getResourceData(courseId: number, cmId: number, siteId?: string): Promise<AddonModResourceResource> {
+    getResourceData(courseId: number, cmId: number, siteId?: string): Promise<any> {
         return this.getResourceDataByKey(courseId, 'coursemodule', cmId, siteId);
     }
 
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId Course ID of the module.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param  {number} moduleId The module ID.
+     * @param  {number} courseId Course ID of the module.
+     * @param  {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}    Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -119,9 +112,9 @@ export class AddonModResourceProvider {
     /**
      * Invalidates resource data.
      *
-     * @param courseid Course ID.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} courseid Course ID.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>}   Promise resolved when the data is invalidated.
      */
     invalidateResourceData(courseId: number, siteId?: string): Promise<any> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -132,7 +125,7 @@ export class AddonModResourceProvider {
     /**
      * Returns whether or not getResource WS available or not.
      *
-     * @return If WS is abalaible.
+     * @return {boolean} If WS is abalaible.
      * @since 3.3
      */
     isGetResourceWSAvailable(): boolean {
@@ -142,8 +135,8 @@ export class AddonModResourceProvider {
     /**
      * Return whether or not the plugin is enabled.
      *
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with true if plugin is enabled, rejected or resolved with false otherwise.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<boolean>} Promise resolved with true if plugin is enabled, rejected or resolved with false otherwise.
      */
     isPluginEnabled(siteId?: string): Promise<boolean> {
         return this.sitesProvider.getSite(siteId).then((site) => {
@@ -154,51 +147,14 @@ export class AddonModResourceProvider {
     /**
      * Report the resource as being viewed.
      *
-     * @param id Module ID.
-     * @param name Name of the resource.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the WS call is successful.
+     * @param {number} id Module ID.
+     * @return {Promise<any>}  Promise resolved when the WS call is successful.
      */
-    logView(id: number, name?: string, siteId?: string): Promise<any> {
+    logView(id: number): Promise<any> {
         const params = {
             resourceid: id
         };
 
-        return this.logHelper.logSingle('mod_resource_view_resource', params, AddonModResourceProvider.COMPONENT, id, name,
-                'resource', {}, siteId);
+        return this.sitesProvider.getCurrentSite().write('mod_resource_view_resource', params);
     }
 }
-
-/**
- * Resource returned by mod_resource_get_resources_by_courses.
- */
-export type AddonModResourceResource = {
-    id: number; // Module id.
-    coursemodule: number; // Course module id.
-    course: number; // Course id.
-    name: string; // Page name.
-    intro: string; // Summary.
-    introformat: number; // Intro format (1 = HTML, 0 = MOODLE, 2 = PLAIN or 4 = MARKDOWN).
-    introfiles: CoreWSExternalFile[];
-    contentfiles: CoreWSExternalFile[];
-    tobemigrated: number; // Whether this resource was migrated.
-    legacyfiles: number; // Legacy files flag.
-    legacyfileslast: number; // Legacy files last control flag.
-    display: number; // How to display the resource.
-    displayoptions: string; // Display options (width, height).
-    filterfiles: number; // If filters should be applied to the resource content.
-    revision: number; // Incremented when after each file changes, to avoid cache.
-    timemodified: number; // Last time the resource was modified.
-    section: number; // Course section id.
-    visible: number; // Module visibility.
-    groupmode: number; // Group mode.
-    groupingid: number; // Grouping id.
-};
-
-/**
- * Result of WS mod_resource_get_resources_by_courses.
- */
-export type AddonModResourceGetResourcesByCoursesResult = {
-    resources: AddonModResourceResource[];
-    warnings?: CoreWSExternalWarning[];
-};

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,21 +24,22 @@ import { CoreDelegate, CoreDelegateHandler } from '@classes/delegate';
 export interface CoreFileUploaderHandler extends CoreDelegateHandler {
     /**
      * Handler's priority. The highest priority, the highest position.
+     * @type {string}
      */
     priority?: number;
 
     /**
      * Given a list of mimetypes, return the ones that are supported by the handler.
      *
-     * @param mimetypes List of mimetypes.
-     * @return Supported mimetypes.
+     * @param {string[]} [mimetypes] List of mimetypes.
+     * @return {string[]} Supported mimetypes.
      */
     getSupportedMimetypes(mimetypes: string[]): string[];
 
     /**
      * Get the data to display the handler.
      *
-     * @return Data.
+     * @return {CoreFileUploaderHandlerData} Data.
      */
     getData(): CoreFileUploaderHandlerData;
 }
@@ -49,27 +50,30 @@ export interface CoreFileUploaderHandler extends CoreDelegateHandler {
 export interface CoreFileUploaderHandlerData {
     /**
      * The title to display in the handler.
+     * @type {string}
      */
     title: string;
 
     /**
      * The icon to display in the handler.
+     * @type {string}
      */
     icon?: string;
 
     /**
      * The class to assign to the handler item.
+     * @type {string}
      */
     class?: string;
 
     /**
      * Action to perform when the handler is clicked.
      *
-     * @param maxSize Max size of the file. If not defined or -1, no max size.
-     * @param upload Whether the file should be uploaded.
-     * @param allowOffline True to allow selecting in offline, false to require connection.
-     * @param mimetypes List of supported mimetypes. If undefined, all mimetypes supported.
-     * @return Promise resolved with the result of picking/uploading the file.
+     * @param {number} [maxSize] Max size of the file. If not defined or -1, no max size.
+     * @param {boolean} [upload] Whether the file should be uploaded.
+     * @param {boolean} [allowOffline] True to allow selecting in offline, false to require connection.
+     * @param {string[]} [mimetypes] List of supported mimetypes. If undefined, all mimetypes supported.
+     * @return {Promise<CoreFileUploaderHandlerResult>} Promise resolved with the result of picking/uploading the file.
      */
     action?(maxSize?: number, upload?: boolean, allowOffline?: boolean, mimetypes?: string[])
         : Promise<CoreFileUploaderHandlerResult>;
@@ -77,10 +81,10 @@ export interface CoreFileUploaderHandlerData {
     /**
      * Function called after the handler is rendered.
      *
-     * @param maxSize Max size of the file. If not defined or -1, no max size.
-     * @param upload Whether the file should be uploaded.
-     * @param allowOffline True to allow selecting in offline, false to require connection.
-     * @param mimetypes List of supported mimetypes. If undefined, all mimetypes supported.
+     * @param {number} [maxSize] Max size of the file. If not defined or -1, no max size.
+     * @param {boolean} [upload] Whether the file should be uploaded.
+     * @param {boolean} [allowOffline] True to allow selecting in offline, false to require connection.
+     * @param {string[]} [mimetypes] List of supported mimetypes. If undefined, all mimetypes supported.
      */
     afterRender?(maxSize: number, upload: boolean, allowOffline: boolean, mimetypes: string[]): void;
 }
@@ -91,26 +95,31 @@ export interface CoreFileUploaderHandlerData {
 export interface CoreFileUploaderHandlerResult {
     /**
      * Whether the file was treated (uploaded or copied to tmp folder).
+     * @type {boolean}
      */
     treated: boolean;
 
     /**
      * The path of the file picked. Required if treated=false and fileEntry is not set.
+     * @type {string}
      */
     path?: string;
 
     /**
      * The fileEntry of the file picked. Required if treated=false and path is not set.
+     * @type {any}
      */
     fileEntry?: any;
 
     /**
      * Whether the file should be deleted after the upload. Ignored if treated=true.
+     * @type {boolean}
      */
     delete?: boolean;
 
     /**
      * The result of picking/uploading the file. Ignored if treated=false.
+     * @type {any}
      */
     result?: any;
 }
@@ -121,11 +130,13 @@ export interface CoreFileUploaderHandlerResult {
 export interface CoreFileUploaderHandlerDataToReturn extends CoreFileUploaderHandlerData {
     /**
      * Handler's priority.
+     * @type {number}
      */
     priority?: number;
 
     /**
      * Supported mimetypes.
+     * @type {string[]}
      */
     mimetypes?: string[];
 }
@@ -152,8 +163,8 @@ export class CoreFileUploaderDelegate extends CoreDelegate {
     /**
      * Get the handlers for the current site.
      *
-     * @param mimetypes List of supported mimetypes. If undefined, all mimetypes supported.
-     * @return List of handlers data.
+     * @param {string[]} [mimetypes] List of supported mimetypes. If undefined, all mimetypes supported.
+     * @return {CoreFileUploaderHandlerDataToReturn[]} List of handlers data.
      */
     getHandlers(mimetypes: string[]): CoreFileUploaderHandlerDataToReturn[] {
         const handlers = [];

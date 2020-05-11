@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,10 +34,10 @@ export class EntryMock {
     /**
      * Copy the file or directory.
      *
-     * @param parent The folder where to move the file to.
-     * @param newName The new name for the file.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Entry} parent The folder where to move the file to.
+     * @param {string} newName The new name for the file.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     copyTo(parent: Entry, newName: string, successCallback: Function, errorCallback: Function): void {
         newName = newName || this.name;
@@ -69,8 +69,8 @@ export class EntryMock {
     /**
      * Get the entry's metadata.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     getMetadata(successCallback: Function, errorCallback: Function): void {
         this.fs.stat(this.fullPath, (err, stats) => {
@@ -88,8 +88,8 @@ export class EntryMock {
     /**
      * Get the parent directory.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     getParent(successCallback: Function, errorCallback: Function): void {
         // Remove last slash if present and get the path of the parent.
@@ -111,10 +111,10 @@ export class EntryMock {
     /**
      * Move the file or directory.
      *
-     * @param parent The folder where to move the file to.
-     * @param newName The new name for the file.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Entry} parent The folder where to move the file to.
+     * @param {string} newName The new name for the file.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     moveTo(parent: Entry, newName: string, successCallback: Function, errorCallback: Function): void {
         newName = newName || this.name;
@@ -136,8 +136,8 @@ export class EntryMock {
     /**
      * Remove the entry.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     remove(successCallback: Function, errorCallback: Function): void {
         const removeFn = this.isDirectory ? this.fs.rmdir : this.fs.unlink;
@@ -153,9 +153,9 @@ export class EntryMock {
     /**
      * Set the entry's metadata.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
-     * @param metadataObject The metadata to set.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
+     * @param {any} metadataObject The metadata to set.
      */
     setMetadata(successCallback: Function, errorCallback: Function, metadataObject: any): void {
         // Not supported.
@@ -165,7 +165,7 @@ export class EntryMock {
     /**
      * Get the internal URL of the Entry.
      *
-     * @return Internal URL.
+     * @return {string} Internal URL.
      */
     toInternalURL(): string {
         return 'file://' + this.fullPath;
@@ -174,7 +174,7 @@ export class EntryMock {
     /**
      * Get the URL of the Entry.
      *
-     * @return URL.
+     * @return {string} URL.
      */
     toURL(): string {
         return this.fullPath;
@@ -203,7 +203,7 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Create reader.
      *
-     * @return Reader.
+     * @return {DirectoryReader} Reader.
      */
     createReader(): DirectoryReader {
         return new DirectoryReaderMock(this.textUtils, this.mimeUtils, this.fullPath);
@@ -212,9 +212,9 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Delete an empty folder.
      *
-     * @param path Path of the folder.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {string} path Path of the folder.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     protected deleteEmptyFolder(path: string, successCallback: Function, errorCallback: Function): void {
         this.fs.rmdir(path, (err) => {
@@ -230,10 +230,10 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Get a directory inside this directory entry.
      *
-     * @param path Path of the dir.
-     * @param options Options.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {string} path Path of the dir.
+     * @param {any} options Options.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     getDirectory(path: string, options: any, successCallback: Function, errorCallback: Function): void {
         this.getDirOrFile(true, path, options, successCallback, errorCallback);
@@ -242,11 +242,11 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Helper function for getDirectory and getFile.
      *
-     * @param isDir True if getting a directory, false if getting a file.
-     * @param path Path of the file or dir.
-     * @param options Options.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {boolean} isDir True if getting a directory, false if getting a file.
+     * @param {string} path Path of the file or dir.
+     * @param {any} options Options.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     protected getDirOrFile(isDir: boolean, path: string, options: any, successCallback: Function, errorCallback: Function): void {
 
@@ -315,10 +315,10 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Get a file inside this directory entry.
      *
-     * @param path Path of the dir.
-     * @param options Options.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {string} path Path of the dir.
+     * @param {any} options Options.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     getFile(path: string, options: any, successCallback: Function, errorCallback: Function): void {
         this.getDirOrFile(false, path, options, successCallback, errorCallback);
@@ -327,8 +327,8 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Remove the directory and all its contents.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     removeRecursively(successCallback: Function, errorCallback: Function): void {
         // Use a promise to make sure only one callback is called.
@@ -344,9 +344,9 @@ export class DirectoryEntryMock extends EntryMock {
     /**
      * Delete a file or folder recursively.
      *
-     * @param path Path of the folder.
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {string} path Path of the folder.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     protected removeRecursiveFn(path: string, successCallback: Function, errorCallback: Function): void {
         // Check if it exists.
@@ -415,8 +415,8 @@ export class FileEntryMock extends EntryMock {
     /**
      * Create writer.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     createWriter(successCallback: Function, errorCallback: Function): void {
         this.file((file) => {
@@ -427,8 +427,8 @@ export class FileEntryMock extends EntryMock {
     /**
      * Get the file data.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     file(successCallback: Function, errorCallback: Function): void {
         // Get the metadata to know the time modified.
@@ -469,8 +469,8 @@ export class DirectoryReaderMock implements DirectoryReader {
     /**
      * Read entries inside a folder.
      *
-     * @param successCallback Success callback.
-     * @param errorCallback Error callback.
+     * @param {Function} successCallback Success callback.
+     * @param {Function} errorCallback Error callback.
      */
     readEntries(successCallback: Function, errorCallback: Function): void {
         this.fs.readdir(this.localURL, (err, files) => {
@@ -545,8 +545,8 @@ export class FileWriterMock {
     /**
      * The file position at which the next write will occur.
      *
-     * @param offset If nonnegative, an absolute byte offset into the file.
-     *               If negative, an offset back from the end of the file.
+     * @param {number} offset If nonnegative, an absolute byte offset into the file.
+     *                        If negative, an offset back from the end of the file.
      */
     seek(offset: number): void {
         this.position = offset;
@@ -556,7 +556,7 @@ export class FileWriterMock {
      * Changes the length of the file to that specified. If shortening the file, data beyond the new length
      * will be discarded. If extending the file, the existing data will be zero-padded up to the new length.
      *
-     * @param size The size to which the length of the file is to be adjusted, measured in bytes.
+     * @param {number} size The size to which the length of the file is to be adjusted, measured in bytes.
      */
     truncate(size: number): void {
         this.size = size;
@@ -565,7 +565,7 @@ export class FileWriterMock {
     /**
      * Write some data into the file.
      *
-     * @param data The data to write.
+     * @param {any} data The data to write.
      */
     write(data: any): void {
         if (data && data.toString() == '[object Blob]') {
@@ -589,25 +589,16 @@ export class FileWriterMock {
     /**
      * Write some data into the file.
      *
-     * @param data The data to write.
+     * @param {Buffer} data The data to write.
      */
     protected writeFile(data: Buffer): void {
-        /* Create a write stream so we can specify where to start writing. Node's Writable stream doesn't allow specifying the
-           position once it's been created, that's why we need to create it everytime write is called. */
-        const stream = this.fs.createWriteStream(this.localURL, {flags: 'r+', start: this.position});
-
-        stream.on('error', (err) => {
-            this.onerror && this.onerror(err);
-        });
-
-        stream.end(data, () => {
-            // Update the position.
-            this.position += data.length;
-
-            this.onwrite && this.onwrite();
+        this.fs.writeFile(this.localURL, data, (err) => {
+            if (err) {
+                this.onerror && this.onerror(err);
+            } else {
+                this.onwrite && this.onwrite();
+            }
             this.onwriteend && this.onwriteend();
-
-            stream.destroy();
         });
 
         this.onwritestart && this.onwritestart();

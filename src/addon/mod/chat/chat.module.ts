@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,14 +15,10 @@
 import { NgModule } from '@angular/core';
 import { CoreContentLinksDelegate } from '@core/contentlinks/providers/delegate';
 import { CoreCourseModuleDelegate } from '@core/course/providers/module-delegate';
-import { CoreCourseModulePrefetchDelegate } from '@core/course/providers/module-prefetch-delegate';
 import { AddonModChatComponentsModule } from './components/components.module';
 import { AddonModChatProvider } from './providers/chat';
-import { AddonModChatHelperProvider } from './providers/helper';
 import { AddonModChatLinkHandler } from './providers/link-handler';
-import { AddonModChatListLinkHandler } from './providers/list-link-handler';
 import { AddonModChatModuleHandler } from './providers/module-handler';
-import { AddonModChatPrefetchHandler } from './providers/prefetch-handler';
 
 // List of providers (without handlers).
 export const ADDON_MOD_CHAT_PROVIDERS: any[] = [
@@ -37,22 +33,14 @@ export const ADDON_MOD_CHAT_PROVIDERS: any[] = [
     ],
     providers: [
         AddonModChatProvider,
-        AddonModChatHelperProvider,
         AddonModChatLinkHandler,
-        AddonModChatListLinkHandler,
         AddonModChatModuleHandler,
-        AddonModChatPrefetchHandler
     ]
 })
 export class AddonModChatModule {
     constructor(moduleDelegate: CoreCourseModuleDelegate, moduleHandler: AddonModChatModuleHandler,
-            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModChatLinkHandler,
-            prefetchDelegate: CoreCourseModulePrefetchDelegate, prefetchHandler: AddonModChatPrefetchHandler,
-            listLinkHandler: AddonModChatListLinkHandler) {
-
+            contentLinksDelegate: CoreContentLinksDelegate, linkHandler: AddonModChatLinkHandler) {
         moduleDelegate.registerHandler(moduleHandler);
         contentLinksDelegate.registerHandler(linkHandler);
-        contentLinksDelegate.registerHandler(listLinkHandler);
-        prefetchDelegate.registerHandler(prefetchHandler);
     }
 }

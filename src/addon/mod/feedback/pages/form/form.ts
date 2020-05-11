@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreAppProvider } from '@providers/app';
 import { CoreEventsProvider } from '@providers/events';
 import { CoreCourseProvider } from '@core/course/providers/course';
-import { CoreCourseHelperProvider } from '@core/course/providers/helper';
 import { CoreLoginHelperProvider } from '@core/login/providers/helper';
 import { CoreContentLinksHelperProvider } from '@core/contentlinks/providers/helper';
 import { CoreSitesProvider } from '@providers/sites';
@@ -70,7 +69,7 @@ export class AddonModFeedbackFormPage implements OnDestroy {
             protected eventsProvider: CoreEventsProvider, protected feedbackSync: AddonModFeedbackSyncProvider, network: Network,
             protected translate: TranslateService, protected loginHelper: CoreLoginHelperProvider,
             protected linkHelper: CoreContentLinksHelperProvider, sitesProvider: CoreSitesProvider,
-            @Optional() private content: Content, zone: NgZone, protected courseHelper: CoreCourseHelperProvider) {
+            @Optional() private content: Content, zone: NgZone) {
 
         this.module = navParams.get('module');
         this.courseId = navParams.get('courseId');
@@ -82,10 +81,10 @@ export class AddonModFeedbackFormPage implements OnDestroy {
         this.currentSite = sitesProvider.getCurrentSite();
 
         // Refresh online status when changes.
-        this.onlineObserver = network.onchange().subscribe(() => {
+        this.onlineObserver = network.onchange().subscribe((online) => {
             // Execute the callback in the Angular zone, so change detection doesn't stop working.
             zone.run(() => {
-                this.offline = !this.appProvider.isOnline();
+                this.offline = !online;
             });
         });
     }
@@ -95,10 +94,8 @@ export class AddonModFeedbackFormPage implements OnDestroy {
      */
     ionViewDidLoad(): void {
         this.fetchData().then(() => {
-            this.feedbackProvider.logView(this.feedback.id, this.feedback.name, true).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
-            }).catch(() => {
-                // Ignore errors.
+            this.feedbackProvider.logView(this.feedback.id, true).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             });
         });
     }
@@ -113,7 +110,7 @@ export class AddonModFeedbackFormPage implements OnDestroy {
     /**
      * Check if we can leave the page or not.
      *
-     * @return Resolved if we can leave it, rejected if not.
+     * @return {boolean | Promise<void>} Resolved if we can leave it, rejected if not.
      */
     ionViewCanLeave(): boolean | Promise<void> {
         if (this.forceLeave) {
@@ -137,7 +134,7 @@ export class AddonModFeedbackFormPage implements OnDestroy {
     /**
      * Fetch all the data required for the view.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchData(): Promise<any> {
         this.offline = !this.appProvider.isOnline();
@@ -183,7 +180,7 @@ export class AddonModFeedbackFormPage implements OnDestroy {
     /**
      * Fetch access information.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchAccessData(): Promise<any> {
         return this.feedbackProvider.getFeedbackAccessInformation(this.feedback.id, this.offline, true).catch((error) => {
@@ -246,8 +243,8 @@ export class AddonModFeedbackFormPage implements OnDestroy {
     /**
      * Function to allow page navigation through the questions form.
      *
-     * @param goPrevious If true it will go back to the previous page, if false, it will go forward.
-     * @return Resolved when done.
+     * @param  {boolean}       goPrevious If true it will go back to the previous page, if false, it will go forward.
+     * @return {Promise<void>}            Resolved when done.
      */
     gotoPage(goPrevious: boolean): Promise<void> {
         this.domUtils.scrollToTop(this.content);
@@ -326,7 +323,10 @@ export class AddonModFeedbackFormPage implements OnDestroy {
                 modal.dismiss();
             });
         } else {
-            this.courseHelper.getAndOpenCourse(undefined, this.courseId, {}, this.currentSite.getId());
+            // Use redirect to make the course the new history root (to avoid "loops" in history).
+            this.loginHelper.redirect('CoreCourseSectionPage', {
+                course: { id: this.courseId }
+            }, this.currentSite.getId());
         }
     }
 
@@ -336,13 +336,8 @@ export class AddonModFeedbackFormPage implements OnDestroy {
     ngOnDestroy(): void {
         if (this.submitted) {
             const tab = this.submitted == 'analysis' ? 'analysis' : 'overview';
-
             // If form has been submitted, the info has been already invalidated but we should update index view.
-            this.eventsProvider.trigger(AddonModFeedbackProvider.FORM_SUBMITTED, {
-                feedbackId: this.feedback.id,
-                tab: tab,
-                offline: this.completedOffline
-            });
+            this.eventsProvider.trigger(AddonModFeedbackProvider.FORM_SUBMITTED, {feedbackId: this.feedback.id, tab: tab});
         }
         this.onlineObserver && this.onlineObserver.unsubscribe();
     }

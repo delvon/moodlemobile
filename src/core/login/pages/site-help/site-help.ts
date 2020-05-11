@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import { Component } from '@angular/core';
 import { IonicPage, ViewController } from 'ionic-angular';
-import { TranslateService } from '@ngx-translate/core';
 
 /**
  * Component that displays some help regarding the CoreLoginSitePage.
@@ -25,17 +24,7 @@ import { TranslateService } from '@ngx-translate/core';
     templateUrl: 'site-help.html',
 })
 export class CoreLoginSiteHelpPage {
-
-    urlImageHtml: string;
-    setupLinkHtml: string;
-
-    constructor(protected viewCtrl: ViewController,
-            protected translate: TranslateService) {
-
-        this.urlImageHtml = '<img src="assets/img/login/faq_url.png" role="presentation">';
-        this.setupLinkHtml = '<a href="https://moodle.com/getstarted/" title="' +
-                this.translate.instant('core.login.faqsetupsitelinktitle') + '">https://moodle.com/getstarted/</a>';
-    }
+    constructor(private viewCtrl: ViewController) { }
 
     /**
      * Close help modal.

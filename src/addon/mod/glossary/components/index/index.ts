@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,16 +16,12 @@ import { Component, Injector, ViewChild } from '@angular/core';
 import { Content, PopoverController } from 'ionic-angular';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
 import { CoreCourseModuleMainActivityComponent } from '@core/course/classes/main-activity-component';
-import { CoreRatingProvider } from '@core/rating/providers/rating';
-import { CoreRatingOfflineProvider } from '@core/rating/providers/offline';
-import { CoreRatingSyncProvider } from '@core/rating/providers/sync';
 import { AddonModGlossaryProvider } from '../../providers/glossary';
 import { AddonModGlossaryOfflineProvider } from '../../providers/offline';
 import { AddonModGlossarySyncProvider } from '../../providers/sync';
 import { AddonModGlossaryModePickerPopoverComponent } from '../mode-picker/mode-picker';
-import { AddonModGlossaryPrefetchHandler } from '../../providers/prefetch-handler';
 
-type FetchMode = 'author_all' | 'cat_all' | 'newest_first' | 'recently_updated' | 'letter_all';
+type FetchMode = 'author_all' | 'cat_all' | 'newest_first' | 'recently_updated' | 'search' | 'letter_all';
 
 /**
  * Component that displays a glossary entry page.
@@ -41,12 +37,13 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     component = AddonModGlossaryProvider.COMPONENT;
     moduleName = 'glossary';
 
+    fetchMode: FetchMode;
+    viewMode: string;
     isSearch = false;
     entries = [];
     offlineEntries = [];
     canAdd = false;
     canLoadMore = false;
-    loadMoreError = false;
     loadingMessage = this.translate.instant('core.loading');
     selectedEntry: number;
 
@@ -58,21 +55,12 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     protected showDivider: (entry: any, previous?: any) => boolean;
     protected getDivider: (entry: any) => string;
     protected addEntryObserver: any;
-    protected fetchMode: FetchMode;
-    protected viewMode: string;
-    protected fetchedEntriesCanLoadMore = false;
-    protected fetchedEntries = [];
-
-    hasOfflineRatings: boolean;
-    protected ratingOfflineObserver: any;
-    protected ratingSyncObserver: any;
 
     constructor(injector: Injector,
             private popoverCtrl: PopoverController,
             private glossaryProvider: AddonModGlossaryProvider,
             private glossaryOffline: AddonModGlossaryOfflineProvider,
-            private prefetchHandler: AddonModGlossaryPrefetchHandler,
-            private ratingOffline: CoreRatingOfflineProvider) {
+            private glossarySync: AddonModGlossarySyncProvider) {
         super(injector);
     }
 
@@ -84,20 +72,6 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
 
         // When an entry is added, we reload the data.
         this.addEntryObserver = this.eventsProvider.on(AddonModGlossaryProvider.ADD_ENTRY_EVENT, this.eventReceived.bind(this));
-
-        // Listen for offline ratings saved and synced.
-        this.ratingOfflineObserver = this.eventsProvider.on(CoreRatingProvider.RATING_SAVED_EVENT, (data) => {
-            if (this.glossary && data.component == 'mod_glossary' && data.ratingArea == 'entry' && data.contextLevel == 'module'
-                    && data.instanceId == this.glossary.coursemodule) {
-                this.hasOfflineRatings = true;
-            }
-        });
-        this.ratingSyncObserver = this.eventsProvider.on(CoreRatingSyncProvider.SYNCED_EVENT, (data) => {
-            if (this.glossary && data.component == 'mod_glossary' && data.ratingArea == 'entry' && data.contextLevel == 'module'
-                    && data.instanceId == this.glossary.coursemodule) {
-                this.hasOfflineRatings = false;
-            }
-        });
 
         this.loadContent(false, true).then(() => {
             if (!this.glossary) {
@@ -111,8 +85,8 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 }
             }
 
-            this.glossaryProvider.logView(this.glossary.id, this.viewMode, this.glossary.name).then(() => {
-                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+            this.glossaryProvider.logView(this.glossary.id, this.viewMode).then(() => {
+                this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
             }).catch((error) => {
                 // Ignore errors.
             });
@@ -122,10 +96,10 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Download the component contents.
      *
-     * @param refresh Whether we're refreshing data.
-     * @param sync If the refresh needs syncing.
-     * @param showErrors Wether to show errors to the user or hide them.
-     * @return Promise resolved when done.
+     * @param  {boolean} [refresh=false]    Whether we're refreshing data.
+     * @param  {boolean} [sync=false]       If the refresh needs syncing.
+     * @param  {boolean} [showErrors=false] Wether to show errors to the user or hide them.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchContent(refresh: boolean = false, sync: boolean = false, showErrors: boolean = false): Promise<any> {
         return this.glossaryProvider.getGlossary(this.courseId, this.module.id).then((glossary) => {
@@ -133,8 +107,6 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
 
             this.description = glossary.intro || this.description;
             this.canAdd = (this.glossaryProvider.isPluginEnabledForEditing() && glossary.canaddentry) || false;
-
-            this.dataRetrieved.emit(this.glossary);
 
             if (!this.fetchMode) {
                 this.switchMode('letter_all');
@@ -145,24 +117,17 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 return this.syncActivity(showErrors);
             }
         }).then(() => {
-            const promises = [];
 
-            promises.push(this.fetchEntries().then(() => {
+            return this.fetchEntries().then(() => {
                 // Check if there are responses stored in offline.
                 return this.glossaryOffline.getGlossaryNewEntries(this.glossary.id).then((offlineEntries) => {
                     offlineEntries.sort((a, b) => a.concept.localeCompare(b.fullname));
                     this.hasOffline = !!offlineEntries.length;
                     this.offlineEntries = offlineEntries || [];
                 });
-            }));
-
-            promises.push(this.ratingOffline.hasRatings('mod_glossary', 'entry', 'module', this.glossary.coursemodule)
-                    .then((hasRatings) => {
-                this.hasOfflineRatings = hasRatings;
-            }));
-
-            return Promise.all(promises);
-        }).finally(() => {
+            });
+        }).then(() => {
+            // All data obtained, now fill the context menu.
             this.fillContextMenu(refresh);
         });
     }
@@ -170,12 +135,10 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Convenience function to fetch entries.
      *
-     * @param append True if fetched entries are appended to exsiting ones.
-     * @return Promise resolved when done.
+     * @param {boolean} [append=false] True if fetched entries are appended to exsiting ones.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchEntries(append: boolean = false): Promise<any> {
-        this.loadMoreError = false;
-
         if (!this.fetchFunction || !this.fetchArguments) {
             // This happens in search mode with an empty query.
             return Promise.resolve({entries: [], count: 0});
@@ -189,24 +152,11 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 Array.prototype.push.apply(this.entries, result.entries);
             } else {
                 this.entries = result.entries;
-
-                if (this.splitviewCtrl.isOn()) {
-                    // Load the first entry.
-                    if (this.entries.length > 0) {
-                        const found = this.selectedEntry && this.entries.some((entry) => entry.id == this.selectedEntry);
-
-                        // The current selected entry is not found in the current list, open first item.
-                        if (!found) {
-                            this.openEntry(this.entries[0].id);
-                        }
-                    } else {
-                        this.selectedEntry = null;
-                        this.splitviewCtrl.emptyDetails();
-                    }
-                }
             }
             this.canLoadMore = this.entries.length < result.count;
         }).catch((error) => {
+            this.canLoadMore = false; // Set to false to prevent infinite calls with infinite-loading.
+
             return Promise.reject(error);
         });
     }
@@ -214,7 +164,7 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Perform the invalidate content function.
      *
-     * @return Resolved when done.
+     * @return {Promise<any>} Resolved when done.
      */
     protected invalidateContent(): Promise<any> {
         const promises = [];
@@ -235,17 +185,17 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Performs the sync of the activity.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected sync(): Promise<boolean> {
-        return this.prefetchHandler.sync(this.module, this.courseId);
+        return this.glossarySync.syncGlossaryEntries(this.glossary.id);
     }
 
     /**
      * Checks if sync has succeed from result sync data.
      *
-     * @param result Data returned on the sync function.
-     * @return Whether it succeed or not.
+     * @param  {any} result Data returned on the sync function.
+     * @return {boolean} Whether it succeed or not.
      */
     protected hasSyncSucceed(result: any): boolean {
         return result.updated;
@@ -254,8 +204,8 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Compares sync event data with current data to check if refresh content is needed.
      *
-     * @param syncEventData Data receiven on sync observer.
-     * @return True if refresh is needed, false otherwise.
+     * @param  {any} syncEventData Data receiven on sync observer.
+     * @return {boolean} True if refresh is needed, false otherwise.
      */
     protected isRefreshSyncNeeded(syncEventData: any): boolean {
         return this.glossary && syncEventData.glossaryId == this.glossary.id &&
@@ -265,11 +215,10 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Change fetch mode.
      *
-     * @param mode New mode.
+     * @param {FetchMode} mode New mode.
      */
     protected switchMode(mode: FetchMode): void {
         this.fetchMode = mode;
-        this.isSearch = false;
 
         switch (mode) {
             case 'author_all':
@@ -288,7 +237,7 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 this.viewMode = 'cat';
                 this.fetchFunction = this.glossaryProvider.getEntriesByCategory;
                 this.fetchInvalidate = this.glossaryProvider.invalidateEntriesByCategory;
-                this.fetchArguments = [this.glossary.id, AddonModGlossaryProvider.SHOW_ALL_CATEGORIES];
+                this.fetchArguments = [this.glossary.id, AddonModGlossaryProvider.SHOW_ALL_CATERGORIES];
                 this.getDivider = (entry: any): string => entry.categoryname;
                 this.showDivider = (entry?: any, previous?: any): boolean  => {
                     return !previous || this.getDivider(entry) != this.getDivider(previous);
@@ -312,6 +261,15 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 this.getDivider = null;
                 this.showDivider = (): boolean => false;
                 break;
+            case 'search':
+                // Search for entries.
+                this.viewMode = 'search';
+                this.fetchFunction = this.glossaryProvider.getEntriesBySearch;
+                this.fetchInvalidate = this.glossaryProvider.invalidateEntriesBySearch;
+                this.fetchArguments = null; // Dynamically set later.
+                this.getDivider = null;
+                this.showDivider = (): boolean => false;
+                break;
             case 'letter_all':
             default:
                 // Consider it is 'letter_all'.
@@ -320,12 +278,7 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
                 this.fetchFunction = this.glossaryProvider.getEntriesByLetter;
                 this.fetchInvalidate = this.glossaryProvider.invalidateEntriesByLetter;
                 this.fetchArguments = [this.glossary.id, 'ALL'];
-                this.getDivider = (entry: any): string => {
-                    // Try to get the first letter without HTML tags.
-                    const noTags = this.textUtils.cleanTags(entry.concept);
-
-                    return (noTags || entry.concept).substr(0, 1).toUpperCase();
-                };
+                this.getDivider = (entry: any): string => entry.concept.substr(0, 1).toUpperCase();
                 this.showDivider = (entry?: any, previous?: any): boolean  => {
                     return !previous || this.getDivider(entry) != this.getDivider(previous);
                 };
@@ -336,34 +289,41 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Convenience function to load more forum discussions.
      *
-     * @param infiniteComplete Infinite scroll complete function. Only used from core-infinite-loading.
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
-    loadMoreEntries(infiniteComplete?: any): Promise<any> {
+    loadMoreEntries(): Promise<any> {
         return this.fetchEntries(true).catch((error) => {
-            this.loadMoreError = true;
             this.domUtils.showErrorModalDefault(error, 'addon.mod_glossary.errorloadingentries', true);
-        }).finally(() => {
-            infiniteComplete && infiniteComplete();
         });
     }
 
     /**
      * Show the mode picker menu.
      *
-     * @param event Event.
+     * @param {MouseEvent} event Event.
      */
     openModePicker(event: MouseEvent): void {
         const popover = this.popoverCtrl.create(AddonModGlossaryModePickerPopoverComponent, {
-            browsemodes: this.glossary.browsemodes,
-            selectedMode: this.isSearch ? '' : this.fetchMode
+            glossary: this.glossary,
+            selectedMode: this.fetchMode
         });
 
-        popover.onDidDismiss((mode: FetchMode) => {
-            if (mode !== this.fetchMode) {
-                this.changeFetchMode(mode);
-            } else if (this.isSearch) {
-                this.toggleSearch();
+        popover.onDidDismiss((newMode: FetchMode) => {
+            if (newMode === this.fetchMode) {
+                return;
+            }
+
+            this.loadingMessage = this.translate.instant('core.loading');
+            this.domUtils.scrollToTop(this.content);
+            this.switchMode(newMode);
+
+            if (this.fetchMode === 'search') {
+                // If it's not an instant search, then we reset the values.
+                this.entries = [];
+                this.canLoadMore = false;
+            } else {
+                this.loaded = false;
+                this.loadContent();
             }
         });
 
@@ -373,52 +333,14 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     }
 
     /**
-     * Toggles between search and fetch mode.
-     */
-    toggleSearch(): void {
-        if (this.isSearch) {
-            this.isSearch = false;
-            this.entries = this.fetchedEntries;
-            this.canLoadMore = this.fetchedEntriesCanLoadMore;
-            this.switchMode(this.fetchMode);
-        } else {
-            // Search for entries.
-            this.fetchFunction = this.glossaryProvider.getEntriesBySearch;
-            this.fetchInvalidate = this.glossaryProvider.invalidateEntriesBySearch;
-            this.fetchArguments = null; // Dynamically set later.
-            this.getDivider = null;
-            this.showDivider = (): boolean => false;
-            this.isSearch = true;
-
-            this.fetchedEntries = this.entries;
-            this.fetchedEntriesCanLoadMore = this.canLoadMore;
-            this.canLoadMore = false;
-            this.entries = [];
-        }
-    }
-
-    /**
-     * Change fetch mode
-     * @param {FetchMode} mode [description]
-     */
-    changeFetchMode(mode: FetchMode): void {
-        this.isSearch = false;
-        this.loadingMessage = this.translate.instant('core.loading');
-        this.domUtils.scrollToTop(this.content);
-        this.switchMode(mode);
-        this.loaded = false;
-        this.loadContent();
-    }
-
-    /**
      * Opens an entry.
      *
-     * @param entryId Entry id.
+     * @param {number} entryId Entry id.
      */
     openEntry(entryId: number): void {
         const params = {
             courseId: this.courseId,
-            entryId: entryId
+            entryId: entryId,
         };
         this.splitviewCtrl.push('AddonModGlossaryEntryPage', params);
         this.selectedEntry = entryId;
@@ -427,7 +349,7 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Opens new entry editor.
      *
-     * @param entry Offline entry to edit.
+     * @param {any} [entry] Offline entry to edit.
      */
     openNewEntry(entry?: any): void {
         const params = {
@@ -443,7 +365,7 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Search entries.
      *
-     * @param query Text entered on the search box.
+     * @param {string} query Text entered on the search box.
      */
     search(query: string): void {
         this.loadingMessage = this.translate.instant('core.searching');
@@ -455,14 +377,14 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
     /**
      * Function called when we receive an event of new entry.
      *
-     * @param data Event data.
+     * @param {any} data Event data.
      */
     protected eventReceived(data: any): void {
         if (this.glossary && this.glossary.id === data.glossaryId) {
             this.showLoadingAndRefresh(false);
 
             // Check completion since it could be configured to complete once the user adds a new discussion or replies.
-            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completiondata);
+            this.courseProvider.checkModuleCompletion(this.courseId, this.module.completionstatus);
         }
     }
 
@@ -473,7 +395,5 @@ export class AddonModGlossaryIndexComponent extends CoreCourseModuleMainActivity
         super.ngOnDestroy();
 
         this.addEntryObserver && this.addEntryObserver.off();
-        this.ratingOfflineObserver && this.ratingOfflineObserver.off();
-        this.ratingSyncObserver && this.ratingSyncObserver.off();
     }
 }

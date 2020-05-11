@@ -29,27 +29,19 @@ ion-app.app-root core-empty-box {
 
     .icon {
       font-size: 120px;
-      width: auto;
     }
     img {
       height: 125px;
       width: 145px;
-      margin: 0 auto;
     }
     p {
       font-size: 120%;
     }
   }
 
-  &.core-empty-box-clickable .core-empty-box {
-    z-index: 0;
-  }
-
-  @media (max-width: 350px) {
+  @include media-breakpoint-down(sm) {
     .core-empty-box {
       position: relative;
-      height: auto;
-      margin-top: 50px;
 
       .icon {
         font-size: 100px;
@@ -61,8 +53,3 @@ ion-app.app-root core-empty-box {
     }
   }
 }
-
-ion-app.app-root core-block-course-blocks core-empty-box .core-empty-box {
-  position: relative;
-}
-

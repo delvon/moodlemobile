@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@ import { Component } from '@angular/core';
 import { NavParams } from 'ionic-angular';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreSitesProvider } from '@providers/sites';
-import {
-    AddonMessagesProvider, AddonMessagesGetContactsResult, AddonMessagesSearchContactsContact
-} from '../../providers/messages';
+import { AddonMessagesProvider } from '../../providers/messages';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreAppProvider } from '@providers/app';
 import { CoreEventsProvider } from '@providers/events';
@@ -44,15 +42,10 @@ export class AddonMessagesContactsComponent {
     searchType = 'search';
     loadingMessage = '';
     hasContacts = false;
-    contacts: AddonMessagesGetContactsFormatted = {
-        online: [],
-        offline: [],
-        strangers: [],
+    contacts = {
         search: []
     };
     searchString = '';
-
-    protected memberInfoObserver;
 
     constructor(sitesProvider: CoreSitesProvider, translate: TranslateService, private appProvider: CoreAppProvider,
             private messagesProvider: AddonMessagesProvider, private domUtils: CoreDomUtilsProvider, navParams: NavParams,
@@ -65,13 +58,6 @@ export class AddonMessagesContactsComponent {
         this.loadingMessage = this.loadingMessages;
 
         this.discussionUserId = navParams.get('discussionUserId') || false;
-
-        // Refresh the list when a contact request is confirmed.
-        this.memberInfoObserver = eventsProvider.on(AddonMessagesProvider.MEMBER_INFO_CHANGED_EVENT, (data) => {
-            if (data.contactRequestConfirmed) {
-                this.refreshData();
-            }
-        }, sitesProvider.getCurrentSiteId());
     }
 
     /**
@@ -106,8 +92,8 @@ export class AddonMessagesContactsComponent {
     /**
      * Refresh the data.
      *
-     * @param refresher Refresher.
-     * @return Promise resolved when done.
+     * @param {any} [refresher] Refresher.
+     * @return {Promise<any>} Promise resolved when done.
      */
     refreshData(refresher?: any): Promise<any> {
         let promise;
@@ -130,7 +116,7 @@ export class AddonMessagesContactsComponent {
     /**
      * Fetch contacts.
      *
-     * @return Promise resolved when done.
+     * @return {Promise<any>} Promise resolved when done.
      */
     protected fetchData(): Promise<any> {
         this.loadingMessage = this.loadingMessages;
@@ -152,8 +138,8 @@ export class AddonMessagesContactsComponent {
 
     /**
      * Sort user list by fullname
-     * @param list List to sort.
-     * @return Sorted list.
+     * @param  {any[]} list List to sort.
+     * @return {any[]}      Sorted list.
      */
     protected sortUsers(list: any[]): any[] {
         return list.sort((a, b) => {
@@ -184,8 +170,8 @@ export class AddonMessagesContactsComponent {
     /**
      * Search users from the UI.
      *
-     * @param query Text to search for.
-     * @return Resolved when done.
+     * @param  {string}       query Text to search for.
+     * @return {Promise<any>}       Resolved when done.
      */
     search(query: string): Promise<any> {
         this.appProvider.closeKeyboard();
@@ -201,8 +187,8 @@ export class AddonMessagesContactsComponent {
     /**
      * Perform the search of users.
      *
-     * @param query Text to search for.
-     * @return Resolved when done.
+     * @param  {string}       query Text to search for.
+     * @return {Promise<any>}       Resolved when done.
      */
     protected performSearch(query: string): Promise<any> {
         return this.messagesProvider.searchContacts(query).then((result) => {
@@ -210,7 +196,7 @@ export class AddonMessagesContactsComponent {
             this.searchString = query;
             this.contactTypes = ['search'];
 
-            this.contacts.search = this.sortUsers(result);
+            this.contacts['search'] = this.sortUsers(result);
         }).catch((error) => {
             this.domUtils.showErrorModalDefault(error, 'addon.messages.errorwhileretrievingcontacts', true);
         });
@@ -219,8 +205,8 @@ export class AddonMessagesContactsComponent {
     /**
      * Navigate to a particular discussion.
      *
-     * @param discussionUserId Discussion Id to load.
-     * @param onlyWithSplitView Only go to Discussion if split view is on.
+     * @param {number} discussionUserId Discussion Id to load.
+     * @param {boolean} [onlyWithSplitView=false]  Only go to Discussion if split view is on.
      */
     gotoDiscussion(discussionUserId: number, onlyWithSplitView: boolean = false): void {
         this.discussionUserId = discussionUserId;
@@ -231,18 +217,4 @@ export class AddonMessagesContactsComponent {
         };
         this.eventsProvider.trigger(AddonMessagesProvider.SPLIT_VIEW_LOAD_EVENT, params, this.siteId);
     }
-
-    /**
-     * Component destroyed.
-     */
-    ngOnDestroy(): void {
-        this.memberInfoObserver && this.memberInfoObserver.off();
-    }
 }
-
-/**
- * Contacts with some calculated data.
- */
-export type AddonMessagesGetContactsFormatted = AddonMessagesGetContactsResult & {
-    search?: AddonMessagesSearchContactsContact[]; // Calculated in the app. Result of searching users.
-};

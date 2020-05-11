@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ import { Component, Input, Output, OnInit, OnDestroy, ElementRef, EventEmitter, 
 import { CoreTabsComponent } from './tabs';
 import { Content } from 'ionic-angular';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { CoreUtilsProvider } from '@providers/utils/utils';
 import { CoreNavBarButtonsComponent } from '../navbar-buttons/navbar-buttons';
 
 /**
@@ -55,7 +54,6 @@ export class CoreTabComponent implements OnInit, OnDestroy {
 
             if (this.initialized && hasChanged) {
                 this.tabs.tabVisibilityChanged();
-                this.updateAriaHidden();
             }
         }
     }
@@ -66,36 +64,23 @@ export class CoreTabComponent implements OnInit, OnDestroy {
     @Output() ionSelect: EventEmitter<CoreTabComponent> = new EventEmitter<CoreTabComponent>();
 
     @ContentChild(TemplateRef) template: TemplateRef<any>; // Template defined by the content.
-    @ContentChild(Content) content: Content;
+    @ContentChild(Content) scroll: Content;
 
     element: HTMLElement; // The core-tab element.
     loaded = false;
     initialized = false;
     _show = true;
-    tabElement: any;
 
-    constructor(protected tabs: CoreTabsComponent, element: ElementRef, protected domUtils: CoreDomUtilsProvider,
-            utils: CoreUtilsProvider) {
+    constructor(protected tabs: CoreTabsComponent, element: ElementRef, protected domUtils: CoreDomUtilsProvider) {
         this.element = element.nativeElement;
-
-        this.element.setAttribute('role', 'tabpanel');
-        this.element.setAttribute('tabindex', '0');
-        this.id = this.id || 'core-tab-' + utils.getUniqueId('CoreTabComponent');
     }
 
     /**
      * Component being initialized.
      */
     ngOnInit(): void {
-        this.element.setAttribute('aria-labelledby', this.id + '-tab');
-        this.element.setAttribute('id', this.id);
-
         this.tabs.addTab(this);
         this.initialized = true;
-
-        setTimeout(() => {
-            this.updateAriaHidden();
-        }, 1000);
     }
 
     /**
@@ -111,35 +96,24 @@ export class CoreTabComponent implements OnInit, OnDestroy {
     selectTab(): void {
         this.element.classList.add('selected');
 
-        this.tabElement = this.tabElement || document.getElementById(this.id + '-tab');
-
-        this.updateAriaHidden();
-        this.tabElement && this.tabElement.setAttribute('aria-selected', true);
-
         this.loaded = true;
         this.ionSelect.emit(this);
         this.showHideNavBarButtons(true);
 
         // Setup tab scrolling.
-        this.domUtils.waitElementToExist(() => this.content ? this.content.getScrollElement() :
-                this.element.querySelector('ion-content > .scroll-content')).then((scroll) => {
-            scroll.addEventListener('scroll', (e): void => {
-                this.tabs.showHideTabs(e.target);
-            });
-
-            this.tabs.showHideTabs(scroll);
-        }).catch(() => {
-            // Ignore errors.
-        });
+        setTimeout(() => {
+            if (this.scroll) {
+                this.scroll.getScrollElement().onscroll = (e): void => {
+                    this.tabs.showHideTabs(e);
+                };
+            }
+        }, 1);
     }
 
     /**
      * Unselect tab.
      */
     unselectTab(): void {
-        this.updateAriaHidden();
-        this.tabElement && this.tabElement.setAttribute('aria-selected', false);
-
         this.element.classList.remove('selected');
         this.showHideNavBarButtons(false);
     }
@@ -148,7 +122,7 @@ export class CoreTabComponent implements OnInit, OnDestroy {
      * Get all child core-navbar-buttons. We need to use querySelectorAll because ContentChildren doesn't work with ng-template.
      * https://github.com/angular/angular/issues/14842
      *
-     * @return List of component instances.
+     * @return {CoreNavBarButtonsComponent[]} List of component instances.
      */
     protected getChildrenNavBarButtons(): CoreNavBarButtonsComponent[] {
         const elements = this.element.querySelectorAll('core-navbar-buttons'),
@@ -167,26 +141,13 @@ export class CoreTabComponent implements OnInit, OnDestroy {
     /**
      * Show all hide all children navbar buttons.
      *
-     * @param show Whether to show or hide the buttons.
+     * @param {boolean} show Whether to show or hide the buttons.
      */
     protected showHideNavBarButtons(show: boolean): void {
         const instances = this.getChildrenNavBarButtons();
 
         for (const i in instances) {
             instances[i].forceHide(!show);
-        }
-    }
-
-    /**
-     * Update aria hidden attribute.
-     */
-    updateAriaHidden(): void {
-        if (!this.tabElement) {
-            this.tabElement = document.getElementById(this.id + '-tab');
-        }
-
-        if (this.tabElement) {
-            this.tabElement && this.tabElement.setAttribute('aria-hidden', !this._show);
         }
     }
 }

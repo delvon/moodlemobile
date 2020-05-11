@@ -1,6 +1,6 @@
 <ion-header>
     <ion-navbar core-back-button>
-        <ion-title><core-format-text [text]="title" contextLevel="module" [contextInstanceId]="moduleId"  [courseId]="courseId"></core-format-text></ion-title>
+        <ion-title><core-format-text [text]="title"></core-format-text></ion-title>
 
         <ion-buttons end></ion-buttons>
     </ion-navbar>
@@ -15,29 +15,24 @@
             </core-empty-box>
 
             <ion-list>
-                <ion-item text-wrap *ngIf="(groupInfo.separateGroups || groupInfo.visibleGroups)">
-                    <ion-label id="addon-assign-groupslabel" *ngIf="groupInfo.separateGroups">{{ 'core.groupsseparate' | translate }}</ion-label>
-                    <ion-label id="addon-assign-groupslabel" *ngIf="groupInfo.visibleGroups">{{ 'core.groupsvisible' | translate }}</ion-label>
-                    <ion-select [(ngModel)]="groupId" (ionChange)="setGroup(groupId)" aria-labelledby="addon-assign-groupslabel" interface="action-sheet">
-                        <ion-option *ngFor="let groupOpt of groupInfo.groups" [value]="groupOpt.id">{{groupOpt.name}}</ion-option>
-                    </ion-select>
-                </ion-item>
                 <!-- List of submissions. -->
                 <ng-container *ngFor="let submission of submissions">
-                    <a ion-item text-wrap (click)="loadSubmission(submission)" [class.core-split-item-selected]="submission.submitid == selectedSubmissionId">
-                        <ion-avatar core-user-avatar [user]="submission" [linkProfile]="false" item-start></ion-avatar>
+                    <a ion-item text-wrap (click)="loadSubmission(submission)" [class.core-split-item-selected]="submission.id == selectedSubmissionId">
+                        <ion-avatar item-start *ngIf="submission.userprofileimageurl">
+                            <img [src]="submission.userprofileimageurl" [alt]="'core.pictureof' | translate:{$a: submission.userfullname}" core-external-content role="presentation" onError="this.src='assets/img/user-avatar.png'">
+                        </ion-avatar>
                         <h2 *ngIf="submission.userfullname">{{submission.userfullname}}</h2>
                         <h2 *ngIf="!submission.userfullname">{{ 'addon.mod_assign.hiddenuser' | translate }}{{submission.blindid}}</h2>
                         <p *ngIf="assign.teamsubmission">
                             <span *ngIf="submission.groupname">{{submission.groupname}}</span>
-                            <span *ngIf="assign.preventsubmissionnotingroup && !submission.groupname && submission.noGroups && !submission.blindid" class="text-danger">{{ 'addon.mod_assign.noteam' | translate }}</span>
-                            <span *ngIf="assign.preventsubmissionnotingroup && !submission.groupname && submission.manyGroups && !submission.blindid" class="text-danger">{{ 'addon.mod_assign.multipleteams' | translate }}</span>
+                            <span *ngIf="assign.preventsubmissionnotingroup && !submission.groupname && !submission.manyGroups && !submission.blindid">{{ 'addon.mod_assign.noteam' | translate }}</span>
+                            <span *ngIf="assign.preventsubmissionnotingroup && !submission.groupname && submission.manyGroups && !submission.blindid">{{ 'addon.mod_assign.multipleteams' | translate }}</span>
                             <span *ngIf="!assign.preventsubmissionnotingroup && !submission.groupname">{{ 'addon.mod_assign.defaultteam' | translate }}</span>
                         </p>
-                        <ion-badge text-center text-wrap [color]="submission.statusColor" *ngIf="submission.statusTranslated">
+                        <ion-badge text-center [color]="submission.statusColor" *ngIf="submission.statusTranslated">
                             {{ submission.statusTranslated }}
                         </ion-badge>
-                        <ion-badge text-center text-wrap [color]="submission.gradingColor" *ngIf="submission.gradingStatusTranslationId">
+                        <ion-badge text-center [color]="submission.gradingColor" *ngIf="submission.gradingStatusTranslationId">
                             {{ submission.gradingStatusTranslationId | translate }}
                         </ion-badge>
                     </a>

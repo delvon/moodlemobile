@@ -18,43 +18,41 @@
         <!-- Review summary -->
         <ion-card *ngIf="attempt">
             <ion-card-header text-wrap>
-                <div class="safe-padding-horizontal">
-                    <h2 *ngIf="attempt.preview">{{ 'addon.mod_quiz.reviewofpreview' | translate }}</h2>
-                    <h2 *ngIf="!attempt.preview">{{ 'addon.mod_quiz.reviewofattempt' | translate:{$a: attempt.attempt} }}</h2>
-                </div>
+                <h2 *ngIf="attempt.preview">{{ 'addon.mod_quiz.reviewofpreview' | translate }}</h2>
+                <h2 *ngIf="!attempt.preview">{{ 'addon.mod_quiz.reviewofattempt' | translate:{$a: attempt.attempt} }}</h2>
             </ion-card-header>
             <ion-list>
-                <ion-item text-wrap no-lines>
-                    <h2>{{ 'addon.mod_quiz.startedon' | translate }}</h2>
-                    <p>{{ attempt.timestart * 1000 | coreFormatDate }}</p>
+                <ion-item text-wrap>
+                    <p class="item-heading">{{ 'addon.mod_quiz.startedon' | translate }}</p>
+                    <p>{{ attempt.timestart * 1000 | coreFormatDate:"dfmediumdate" }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines>
-                    <h2>{{ 'addon.mod_quiz.attemptstate' | translate }}</h2>
+                <ion-item text-wrap>
+                    <p class="item-heading">{{ 'addon.mod_quiz.attemptstate' | translate }}</p>
                     <p>{{ attempt.readableState }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngIf="showCompleted">
-                    <h2>{{ 'addon.mod_quiz.completedon' | translate }}</h2>
-                    <p>{{ attempt.timefinish * 1000 | coreFormatDate }}</p>
+                <ion-item text-wrap *ngIf="showCompleted">
+                    <p class="item-heading">{{ 'addon.mod_quiz.completedon' | translate }}</p>
+                    <p>{{ attempt.timefinish * 1000 | coreFormatDate:"dfmediumdate" }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngIf="attempt.timeTaken">
-                    <h2>{{ 'addon.mod_quiz.timetaken' | translate }}</h2>
+                <ion-item text-wrap *ngIf="attempt.timeTaken">
+                    <p class="item-heading">{{ 'addon.mod_quiz.timetaken' | translate }}</p>
                     <p>{{ attempt.timeTaken }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngIf="attempt.overTime">
-                    <h2>{{ 'addon.mod_quiz.overdue' | translate }}</h2>
+                <ion-item text-wrap *ngIf="attempt.overTime">
+                    <p class="item-heading">{{ 'addon.mod_quiz.overdue' | translate }}</p>
                     <p>{{ attempt.overTime }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngIf="attempt.readableMark">
-                    <h2>{{ 'addon.mod_quiz.marks' | translate }}</h2>
-                    <p>{{ attempt.readableMark }}</p>
+                <ion-item text-wrap *ngIf="attempt.readableMark">
+                    <p class="item-heading">{{ 'addon.mod_quiz.marks' | translate }}</p>
+                    <p><core-format-text [text]="attempt.readableMark"></core-format-text></p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngIf="attempt.readableGrade">
-                    <h2>{{ 'addon.mod_quiz.grade' | translate }}</h2>
+                <ion-item text-wrap *ngIf="attempt.readableGrade">
+                    <p class="item-heading">{{ 'addon.mod_quiz.grade' | translate }}</p>
                     <p>{{ attempt.readableGrade }}</p>
                 </ion-item>
-                <ion-item text-wrap no-lines *ngFor="let data of additionalData">
-                    <h2>{{ data.title }}</h2>
-                    <core-format-text [component]="component" [componentId]="componentId" [text]="data.content" contextLevel="module" [contextInstanceId]="quiz.coursemodule" [courseId]="courseId"></core-format-text>
+                <ion-item text-wrap *ngFor="let data of additionalData">
+                    <p class="item-heading">{{ data.title }}</p>
+                    <core-format-text [component]="component" [componentId]="componentId" [text]="data.content"></core-format-text>
                 </ion-item>
             </ion-list>
         </ion-card>
@@ -68,16 +66,16 @@
             <div *ngFor="let question of questions">
                 <ion-card id="addon-mod_quiz-question-{{question.slot}}">
                     <!-- "Header" of the question. -->
-                    <ion-item-divider>
+                    <ion-item-divider color="light">
                         <h2 *ngIf="question.number" class="inline">{{ 'core.question.questionno' | translate:{$a: question.number} }}</h2>
                         <h2 *ngIf="!question.number" class="inline">{{ 'core.question.information' | translate }}</h2>
                         <ion-note text-wrap item-end *ngIf="question.status || question.readableMark">
-                            <p *ngIf="question.status">{{question.status}}</p>
-                            <p *ngIf="question.readableMark">{{question.readableMark}}</p>
+                            <p *ngIf="question.status" class="block">{{question.status}}</p>
+                            <p *ngIf="question.readableMark"><core-format-text [text]="question.readableMark"></core-format-text></p>
                         </ion-note>
                     </ion-item-divider>
                     <!-- Body of the question. -->
-                    <core-question text-wrap [question]="question" [component]="component" [componentId]="componentId" [attemptId]="attempt.id" [usageId]="attempt.uniqueid" [offlineEnabled]="false" contextLevel="module" [contextInstanceId]="quiz.coursemodule" [courseId]="courseId"></core-question>
+                    <core-question text-wrap [question]="question" [component]="component" [componentId]="componentId" [attemptId]="attempt.id" [offlineEnabled]="false"></core-question>
                 </ion-card>
             </div>
 

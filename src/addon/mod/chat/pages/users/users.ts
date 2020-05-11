@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import { IonicPage, NavParams, ViewController } from 'ionic-angular';
 import { CoreAppProvider } from '@providers/app';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
-import { AddonModChatProvider, AddonModChatUser } from '../../providers/chat';
+import { AddonModChatProvider } from '../../providers/chat';
 import { Network } from '@ionic-native/network';
 
 /**
@@ -30,12 +30,12 @@ import { Network } from '@ionic-native/network';
 })
 export class AddonModChatUsersPage {
 
-    users: AddonModChatUser[] = [];
+    users = [];
     usersLoaded = false;
     currentUserId: number;
     isOnline: boolean;
 
-    protected sessionId: string;
+    protected sessionId: number;
     protected onlineObserver: any;
 
     constructor(navParams: NavParams, network: Network,  zone: NgZone, private appProvider: CoreAppProvider,
@@ -44,7 +44,7 @@ export class AddonModChatUsersPage {
         this.sessionId = navParams.get('sessionId');
         this.isOnline = this.appProvider.isOnline();
         this.currentUserId = this.sitesProvider.getCurrentSiteUserId();
-        this.onlineObserver = network.onchange().subscribe(() => {
+        this.onlineObserver = network.onchange().subscribe((online) => {
             // Execute the callback in the Angular zone, so change detection doesn't stop working.
             zone.run(() => {
                 this.isOnline = this.appProvider.isOnline();
@@ -69,25 +69,25 @@ export class AddonModChatUsersPage {
      * Close the chat users modal.
      */
     closeModal(): void {
-        this.viewCtrl.dismiss({users: this.users});
+        this.viewCtrl.dismiss();
     }
 
     /**
      * Add "To user:".
      *
-     * @param user User object.
+     * @param {any} user User object.
      */
-    talkTo(user: AddonModChatUser): void {
-        this.viewCtrl.dismiss({talkTo: user.fullname, users: this.users});
+     talkTo(user: any): void {
+        this.viewCtrl.dismiss({talkTo: user.fullname});
     }
 
     /**
      * Beep a user.
      *
-     * @param user User object.
+     * @param {any} user User object.
      */
-    beepTo(user: AddonModChatUser): void {
-        this.viewCtrl.dismiss({beepTo: user.id, users: this.users});
+    beepTo(user: any): void {
+        this.viewCtrl.dismiss({beepTo: user.id});
     }
 
     /**

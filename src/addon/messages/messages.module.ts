@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,19 +25,18 @@ import { CoreCronDelegate } from '@providers/cron';
 import { AddonMessagesSendMessageUserHandler } from './providers/user-send-message-handler';
 import { AddonMessagesAddContactUserHandler } from './providers/user-add-contact-handler';
 import { AddonMessagesBlockContactUserHandler } from './providers/user-block-contact-handler';
-import { AddonMessagesContactRequestLinkHandler } from './providers/contact-request-link-handler';
 import { AddonMessagesDiscussionLinkHandler } from './providers/discussion-link-handler';
 import { AddonMessagesIndexLinkHandler } from './providers/index-link-handler';
 import { AddonMessagesSyncCronHandler } from './providers/sync-cron-handler';
-import { AddonMessagesPushClickHandler } from './providers/push-click-handler';
 import { CoreAppProvider } from '@providers/app';
 import { CoreSitesProvider } from '@providers/sites';
 import { CoreLocalNotificationsProvider } from '@providers/local-notifications';
 import { CoreContentLinksHelperProvider } from '@core/contentlinks/providers/helper';
 import { CoreSettingsDelegate } from '@core/settings/providers/delegate';
 import { AddonMessagesSettingsHandler } from './providers/settings-handler';
-import { CorePushNotificationsDelegate } from '@core/pushnotifications/providers/delegate';
+import { AddonPushNotificationsDelegate } from '@addon/pushnotifications/providers/delegate';
 import { CoreUtilsProvider } from '@providers/utils/utils';
+import { CoreUpdateManagerProvider } from '@providers/update-manager';
 
 // List of providers (without handlers).
 export const ADDON_MESSAGES_PROVIDERS: any[] = [
@@ -59,12 +58,10 @@ export const ADDON_MESSAGES_PROVIDERS: any[] = [
         AddonMessagesSendMessageUserHandler,
         AddonMessagesAddContactUserHandler,
         AddonMessagesBlockContactUserHandler,
-        AddonMessagesContactRequestLinkHandler,
         AddonMessagesDiscussionLinkHandler,
         AddonMessagesIndexLinkHandler,
         AddonMessagesSyncCronHandler,
-        AddonMessagesSettingsHandler,
-        AddonMessagesPushClickHandler
+        AddonMessagesSettingsHandler
     ]
 })
 export class AddonMessagesModule {
@@ -74,23 +71,20 @@ export class AddonMessagesModule {
             userDelegate: CoreUserDelegate, cronDelegate: CoreCronDelegate, syncHandler: AddonMessagesSyncCronHandler,
             network: Network, zone: NgZone, messagesSync: AddonMessagesSyncProvider, appProvider: CoreAppProvider,
             localNotifications: CoreLocalNotificationsProvider, messagesProvider: AddonMessagesProvider,
-            sitesProvider: CoreSitesProvider, linkHelper: CoreContentLinksHelperProvider,
+            sitesProvider: CoreSitesProvider, linkHelper: CoreContentLinksHelperProvider, updateManager: CoreUpdateManagerProvider,
             settingsHandler: AddonMessagesSettingsHandler, settingsDelegate: CoreSettingsDelegate,
-            pushNotificationsDelegate: CorePushNotificationsDelegate, utils: CoreUtilsProvider,
-            addContactHandler: AddonMessagesAddContactUserHandler, blockContactHandler: AddonMessagesBlockContactUserHandler,
-            contactRequestLinkHandler: AddonMessagesContactRequestLinkHandler, pushClickHandler: AddonMessagesPushClickHandler) {
+            pushNotificationsDelegate: AddonPushNotificationsDelegate, utils: CoreUtilsProvider,
+            addContactHandler: AddonMessagesAddContactUserHandler, blockContactHandler: AddonMessagesBlockContactUserHandler) {
         // Register handlers.
         mainMenuDelegate.registerHandler(mainmenuHandler);
         contentLinksDelegate.registerHandler(indexLinkHandler);
         contentLinksDelegate.registerHandler(discussionLinkHandler);
-        contentLinksDelegate.registerHandler(contactRequestLinkHandler);
         userDelegate.registerHandler(sendMessageHandler);
         userDelegate.registerHandler(addContactHandler);
         userDelegate.registerHandler(blockContactHandler);
         cronDelegate.register(syncHandler);
         cronDelegate.register(mainmenuHandler);
         settingsDelegate.registerHandler(settingsHandler);
-        pushNotificationsDelegate.registerClickHandler(pushClickHandler);
 
         // Sync some discussions when device goes online.
         network.onConnect().subscribe(() => {
@@ -109,23 +103,7 @@ export class AddonMessagesModule {
                     }
 
                     messagesProvider.invalidateDiscussionsCache(notification.site).finally(() => {
-                        // Check if group messaging is enabled, to determine which page should be loaded.
-                        messagesProvider.isGroupMessagingEnabledInSite(notification.site).then((enabled) => {
-                            const pageParams: any = {};
-                            let pageName = 'AddonMessagesIndexPage';
-                            if (enabled) {
-                                pageName = 'AddonMessagesGroupConversationsPage';
-                            }
-
-                            // Check if we have enough information to open the conversation.
-                            if (notification.convid && enabled) {
-                                pageParams.conversationId = Number(notification.convid);
-                            } else if (notification.userfromid || notification.useridfrom) {
-                                pageParams.discussionUserId = Number(notification.userfromid || notification.useridfrom);
-                            }
-
-                            linkHelper.goInSite(undefined, pageName, pageParams, notification.site);
-                        });
+                        linkHelper.goInSite(undefined, 'AddonMessagesIndexPage', undefined, notification.site);
                     });
                 });
             });
@@ -135,5 +113,30 @@ export class AddonMessagesModule {
             // Listen for clicks in simulated push notifications.
             localNotifications.registerClick(AddonMessagesProvider.PUSH_SIMULATION_COMPONENT, notificationClicked);
         }
+
+        // Register push notification clicks.
+        pushNotificationsDelegate.on('click').subscribe((notification) => {
+            if (utils.isFalseOrZero(notification.notif)) {
+                notificationClicked(notification);
+
+                return true;
+            }
+        });
+
+        // Allow migrating the table from the old app to the new schema.
+        updateManager.registerSiteTableMigration({
+            name: 'mma_messages_offline_messages',
+            newName: AddonMessagesOfflineProvider.MESSAGES_TABLE,
+            fields: [
+                {
+                    name: 'textformat',
+                    delete: true
+                }
+            ]
+        });
+
+        // Migrate the component name.
+        updateManager.registerLocalNotifComponentMigration('mmaMessagesPushSimulation',
+                AddonMessagesProvider.PUSH_SIMULATION_COMPONENT);
     }
 }

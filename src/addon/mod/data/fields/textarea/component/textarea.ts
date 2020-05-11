@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ export class AddonModDataFieldTextareaComponent extends AddonModDataFieldPluginC
     /**
      * Format value to be shown. Replacing plugin file Urls.
      *
-     * @param value Value to replace.
-     * @return Replaced string to be rendered.
+     * @param  {any}    value Value to replace.
+     * @return {string}       Replaced string to be rendered.
      */
     format(value: any): string {
         const files = (value && value.files) || [];
@@ -49,10 +49,10 @@ export class AddonModDataFieldTextareaComponent extends AddonModDataFieldPluginC
      * Initialize field.
      */
     protected init(): void {
-        this.component = AddonModDataProvider.COMPONENT;
-        this.componentId = this.database.coursemodule;
-
         if (this.isShowOrListMode()) {
+            this.component = AddonModDataProvider.COMPONENT;
+            this.componentId = this.database.coursemodule;
+
             return;
         }
 

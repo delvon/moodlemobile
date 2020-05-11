@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return True or promise resolved with true if enabled.
+     * @return {boolean|Promise<boolean>} True or promise resolved with true if enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -41,40 +41,34 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
     /**
      * Whether it allows seeing all sections at the same time. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether it can view all sections.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether it can view all sections.
      */
     canViewAllSections(course: any): boolean {
         return false;
     }
 
     /**
-     * Get the title to use in course page. If not defined, course displayname or fullname.
+     * Get the title to use in course page. If not defined, course fullname.
      * This function will be called without sections first, and then call it again when the sections are retrieved.
      *
-     * @param course The course.
-     * @param sections List of sections.
-     * @return Title.
+     * @param {any} course The course.
+     * @param {any[]} [sections] List of sections.
+     * @return {string} Title.
      */
     getCourseTitle(course: any, sections?: any[]): string {
         if (sections && sections[0] && sections[0].modules && sections[0].modules[0]) {
             return sections[0].modules[0].name;
         }
 
-        if (course.displayname) {
-            return course.displayname;
-        } else if (course.fullname) {
-            return course.fullname;
-        } else {
-            return '';
-        }
+        return course.fullname || '';
     }
 
     /**
      * Whether the option to enable section/module download should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the option to enable section/module download should be displayed
+     * @param {any} course The course to check.
+     * @return {boolean} Whether the option to enable section/module download should be displayed
      */
     displayEnableDownload(course: any): boolean {
         return false;
@@ -83,8 +77,8 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
     /**
      * Whether the default section selector should be displayed. Defaults to true.
      *
-     * @param course The course to check.
-     * @return Whether the default section selector should be displayed.
+     * @param {any} course The course to check.
+     * @type {boolean} Whether the default section selector should be displayed.
      */
     displaySectionSelector(course: any): boolean {
         return false;
@@ -94,9 +88,9 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
      * Whether the course refresher should be displayed. If it returns false, a refresher must be included in the course format,
      * and the doRefresh method of CoreCourseSectionPage must be called on refresh. Defaults to true.
      *
-     * @param course The course to check.
-     * @param sections List of course sections.
-     * @return Whether the refresher should be displayed.
+     * @param {any} course The course to check.
+     * @param {any[]} sections List of course sections.
+     * @return {boolean} Whether the refresher should be displayed.
      */
     displayRefresher(course: any, sections: any[]): boolean {
         if (sections && sections[0] && sections[0].modules && sections[0].modules[0]) {
@@ -112,9 +106,9 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
      * If you want to customize the default format there are several methods to customize parts of it.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param course The course to render.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} course The course to render.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getCourseFormatComponent(injector: Injector, course: any): any | Promise<any> {
         return CoreCourseFormatSingleActivityComponent;
@@ -124,8 +118,8 @@ export class CoreCourseFormatSingleActivityHandler implements CoreCourseFormatHa
      * Whether the view should be refreshed when completion changes. If your course format doesn't display
      * activity completion then you should return false.
      *
-     * @param course The course.
-     * @return Whether course view should be refreshed when an activity completion changes.
+     * @param {any} course The course.
+     * @return {boolean|Promise<boolean>} Whether course view should be refreshed when an activity completion changes.
      */
     shouldRefreshWhenCompletionChanges(course: any): boolean | Promise<boolean> {
         return false;

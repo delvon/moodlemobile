@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,7 @@ import { CoreCourseActivityPrefetchHandlerBase } from '@core/course/classes/acti
 import { CoreGroupsProvider } from '@providers/groups';
 import { CoreUserProvider } from '@core/user/providers/user';
 import { AddonModWorkshopProvider } from './workshop';
-import { AddonModWorkshopSyncProvider } from './sync';
 import { AddonModWorkshopHelperProvider } from './helper';
-import { CoreFilterHelperProvider } from '@core/filter/providers/helper';
-import { CorePluginFileDelegate } from '@providers/plugin-file-delegate';
 
 /**
  * Handler to prefetch workshops.
@@ -47,25 +44,21 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
             filepoolProvider: CoreFilepoolProvider,
             sitesProvider: CoreSitesProvider,
             domUtils: CoreDomUtilsProvider,
-            filterHelper: CoreFilterHelperProvider,
-            pluginFileDelegate: CorePluginFileDelegate,
             private groupsProvider: CoreGroupsProvider,
             private userProvider: CoreUserProvider,
             private workshopProvider: AddonModWorkshopProvider,
-            private workshopHelper: AddonModWorkshopHelperProvider,
-            private syncProvider: AddonModWorkshopSyncProvider) {
+            private workshopHelper: AddonModWorkshopHelperProvider) {
 
-        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils, filterHelper,
-                pluginFileDelegate);
+        super(translate, appProvider, utils, courseProvider, filepoolProvider, sitesProvider, domUtils);
     }
 
     /**
      * Get list of files. If not defined, we'll assume they're in module.contents.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @return Promise resolved with the list of files.
+     * @param {any} module Module.
+     * @param {Number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @return {Promise<any[]>} Promise resolved with the list of files.
      */
     getFiles(module: any, courseId: number, single?: boolean): Promise<any[]> {
         return this.getWorkshopInfoHelper(module, courseId, true).then((info) => {
@@ -76,13 +69,13 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Helper function to get all workshop info just once.
      *
-     * @param module Module to get the files.
-     * @param courseId Course ID the module belongs to.
-     * @param omitFail True to always return even if fails. Default false.
-     * @param forceCache True to always get the value from cache, false otherwise. Default false.
-     * @param ignoreCache True if it should ignore cached data (it will always fail in offline or server down).
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the info fetched.
+     * @param  {any}     module              Module to get the files.
+     * @param  {number}  courseId            Course ID the module belongs to.
+     * @param  {boolean} [omitFail=false]    True to always return even if fails. Default false.
+     * @param  {boolean} [forceCache=false]  True to always get the value from cache, false otherwise. Default false.
+     * @param  {boolean} [ignoreCache=false] True if it should ignore cached data (it will always fail in offline or server down).
+     * @param  {string}  [siteId]            Site ID. If not defined, current site.
+     * @return {Promise<any>}                Promise resolved with the info fetched.
      */
     protected getWorkshopInfoHelper(module: any, courseId: number, omitFail: boolean = false, forceCache: boolean = false,
             ignoreCache: boolean = false, siteId?: string): Promise<any> {
@@ -179,9 +172,9 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Invalidate the prefetched content.
      *
-     * @param moduleId The module ID.
-     * @param courseId The course ID the module belongs to.
-     * @return Promise resolved when the data is invalidated.
+     * @param {number} moduleId The module ID.
+     * @param {number} courseId The course ID the module belongs to.
+     * @return {Promise<any>} Promise resolved when the data is invalidated.
      */
     invalidateContent(moduleId: number, courseId: number): Promise<any> {
         return this.workshopProvider.invalidateContent(moduleId, courseId);
@@ -190,9 +183,9 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Check if a module can be downloaded. If the function is not defined, we assume that all modules are downloadable.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @return Whether the module can be downloaded. The promise should never be rejected.
+     * @param  {any} module Module.
+     * @param  {number} courseId Course ID the module belongs to.
+     * @return {boolean|Promise<boolean>} Whether the module can be downloaded. The promise should never be rejected.
      */
     isDownloadable(module: any, courseId: number): boolean | Promise<boolean> {
         return this.workshopProvider.getWorkshop(courseId, module.id, undefined, true).then((workshop) => {
@@ -206,7 +199,7 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Whether or not the handler is enabled on a site level.
      *
-     * @return A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
+     * @return {boolean|Promise<boolean>} A boolean, or a promise resolved with a boolean, indicating if the handler is enabled.
      */
     isEnabled(): boolean | Promise<boolean> {
         return this.workshopProvider.isPluginEnabled();
@@ -215,11 +208,11 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Prefetch a module.
      *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param dirPath Path of the directory where to store all the content files.
-     * @return Promise resolved when done.
+     * @param {any} module Module.
+     * @param {number} courseId Course ID the module belongs to.
+     * @param {boolean} [single] True if we're downloading a single module, false if we're downloading a whole section.
+     * @param {string} [dirPath] Path of the directory where to store all the content files.
+     * @return {Promise<any>} Promise resolved when done.
      */
     prefetch(module: any, courseId?: number, single?: boolean, dirPath?: string): Promise<any> {
         return this.prefetchPackage(module, courseId, single, this.prefetchWorkshop.bind(this));
@@ -228,12 +221,12 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
     /**
      * Retrieves all the grades reports for all the groups and then returns only unique grades.
      *
-     * @param workshopId Workshop ID.
-     * @param groups Array of groups in the activity.
-     * @param siteId Site ID. If not defined, current site.
-     * @return All unique entries.
+     * @param  {number}  workshopId Workshop ID.
+     * @param  {any[]}   groups     Array of groups in the activity.
+     * @param  {string}  siteId     Site ID. If not defined, current site.
+     * @return {Promise<any>}       All unique entries.
      */
-    protected getAllGradesReport(workshopId: number, groups: any[], siteId: string): Promise<any[]> {
+    protected getAllGradesReport(workshopId: number, groups: any[], siteId: string): Promise<any> {
         const promises = [];
 
         groups.forEach((group) => {
@@ -252,18 +245,18 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
                 });
             });
 
-            return this.utils.objectToArray(uniqueGrades);
+            return uniqueGrades;
         });
     }
 
     /**
      * Prefetch a workshop.
      *
-     * @param module The module object returned by WS.
-     * @param courseId Course ID the module belongs to.
-     * @param single True if we're downloading a single module, false if we're downloading a whole section.
-     * @param siteId Site ID.
-     * @return Promise resolved when done.
+     * @param  {any}     module   The module object returned by WS.
+     * @param  {number}  courseId Course ID the module belongs to.
+     * @param  {boolean} single   True if we're downloading a single module, false if we're downloading a whole section.
+     * @param  {string}  siteId   Site ID.
+     * @return {Promise<any>}     Promise resolved when done.
      */
     protected prefetchWorkshop(module: any, courseId: number, single: boolean, siteId: string): Promise<any> {
         const userIds = [];
@@ -304,13 +297,13 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
                                     userIds.push(grade.userid);
                                     userIds.push(grade.gradeoverby);
 
-                                    grade.reviewedby && grade.reviewedby.forEach((assessment) => {
+                                    grade.reviewedby.forEach((assessment) => {
                                         userIds.push(assessment.userid);
                                         userIds.push(assessment.gradinggradeoverby);
                                         assessments[assessment.assessmentid] = assessment;
                                     });
 
-                                    grade.reviewerof && grade.reviewerof.forEach((assessment) => {
+                                    grade.reviewerof.forEach((assessment) => {
                                         userIds.push(assessment.userid);
                                         userIds.push(assessment.gradinggradeoverby);
                                         assessments[assessment.assessmentid] = assessment;
@@ -324,37 +317,32 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
                             reportPromise = reportPromise.finally(() => {
                                 return this.workshopHelper.getReviewerAssessments(workshop.id, currentUserId, undefined,
                                         undefined, siteId).then((revAssessments) => {
-
-                                    const promises = [];
-                                    let files = []; // Files in each submission.
-
+                                    let p = Promise.resolve();
                                     revAssessments.forEach((assessment) => {
                                         if (assessment.submission.authorid == currentUserId) {
-                                            promises.push(this.workshopProvider.getAssessment(workshop.id, assessment.id));
+                                            p = this.workshopProvider.getAssessment(workshop.id, assessment.id);
                                         }
                                         userIds.push(assessment.reviewerid);
                                         userIds.push(assessment.gradinggradeoverby);
                                         assessments[assessment.id] = assessment;
-
-                                        files = files.concat(assessment.submission.attachmentfiles || [])
-                                                    .concat(assessment.submission.contentfiles || []);
                                     });
 
-                                    promises.push(this.filepoolProvider.addFilesToQueue(siteId, files, this.component, module.id));
-
-                                    return Promise.all(promises);
+                                    return p;
                                 });
                             });
                         }
 
-                        reportPromise = reportPromise.finally(() => {
-                            if (assessments.length > 0) {
-                                return Promise.all(assessments.map((assessment, id) => {
-                                    return this.workshopProvider.getAssessmentForm(workshop.id, id, undefined, undefined, undefined,
-                                        siteId);
-                                }));
-                            }
-                        });
+                        if (assessments.length > 0) {
+                            reportPromise = reportPromise.finally(() => {
+                                const promises3 = [];
+                                assessments.forEach((assessment, id) => {
+                                    promises3.push(this.workshopProvider.getAssessmentForm(workshop.id, id, undefined, undefined,
+                                        undefined, siteId));
+                                });
+
+                                return Promise.all(promises3);
+                            });
+                        }
                         promises2.push(reportPromise);
 
                         if (workshop.phase == AddonModWorkshopProvider.PHASE_CLOSED) {
@@ -375,19 +363,9 @@ export class AddonModWorkshopPrefetchHandler extends CoreCourseActivityPrefetchH
             });
         }).then(() => {
             // Prefetch user profiles.
-            return this.userProvider.prefetchProfiles(userIds, courseId, siteId);
+            return this.userProvider.prefetchProfiles(userIds, courseId, siteId).catch(() => {
+                // Ignore errors.
+            });
         });
-    }
-
-    /**
-     * Sync a module.
-     *
-     * @param module Module.
-     * @param courseId Course ID the module belongs to
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when done.
-     */
-    sync(module: any, courseId: number, siteId?: any): Promise<any> {
-        return this.syncProvider.syncWorkshop(module.instance, siteId);
     }
 }

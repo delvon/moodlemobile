@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,6 @@ export class CoreAttachmentsComponent implements OnInit {
     @Input() componentId: string | number; // Component ID.
     @Input() allowOffline: boolean | string; // Whether to allow selecting files in offline.
     @Input() acceptedTypes: string; // List of supported filetypes. If undefined, all types supported.
-    @Input() required: boolean; // Whether to display the required mark.
 
     maxSizeReadable: string;
     maxSubmissionsReadable: string;
@@ -77,9 +76,7 @@ export class CoreAttachmentsComponent implements OnInit {
             this.maxSubmissionsReadable = String(this.maxSubmissions);
         }
 
-        this.acceptedTypes = this.acceptedTypes && this.acceptedTypes.trim();
-
-        if (this.acceptedTypes && this.acceptedTypes != '*') {
+        if (this.acceptedTypes && this.acceptedTypes.trim()) {
             this.fileTypes = this.fileUploaderProvider.prepareFiletypeList(this.acceptedTypes);
         }
     }
@@ -106,14 +103,14 @@ export class CoreAttachmentsComponent implements OnInit {
     /**
      * Delete a file from the list.
      *
-     * @param index The index of the file.
-     * @param askConfirm Whether to ask confirm.
+     * @param {number} index The index of the file.
+     * @param {boolean} [askConfirm] Whether to ask confirm.
      */
     delete(index: number, askConfirm?: boolean): void {
         let promise;
 
         if (askConfirm) {
-            promise = this.domUtils.showDeleteConfirm('core.confirmdeletefile');
+            promise = this.domUtils.showConfirm(this.translate.instant('core.confirmdeletefile'));
         } else {
             promise = Promise.resolve();
         }
@@ -129,8 +126,8 @@ export class CoreAttachmentsComponent implements OnInit {
     /**
      * A file was renamed.
      *
-     * @param index Index of the file.
-     * @param data The data received.
+     * @param {number} index Index of the file.
+     * @param {any} data The data received.
      */
     renamed(index: number, data: any): void {
         this.files[index] = data.file;

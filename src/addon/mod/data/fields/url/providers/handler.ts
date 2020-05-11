@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,39 +32,20 @@ export class AddonModDataFieldUrlHandler extends AddonModDataFieldTextHandler {
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector, plugin: any): any | Promise<any> {
         return AddonModDataFieldUrlComponent;
     }
 
     /**
-     * Get field edit data in the input data.
-     *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return With name and value of the data to be sent.
-     */
-    getFieldEditData(field: any, inputData: any, originalFieldData: any): any {
-        const fieldName = 'f_' + field.id;
-
-        return [
-            {
-                fieldid: field.id,
-                subfield: '0',
-                value: (inputData[fieldName] && inputData[fieldName].trim()) || ''
-            }
-        ];
-    }
-
-    /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the edit form.
+     * @return {string | false}                  String with the notification or false.
      */
     getFieldsNotifications(field: any, inputData: any): string | false {
         if (field.required && (!inputData || !inputData.length || !inputData[0].value)) {

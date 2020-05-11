@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@ export class CoreUserProfilePage {
     user: any;
     title: string;
     isDeleted = false;
-    isEnrolled = true;
     canChangeProfilePicture = false;
     actionHandlers: CoreUserProfileHandlerData[] = [];
     newPageHandlers: CoreUserProfileHandlerData[] = [];
@@ -84,9 +83,8 @@ export class CoreUserProfilePage {
      */
     ionViewDidLoad(): void {
         this.fetchUser().then(() => {
-            return this.userProvider.logView(this.userId, this.courseId, this.user.fullname).catch((error) => {
+            return this.userProvider.logView(this.userId, this.courseId).catch((error) => {
                 this.isDeleted = error.errorcode === 'userdeleted';
-                this.isEnrolled = error.errorcode !== 'notenrolledprofile';
             });
         }).finally(() => {
             this.userLoaded = true;
@@ -104,9 +102,6 @@ export class CoreUserProfilePage {
 
             this.user = user;
             this.title = user.fullname;
-
-            // If there's already a subscription, unsubscribe because we'll get a new one.
-            this.subscription && this.subscription.unsubscribe();
 
             this.subscription = this.userDelegate.getProfileHandlersFor(user, this.courseId).subscribe((handlers) => {
                 this.actionHandlers = [];
@@ -129,29 +124,6 @@ export class CoreUserProfilePage {
 
                 this.isLoadingHandlers = !this.userDelegate.areHandlersLoaded(user.id);
             });
-
-            if (this.userId == this.site.getUserId() && user.profileimageurl != this.site.getInfo().userpictureurl) {
-                // The current user image received is different than the one stored in site info. Assume the image was updated.
-                // Update the site info to get the right avatar in there.
-                return this.sitesProvider.updateSiteInfo(this.site.getId()).then(() => {
-                    if (user.profileimageurl != this.site.getInfo().userpictureurl) {
-                        // The image is still different, this means that the good one is the one in site info.
-                        return this.refreshUser();
-                    } else {
-                        // Now they're the same, send event to use the right avatar in the rest of the app.
-                        this.eventsProvider.trigger(CoreUserProvider.PROFILE_PICTURE_UPDATED, {
-                            userId: this.userId,
-                            picture: user.profileimageurl
-                        }, this.site.getId());
-                    }
-                }, () => {
-                    // Cannot update site info. Assume the profile image is the right one.
-                    this.eventsProvider.trigger(CoreUserProvider.PROFILE_PICTURE_UPDATED, {
-                        userId: this.userId,
-                        picture: user.profileimageurl
-                    }, this.site.getId());
-                });
-            }
 
         }).catch((error) => {
             // Error is null for deleted users, do not show the modal.
@@ -176,7 +148,7 @@ export class CoreUserProfilePage {
                 this.eventsProvider.trigger(CoreUserProvider.PROFILE_PICTURE_UPDATED, {
                     userId: this.userId,
                     picture: profileImageURL
-                }, this.site.getId());
+                });
                 this.sitesProvider.updateSiteInfo(this.site.getId());
                 this.refreshUser();
             }).finally(() => {
@@ -192,7 +164,7 @@ export class CoreUserProfilePage {
     /**
      * Refresh the user.
      *
-     * @param refresher Refresher.
+     * @param {any} refresher Refresher.
      */
     refreshUser(refresher?: any): void {
         const promises = [];
@@ -225,8 +197,8 @@ export class CoreUserProfilePage {
     /**
      * A handler was clicked.
      *
-     * @param event Click event.
-     * @param handler Handler that was clicked.
+     * @param {Event} event Click event.
+     * @param {CoreUserProfileHandlerData} handler Handler that was clicked.
      */
     handlerClicked(event: Event, handler: CoreUserProfileHandlerData): void {
         // Decide which navCtrl to use. If this page is inside a split view, use the split view's master nav.

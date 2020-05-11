@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { Pipe, PipeTransform } from '@angular/core';
-import { TranslateService } from '@ngx-translate/core';
 import { CoreLoggerProvider } from '@providers/logger';
 import * as moment from 'moment';
 
@@ -26,15 +25,15 @@ import * as moment from 'moment';
 export class CoreTimeAgoPipe implements PipeTransform {
     protected logger;
 
-    constructor(logger: CoreLoggerProvider, private translate: TranslateService) {
+    constructor(logger: CoreLoggerProvider) {
         this.logger = logger.getInstance('CoreTimeAgoPipe');
     }
 
     /**
      * Turn a UNIX timestamp to "time ago".
      *
-     * @param timestamp The UNIX timestamp (without milliseconds).
-     * @return Formatted time.
+     * @param {number|string} timestamp The UNIX timestamp (without milliseconds).
+     * @return {string} Formatted time.
      */
     transform(timestamp: string | number): string {
         if (typeof timestamp == 'string') {
@@ -48,6 +47,6 @@ export class CoreTimeAgoPipe implements PipeTransform {
             timestamp = numberTimestamp;
         }
 
-        return this.translate.instant('core.ago', {$a: moment(timestamp * 1000).fromNow(true)});
+        return moment(timestamp * 1000).fromNow(true);
     }
 }

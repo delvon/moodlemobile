@@ -1,0 +1,37 @@
+<ion-header>
+    <ion-navbar core-back-button>
+        <ion-title>{{ 'core.login.policyagreement' | translate }}</ion-title>
+    </ion-navbar>
+</ion-header>
+<ion-content>
+    <core-loading [hideUntil]="policyLoaded">
+        <ion-list *ngIf="sitePolicy">
+            <ion-item text-wrap>
+                {{ 'core.login.policyagree' | translate }}
+            </ion-item>
+            <ion-item text-wrap>
+                <core-format-text [text]="sitePolicy.policytext"></core-format-text>
+            </ion-item>
+            <ng-container *ngFor="let statement of sitePolicy.statements">
+                <ion-list radio-group [(ngModel)]="statementValues[statement.dataid]">
+                    <ion-item text-wrap [ngClass]="statement.mandatory ? 'required' : ''">
+                        {{ statement.statement }}
+                        <span *ngIf="statement.mandatory">({{ 'addon.totara.consentrequired' | translate }})</span>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label><core-format-text [text]="statement.provided"></core-format-text></ion-label>
+                        <ion-radio value="1"></ion-radio>
+                    </ion-item>
+                    <ion-item>
+                        <ion-label><core-format-text [text]="statement.withheld"></core-format-text></ion-label>
+                        <ion-radio value="0"></ion-radio>
+                    </ion-item>
+                </ion-list>
+            </ng-container>
+        </ion-list>
+        <ion-item text-wrap padding>
+            <button ion-button block color="primary" (click)="submit()">{{ 'core.submit' | translate }}</button>
+            <button ion-button block (click)="cancel()">{{ 'core.login.cancel' | translate }}</button>
+        </ion-item>
+    </core-loading>
+</ion-content>

@@ -1,10 +1,6 @@
 ion-app.app-root.ios {
   .button-ios {
-    min-height: $button-ios-height;
-  }
-
-  ion-searchbar.searchbar-ios .button-ios {
-      min-height: auto;
+    min-height: $button-ios-height
   }
 
   // Light buttons color.
@@ -25,32 +21,17 @@ ion-app.app-root.ios {
     @include margin($item-ios-padding-icon-top, null, $item-ios-padding-icon-bottom, 0);
   }
 
-  .item-ios ion-icon[item-start] + .item-inner,
-  .item-ios ion-icon[item-start] + .item-input,
-  .item-ios img[item-start] + .item-inner,
-  .item-ios img[item-start] + .item-input {
-    @include margin-horizontal($item-ios-padding-start, null);
-  }
-
-  .item-ios ion-avatar[item-start] + .item-inner,
-  .item-ios ion-avatar[item-start] + .item-input {
-    @include margin-horizontal(0, null);
-  }
 
   @each $color-name, $color-base, $color-contrast in get-colors($colors-ios) {
     .core-#{$color-name}-card {
       @extend .card-ios ;
       @extend .card-content-ios;
 
-      @include darkmode() {
-        background-color: $core-dark-item-bg-color;
-      }
-
       &[icon-start] {
-        @include safe-area-padding(null, null, null, $card-ios-padding-left * 2 + 20);
+        @include padding(null, null, null, $card-ios-padding-left * 2 + 20);
 
         ion-icon {
-          @include safe-area-position(null, null, null, $card-ios-padding-left);
+          @include position(null, null, null, $card-ios-padding-left);
         }
       }
     }
@@ -85,6 +66,15 @@ ion-app.app-root.ios {
     }
   }
 
+  // Recover borders on items inside cards.
+  .card-ios.with-borders  .item-ios.item-block .item-inner {
+    border-bottom: $hairlines-width solid $list-ios-border-color;
+  }
+  .card-ios.with-borders .item-ios:last-child .item-inner {
+    border-bottom: 0;
+  }
+
+
   .radio-ios .radio-icon {
     @include position(0, null, null, 0);
     @include margin(0);
@@ -100,24 +90,5 @@ ion-app.app-root.ios {
     border-style: $checkbox-ios-icon-border-style;
     border-color: $checkbox-ios-icon-border-color-off;
     background-color: $checkbox-ios-background-color-off;
-  }
-
-
-  .action-sheet-ios {
-    .action-sheet-title {
-      font-size: 2rem;
-    }
-    // File Uploader
-    // In iOS the input is 1 level higher, so the styles are different.
-    input.core-fileuploader-file-handler-input {
-      position: absolute;
-      @include position(null, 0, null, 0);
-      min-width: 100%;
-      min-height: $action-sheet-ios-button-min-height;
-      opacity: 0;
-      outline: none;
-      z-index: 100;
-      cursor: pointer;
-    }
   }
 }

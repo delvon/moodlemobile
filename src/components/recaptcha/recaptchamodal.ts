@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ export class CoreRecaptchaModalComponent {
     /**
      * The iframe with the recaptcha was loaded.
      *
-     * @param iframe Iframe element.
+     * @param {HTMLIFrameElement} iframe Iframe element.
      */
     loaded(iframe: HTMLIFrameElement): void {
         // Search the iframe content.

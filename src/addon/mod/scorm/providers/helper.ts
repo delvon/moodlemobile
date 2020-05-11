@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,9 +37,9 @@ export class AddonModScormHelperProvider {
     /**
      * Show a confirm dialog if needed. If SCORM doesn't have size, try to calculate it.
      *
-     * @param scorm SCORM to download.
-     * @param isOutdated True if package outdated, false if not outdated, undefined to calculate it.
-     * @return Promise resolved if the user confirms or no confirmation needed.
+     * @param {any} scorm SCORM to download.
+     * @param {boolean} [isOutdated] True if package outdated, false if not outdated, undefined to calculate it.
+     * @return {Promise<any>} Promise resolved if the user confirms or no confirmation needed.
      */
     confirmDownload(scorm: any, isOutdated?: boolean): Promise<any> {
         // Check if file should be downloaded.
@@ -69,10 +69,10 @@ export class AddonModScormHelperProvider {
     /**
      * Creates a new offline attempt based on an existing online attempt.
      *
-     * @param scorm SCORM.
-     * @param attempt Number of the online attempt.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the attempt is created.
+     * @param {any} scorm SCORM.
+     * @param {number} attempt Number of the online attempt.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the attempt is created.
      */
     convertAttemptToOffline(scorm: any, attempt: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -121,11 +121,11 @@ export class AddonModScormHelperProvider {
     /**
      * Creates a new offline attempt.
      *
-     * @param scorm SCORM.
-     * @param newAttempt Number of the new attempt.
-     * @param lastOnline Number of the last online attempt.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved when the attempt is created.
+     * @param {any} scorm SCORM.
+     * @param {number} newAttempt Number of the new attempt.
+     * @param {number} lastOnline Number of the last online attempt.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved when the attempt is created.
      */
     createOfflineAttempt(scorm: any, newAttempt: number, lastOnline: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();
@@ -158,10 +158,10 @@ export class AddonModScormHelperProvider {
      * - The last incomplete online attempt if it hasn't been continued in offline and all offline attempts are complete.
      * - The attempt with highest number without surpassing max attempts otherwise.
      *
-     * @param scorm SCORM object.
-     * @param attempts Attempts count.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the attempt data.
+     * @param {any} scorm SCORM object.
+     * @param {AddonModScormAttemptCountResult} attempts Attempts count.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<{number: number, offline: boolean}>} Promise resolved with the attempt data.
      */
     determineAttemptToContinue(scorm: any, attempts: AddonModScormAttemptCountResult, siteId?: string)
             : Promise<{number: number, offline: boolean}> {
@@ -193,21 +193,19 @@ export class AddonModScormHelperProvider {
     }
 
     /**
-     * Get the first SCO to load in a SCORM: the first valid and incomplete SCO.
+     * Get the first SCO to load in a SCORM. If a non-empty TOC is provided, it will be the first valid SCO in the TOC.
+     * Otherwise, it will be the first valid SCO returned by $mmaModScorm#getScos.
      *
-     * @param scormId Scorm ID.
-     * @param attempt Attempt number.
-     * @param toc SCORM's TOC. If not provided, it will be calculated.
-     * @param organization Organization to use.
-     * @param mode Mode.
-     * @param offline Whether the attempt is offline.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with the first SCO.
+     * @param {number} scormId Scorm ID.
+     * @param {number} attempt Attempt number.
+     * @param {any[]} [toc] SCORM's TOC.
+     * @param {string} [organization] Organization to use.
+     * @param {boolean} [offline] Whether the attempt is offline.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with the first SCO.
      */
-    getFirstSco(scormId: number, attempt: number, toc?: any[], organization?: string, mode?: string, offline?: boolean,
-            siteId?: string): Promise<any> {
-
-        mode = mode || AddonModScormProvider.MODENORMAL;
+    getFirstSco(scormId: number, attempt: number, toc?: any[], organization?: string, offline?: boolean, siteId?: string)
+            : Promise<any> {
 
         let promise;
         if (toc && toc.length) {
@@ -218,20 +216,14 @@ export class AddonModScormHelperProvider {
         }
 
         return promise.then((scos) => {
-
             // Search the first valid SCO.
             for (let i = 0; i < scos.length; i++) {
                 const sco = scos[i];
 
-                if (sco.isvisible && sco.launch && sco.prereq &&
-                        (mode != AddonModScormProvider.MODENORMAL || this.scormProvider.isStatusIncomplete(sco.status))) {
-                    // In browse/review mode return the first visible sco. In normal mode, first incomplete sco.
+                if (sco.isvisible && sco.prereq && sco.launch) {
                     return sco;
                 }
             }
-
-            // No "valid" SCO, load the first one. In web it loads the first child because the toc contains the organization SCO.
-            return scos[0];
         });
     }
 
@@ -239,9 +231,9 @@ export class AddonModScormHelperProvider {
      * Get the last attempt (number and whether it's offline).
      * It'll be the highest number as long as it doesn't surpass the max number of attempts.
      *
-     * @param scorm SCORM object.
-     * @param attempts Attempts count.
-     * @return Last attempt data.
+     * @param {any} scorm SCORM object.
+     * @param {AddonModScormAttemptCountResult} attempts Attempts count.
+     * @return {{number: number, offline: boolean}} Last attempt data.
      */
     protected getLastBeforeMax(scorm: any, attempts: AddonModScormAttemptCountResult): {number: number, offline: boolean} {
         if (scorm.maxattempt != 0 && attempts.lastAttempt.number > scorm.maxattempt) {
@@ -260,9 +252,9 @@ export class AddonModScormHelperProvider {
     /**
      * Given a TOC in array format and a scoId, return the next available SCO.
      *
-     * @param toc SCORM's TOC.
-     * @param scoId SCO ID.
-     * @return Next SCO.
+     * @param {any[]} toc SCORM's TOC.
+     * @param {number} scoId SCO ID.
+     * @return {any} Next SCO.
      */
     getNextScoFromToc(toc: any, scoId: number): any {
         for (let i = 0; i < toc.length; i++) {
@@ -281,9 +273,9 @@ export class AddonModScormHelperProvider {
     /**
      * Given a TOC in array format and a scoId, return the previous available SCO.
      *
-     * @param toc SCORM's TOC.
-     * @param scoId SCO ID.
-     * @return Previous SCO.
+     * @param {any[]} toc SCORM's TOC.
+     * @param {number} scoId SCO ID.
+     * @return {any} Previous SCO.
      */
     getPreviousScoFromToc(toc: any, scoId: number): any {
         for (let i = 0; i < toc.length; i++) {
@@ -302,9 +294,9 @@ export class AddonModScormHelperProvider {
     /**
      * Given a TOC in array format and a scoId, return the SCO.
      *
-     * @param toc SCORM's TOC.
-     * @param scoId SCO ID.
-     * @return SCO.
+     * @param {any[]} toc SCORM's TOC.
+     * @param {number} scoId SCO ID.
+     * @return {any} SCO.
      */
     getScoFromToc(toc: any[], scoId: number): any {
         for (let i = 0; i < toc.length; i++) {
@@ -317,10 +309,10 @@ export class AddonModScormHelperProvider {
     /**
      * Searches user data for an online attempt. If the data can't be retrieved, re-try with the previous online attempt.
      *
-     * @param scormId SCORM ID.
-     * @param attempt Online attempt to get the data.
-     * @param siteId Site ID. If not defined, current site.
-     * @return Promise resolved with user data.
+     * @param {number} scormId SCORM ID.
+     * @param {number} attempt Online attempt to get the data.
+     * @param {string} [siteId] Site ID. If not defined, current site.
+     * @return {Promise<any>} Promise resolved with user data.
      */
     searchOnlineAttemptUserData(scormId: number, attempt: number, siteId?: string): Promise<any> {
         siteId = siteId || this.sitesProvider.getCurrentSiteId();

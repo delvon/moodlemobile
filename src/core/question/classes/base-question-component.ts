@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Input, Output, EventEmitter, Injector, ElementRef } from '@angular/core';
+import { Input, Output, EventEmitter, Injector } from '@angular/core';
 import { CoreLoggerProvider } from '@providers/logger';
 import { CoreDomUtilsProvider } from '@providers/utils/dom';
 import { CoreTextUtilsProvider } from '@providers/utils/text';
@@ -27,9 +27,6 @@ export class CoreQuestionBaseComponent {
     @Input() componentId: number; // ID of the component the question belongs to.
     @Input() attemptId: number; // Attempt ID.
     @Input() offlineEnabled?: boolean | string; // Whether the question can be answered in offline.
-    @Input() contextLevel?: string; // The context level.
-    @Input() contextInstanceId?: number; // The instance ID related to the context.
-    @Input() courseId?: number; // The course the question belongs to (if any).
     @Output() buttonClicked: EventEmitter<any>; // Should emit an event when a behaviour button is clicked.
     @Output() onAbort: EventEmitter<void>; // Should emit an event if the question should be aborted.
 
@@ -37,7 +34,6 @@ export class CoreQuestionBaseComponent {
     protected questionHelper: CoreQuestionHelperProvider;
     protected domUtils: CoreDomUtilsProvider;
     protected textUtils: CoreTextUtilsProvider;
-    protected realElement: HTMLElement;
 
     constructor(logger: CoreLoggerProvider, logName: string, protected injector: Injector) {
         this.logger = logger.getInstance(logName);
@@ -46,13 +42,12 @@ export class CoreQuestionBaseComponent {
         this.questionHelper = injector.get(CoreQuestionHelperProvider);
         this.domUtils = injector.get(CoreDomUtilsProvider);
         this.textUtils = injector.get(CoreTextUtilsProvider);
-        this.realElement = injector.get(ElementRef).nativeElement;
     }
 
     /**
      * Initialize a question component of type calculated or calculated simple.
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initCalculatedComponent(): void | HTMLElement {
         // Treat the input text first.
@@ -168,7 +163,7 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize the component and the question text.
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initComponent(): void | HTMLElement {
         if (!this.question) {
@@ -176,8 +171,6 @@ export class CoreQuestionBaseComponent {
 
             return this.questionHelper.showComponentError(this.onAbort);
         }
-
-        this.realElement.classList.add('core-question-container');
 
         const element = this.domUtils.convertToElement(this.question.html);
 
@@ -195,7 +188,7 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize a question component of type essay.
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initEssayComponent(): void | HTMLElement {
         const questionEl = this.initComponent();
@@ -237,8 +230,8 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize a question component that uses the original question text with some basic treatment.
      *
-     * @param contentSelector The selector to find the question content (text).
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @param {string} contentSelector The selector to find the question content (text).
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initOriginalTextComponent(contentSelector: string): void | HTMLElement {
         if (!this.question) {
@@ -275,7 +268,7 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize a question component that has an input of type "text".
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initInputTextComponent(): void | HTMLElement {
         const questionEl = this.initComponent();
@@ -292,37 +285,18 @@ export class CoreQuestionBaseComponent {
                 id: input.id,
                 name: input.name,
                 value: input.value,
-                readOnly: input.readOnly,
-                isInline: !!this.domUtils.closest(input, '.qtext') // The answer can be inside the question text.
+                readOnly: input.readOnly
             };
 
             // Check if question is marked as correct.
             if (input.classList.contains('incorrect')) {
                 this.question.input.correctClass = 'core-question-incorrect';
-                this.question.input.correctIcon = 'fa-remove';
-                this.question.input.correctIconColor = 'danger';
             } else if (input.classList.contains('correct')) {
                 this.question.input.correctClass = 'core-question-correct';
-                this.question.input.correctIcon = 'fa-check';
-                this.question.input.correctIconColor = 'success';
             } else if (input.classList.contains('partiallycorrect')) {
                 this.question.input.correctClass = 'core-question-partiallycorrect';
-                this.question.input.correctIcon = 'fa-check-square';
-                this.question.input.correctIconColor = 'warning';
             } else {
                 this.question.input.correctClass = '';
-                this.question.input.correctIcon = '';
-                this.question.input.correctIconColor = '';
-            }
-
-            if (this.question.input.isInline) {
-                // Handle correct/incorrect classes and icons.
-                const content = <HTMLElement> questionEl.querySelector('.qtext');
-
-                this.questionHelper.replaceCorrectnessClasses(content);
-                this.questionHelper.treatCorrectnessIcons(content);
-
-                this.question.text = content.innerHTML;
             }
         }
 
@@ -332,7 +306,7 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize a question component with a "match" behaviour.
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initMatchComponent(): void | HTMLElement {
         const questionEl = this.initComponent();
@@ -424,7 +398,7 @@ export class CoreQuestionBaseComponent {
     /**
      * Initialize a question component with a multiple choice (checkbox) or single choice (radio).
      *
-     * @return Element containing the question HTML, void if the data is not valid.
+     * @return {void|HTMLElement} Element containing the question HTML, void if the data is not valid.
      */
     initMultichoiceComponent(): void | HTMLElement {
         const questionEl = this.initComponent();
@@ -451,8 +425,6 @@ export class CoreQuestionBaseComponent {
 
             this.question.options = [];
 
-            this.question.disabled = true;
-
             for (const i in options) {
                 const element = options[i],
                     option: any = {
@@ -464,14 +436,7 @@ export class CoreQuestionBaseComponent {
                     },
                     parent = element.parentElement;
 
-                if (option.value == '-1') {
-                    // It's the clear choice option, ignore it.
-                    continue;
-                }
-
                 this.question.optionsName = option.name;
-
-                this.question.disabled = this.question.disabled && element.disabled;
 
                 // Get the label with the question text.
                 const label = questionEl.querySelector('label[for="' + option.id + '"]');

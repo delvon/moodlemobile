@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,12 +34,5 @@ export class AddonQtypeMultichoiceComponent extends CoreQuestionBaseComponent im
      */
     ngOnInit(): void {
         this.initMultichoiceComponent();
-    }
-
-    /**
-     * Clear selected choices.
-     */
-    clear(): void {
-        this.question.singleChoiceModel = null;
     }
 }

@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ export class AddonModDataFieldTextareaHandler extends AddonModDataFieldTextHandl
      * Return the Component to use to display the plugin data.
      * It's recommended to return the class of the component, but you can also return an instance of the component.
      *
-     * @param injector Injector.
-     * @param field The field object.
-     * @return The component (or promise resolved with component) to use, undefined if not found.
+     * @param {Injector} injector Injector.
+     * @param {any} field         The field object.
+     * @return {any|Promise<any>} The component (or promise resolved with component) to use, undefined if not found.
      */
     getComponent(injector: Injector, plugin: any): any | Promise<any> {
         return AddonModDataFieldTextareaComponent;
@@ -44,47 +44,47 @@ export class AddonModDataFieldTextareaHandler extends AddonModDataFieldTextHandl
     /**
      * Get field edit data in the input data.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field      Defines the field to be rendered.
+     * @param  {any} inputData  Data entered in the edit form.
+     * @return {any}            With name and value of the data to be sent.
      */
     getFieldEditData(field: any, inputData: any, originalFieldData: any): any {
         const fieldName = 'f_' + field.id;
-        const files = this.getFieldEditFiles(field, inputData, originalFieldData);
-        let text = this.textUtils.restorePluginfileUrls(inputData[fieldName] || '', files);
-        // Add some HTML to the text if needed.
-        text = this.textUtils.formatHtmlLines(text);
 
-        // WS does not properly check if HTML content is blank when the field is required.
-        if (this.textUtils.htmlIsBlank(text)) {
-            text = '';
+        if (inputData[fieldName]) {
+            const files = this.getFieldEditFiles(field, inputData, originalFieldData);
+            let text = this.textUtils.restorePluginfileUrls(inputData[fieldName], files);
+
+            // Add some HTML to the text if needed.
+            text = this.textUtils.formatHtmlLines(text);
+
+            return [{
+                    fieldid: field.id,
+                    value: text
+                },
+                {
+                    fieldid: field.id,
+                    subfield: 'content1',
+                    value: 1
+                },
+                {
+                    fieldid: field.id,
+                    subfield: 'itemid',
+                    files: files
+                }
+            ];
         }
 
-        return [
-            {
-                fieldid: field.id,
-                value: text
-            },
-            {
-                fieldid: field.id,
-                subfield: 'content1',
-                value: 1
-            },
-            {
-                fieldid: field.id,
-                subfield: 'itemid',
-                files: files
-            }
-        ];
+        return false;
     }
 
     /**
      * Get field edit files in the input data.
      *
-     * @param field Defines the field..
-     * @param inputData Data entered in the edit form.
-     * @param originalFieldData Original field entered data.
-     * @return With name and value of the data to be sent.
+     * @param  {any} field               Defines the field..
+     * @param  {any} inputData           Data entered in the edit form.
+     * @param  {any} originalFieldData   Original field entered data.
+     * @return {any}                     With name and value of the data to be sent.
      */
     getFieldEditFiles(field: any, inputData: any, originalFieldData: any): any {
         return (originalFieldData && originalFieldData.files) || [];
@@ -93,9 +93,9 @@ export class AddonModDataFieldTextareaHandler extends AddonModDataFieldTextHandl
     /**
      * Check and get field requeriments.
      *
-     * @param field Defines the field to be rendered.
-     * @param inputData Data entered in the edit form.
-     * @return String with the notification or false.
+     * @param  {any} field               Defines the field to be rendered.
+     * @param  {any} inputData           Data entered in the edit form.
+     * @return {string | false}                  String with the notification or false.
      */
     getFieldsNotifications(field: any, inputData: any): string | false {
         if (field.required) {
@@ -103,9 +103,15 @@ export class AddonModDataFieldTextareaHandler extends AddonModDataFieldTextHandl
                 return this.translate.instant('addon.mod_data.errormustsupplyvalue');
             }
 
-            const value = inputData.find((value) => value.subfield == '');
+            const found = inputData.some((input) => {
+                if (!input.subfield) {
+                    return !!input.value;
+                }
 
-            if (!value || this.textUtils.htmlIsBlank(value.value)) {
+                return false;
+            });
+
+            if (!found) {
                 return this.translate.instant('addon.mod_data.errormustsupplyvalue');
             }
         }
@@ -116,10 +122,10 @@ export class AddonModDataFieldTextareaHandler extends AddonModDataFieldTextHandl
     /**
      * Override field content data with offline submission.
      *
-     * @param originalContent Original data to be overriden.
-     * @param offlineContent Array with all the offline data to override.
-     * @param offlineFiles Array with all the offline files in the field.
-     * @return Data overriden
+     * @param  {any}  originalContent    Original data to be overriden.
+     * @param  {any}  offlineContent     Array with all the offline data to override.
+     * @param  {any}  [offlineFiles]     Array with all the offline files in the field.
+     * @return {any}                     Data overriden
      */
     overrideData(originalContent: any, offlineContent: any, offlineFiles?: any): any {
         originalContent.content = offlineContent[''] || '';

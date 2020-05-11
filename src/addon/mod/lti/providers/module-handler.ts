@@ -1,4 +1,4 @@
-// (C) Copyright 2015 Moodle Pty Ltd.
+// (C) Copyright 2015 Martin Dougiamas
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import { CoreFilepoolProvider } from '@providers/filepool';
 import { CoreSitesProvider } from '@providers/sites';
 import { AddonModLtiIndexComponent } from '../components/index/index';
 import { AddonModLtiProvider } from './lti';
-import { CoreConstants } from '@core/constants';
 
 /**
  * Handler to support LTI modules.
@@ -32,17 +31,6 @@ import { CoreConstants } from '@core/constants';
 export class AddonModLtiModuleHandler implements CoreCourseModuleHandler {
     name = 'AddonModLti';
     modName = 'lti';
-
-    supportedFeatures = {
-        [CoreConstants.FEATURE_GROUPS]: false,
-        [CoreConstants.FEATURE_GROUPINGS]: false,
-        [CoreConstants.FEATURE_MOD_INTRO]: true,
-        [CoreConstants.FEATURE_COMPLETION_TRACKS_VIEWS]: true,
-        [CoreConstants.FEATURE_GRADE_HAS_GRADE]: true,
-        [CoreConstants.FEATURE_GRADE_OUTCOMES]: true,
-        [CoreConstants.FEATURE_BACKUP_MOODLE2]: true,
-        [CoreConstants.FEATURE_SHOW_DESCRIPTION]: true
-    };
 
     constructor(private appProvider: CoreAppProvider,
             private courseProvider: CoreCourseProvider,
@@ -55,7 +43,7 @@ export class AddonModLtiModuleHandler implements CoreCourseModuleHandler {
     /**
      * Check if the handler is enabled on a site level.
      *
-     * @return Whether or not the handler is enabled on a site level.
+     * @return {boolean|Promise<boolean>} Whether or not the handler is enabled on a site level.
      */
     isEnabled(): boolean | Promise<boolean> {
         return true;
@@ -64,22 +52,18 @@ export class AddonModLtiModuleHandler implements CoreCourseModuleHandler {
     /**
      * Get the data required to display the module in the course contents view.
      *
-     * @param module The module object.
-     * @param courseId The course ID.
-     * @param sectionId The section ID.
-     * @return Data to render the module.
+     * @param {any} module The module object.
+     * @param {number} courseId The course ID.
+     * @param {number} sectionId The section ID.
+     * @return {CoreCourseModuleHandlerData} Data to render the module.
      */
     getData(module: any, courseId: number, sectionId: number): CoreCourseModuleHandlerData {
         const data: CoreCourseModuleHandlerData = {
-            icon: this.courseProvider.getModuleIconSrc(this.modName, module.modicon),
+            icon: this.courseProvider.getModuleIconSrc('lti'),
             title: module.name,
             class: 'addon-mod_lti-handler',
-            action(event: Event, navCtrl: NavController, module: any, courseId: number, options: NavOptions, params?: any): void {
-                const pageParams = {module: module, courseId: courseId};
-                if (params) {
-                    Object.assign(pageParams, params);
-                }
-                navCtrl.push('AddonModLtiIndexPage', pageParams, options);
+            action(event: Event, navCtrl: NavController, module: any, courseId: number, options: NavOptions): void {
+                navCtrl.push('AddonModLtiIndexPage', {module: module, courseId: courseId}, options);
             },
             buttons: [{
                 icon: 'link',
@@ -91,8 +75,8 @@ export class AddonModLtiModuleHandler implements CoreCourseModuleHandler {
                     this.ltiProvider.getLti(courseId, module.id).then((ltiData) => {
                         return this.ltiProvider.getLtiLaunchData(ltiData.id).then((launchData) => {
                             // "View" LTI.
-                            this.ltiProvider.logView(ltiData.id, ltiData.name).then(() => {
-                                this.courseProvider.checkModuleCompletion(courseId, module.completiondata);
+                            this.ltiProvider.logView(ltiData.id).then(() => {
+                                this.courseProvider.checkModuleCompletion(courseId, module.completionstatus);
                             }).catch(() => {
                                 // Ignore errors.
                             });
@@ -137,9 +121,9 @@ export class AddonModLtiModuleHandler implements CoreCourseModuleHandler {
      * Get the component to render the module. This is needed to support singleactivity course format.
      * The component returned must implement CoreCourseModuleMainComponent.
      *
-     * @param course The course object.
-     * @param module The module object.
-     * @return The component to use, undefined if not found.
+     * @param {any} course The course object.
+     * @param {any} module The module object.
+     * @return {any} The component to use, undefined if not found.
      */
     getMainComponent(course: any, module: any): any {
         return AddonModLtiIndexComponent;
